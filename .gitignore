@@ -72,3 +72,20 @@ Plugins/**/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# UE5 shader cache
+ShaderCache/*
+
+# Packaging output
+Releases/*
+Packages/*
+
+# UE crash reporter
+CrashReportClient/*
+
+# Editor backup files
+*.uproject.bak
+
+# Agent and project metadata (not tracked in VCS)
+.agent/
+.project/
