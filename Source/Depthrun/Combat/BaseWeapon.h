@@ -35,6 +35,9 @@ public:
 	/** Set before calling Fire(). Owner provides world-space direction. */
 	void SetFireDirection(const FVector& Direction) { FireDirection = Direction; }
 
+	/** Resets BaseDamage to the initial value specified in defaults. */
+	void ResetBaseDamage();
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float BaseDamage = 10.f;
 
@@ -42,9 +45,13 @@ public:
 	float AttackCooldown = 0.5f;
 
 protected:
+	virtual void BeginPlay() override;
+
 	bool    bCanFire      = true;
 	FVector FireDirection = FVector(1.f, 0.f, 0.f);
 	FTimerHandle CooldownTimer;
+
+	float InitialBaseDamage = 10.f;
 
 	/** Call this at the end of Fire() in subclasses to start the attack cooldown. */
 	void StartCooldown();

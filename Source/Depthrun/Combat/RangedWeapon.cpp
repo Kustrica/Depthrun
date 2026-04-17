@@ -6,6 +6,10 @@
 
 ARangedWeapon::ARangedWeapon()
 {
+	FireCooldown = 0.5f;
+	BaseDamage = 10.f;
+	RicochetCount = 0;
+	bPierceEnabled = false;
 }
 
 void ARangedWeapon::Fire()
@@ -21,20 +25,27 @@ void ARangedWeapon::Fire()
 	Params.Owner      = this;
 
 	const FVector SpawnLocation = GetOwner() ? GetOwner()->GetActorLocation() : GetActorLocation();
+	const FRotator SpawnRotation = GetOwner() ? GetOwner()->GetActorRotation() : GetActorRotation();
 
 	ABaseProjectile* Projectile = GetWorld()->SpawnActor<ABaseProjectile>(
 		ProjectileClass,
 		SpawnLocation,
-		FRotator::ZeroRotator,
+		SpawnRotation,
 		Params);
 
 	if (IsValid(Projectile))
 	{
 		// FireDirection was set by ADepthrunCharacter before calling Attack()
-		Projectile->InitProjectile(FireDirection, BaseDamage, GetOwner());
+		Projectile->InitProjectile(FireDirection, BaseDamage, GetOwner(), bPierceEnabled, RicochetCount);
 		UE_LOG(LogCombat, Log, TEXT("ARangedWeapon::Fire — projectile spawned dir=(%.1f,%.1f,%.1f)"),
 			FireDirection.X, FireDirection.Y, FireDirection.Z);
 	}
 
 	StartCooldown();
+}
+
+void ARangedWeapon::ResetEffects()
+{
+	RicochetCount = 0;
+	bPierceEnabled = false;
 }

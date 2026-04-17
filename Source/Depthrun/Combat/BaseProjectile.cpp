@@ -40,43 +40,60 @@ void ABaseProjectile::BeginPlay()
 	SetLifeSpan(ProjectileLifeSpan);
 }
 
-void ABaseProjectile::InitProjectile(const FVector& Direction, float Damage, AActor* Shooter)
+void ABaseProjectile::InitProjectile(const FVector& Direction, float Damage, AActor* Shooter, bool bPierce, int32 InRicochetCount)
 {
-	DamageAmount  = Damage;
-	ShooterActor  = Shooter;
-	ProjectileMovement->Velocity = Direction.GetSafeNormal() * ProjectileSpeed;
+	DamageAmount = Damage;
+	ShooterActor = Shooter;
+	bPierceEnabled = bPierce;
+	RicochetCount = InRicochetCount;
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->Velocity = Direction.GetSafeNormal() * ProjectileSpeed;
+		
+		// If ricochet is enabled, we need to allow bounce
+		if (RicochetCount > 0)
+		{
+			ProjectileMovement->bShouldBounce = true;
+			ProjectileMovement->Bounciness = 1.0f;
+			ProjectileMovement->Friction = 0.0f;
+		}
+	}
 }
 
 void ABaseProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
-                            UPrimitiveComponent* OtherComp, FVector NormalImpulse,
-                            const FHitResult& Hit)
+                             UPrimitiveComponent* OtherComp, FVector NormalImpulse,
+                             const FHitResult& Hit)
 {
-	if (!IsValid(OtherActor) || OtherActor == ShooterActor)
+	if (RicochetCount > 0)
 	{
+		RicochetCount--;
+		UE_LOG(LogCombat, Verbose, TEXT("Projectile ricocheted! Left: %d"), RicochetCount);
+		// If this was the last ricochet, disable further bouncing
+		if (RicochetCount <= 0 && ProjectileMovement)
+		{
+			ProjectileMovement->bShouldBounce = false;
+		}
 		return;
 	}
 
-	UE_LOG(LogCombat, Log, TEXT("ABaseProjectile::OnHit → %s  damage=%.1f"),
-		*OtherActor->GetName(), DamageAmount);
-
-	OtherActor->TakeDamage(DamageAmount, FDamageEvent(), nullptr, ShooterActor);
+	// Always treat wall hits as destruction if no ricochets left
 	Destroy();
 }
 
 void ABaseProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-                                UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-                                bool bFromSweep, const FHitResult& SweepResult)
+                                 UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+                                 bool bFromSweep, const FHitResult& SweepResult)
 {
-	// Fallback path: used when BlockAllDynamic doesn't produce a Hit event
-	// Guard against self-overlap and shooter
-	if (!IsValid(OtherActor) || OtherActor == ShooterActor || OtherActor == this)
-	{
-		return;
-	}
+	if (!IsValid(OtherActor) || OtherActor == ShooterActor || HitActors.Contains(OtherActor)) return;
 
-	UE_LOG(LogCombat, Log, TEXT("ABaseProjectile::OnOverlap → %s  damage=%.1f"),
-		*OtherActor->GetName(), DamageAmount);
+	UE_LOG(LogCombat, Log, TEXT("ABaseProjectile::OnOverlap → %s"), *OtherActor->GetName());
 
 	OtherActor->TakeDamage(DamageAmount, FDamageEvent(), nullptr, ShooterActor);
-	Destroy();
+	HitActors.Add(OtherActor);
+
+	if (!bPierceEnabled)
+	{
+		Destroy();
+	}
 }

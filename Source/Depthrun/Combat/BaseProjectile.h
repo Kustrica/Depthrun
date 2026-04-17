@@ -23,7 +23,8 @@ public:
 	ABaseProjectile();
 
 	/** Called by ARangedWeapon immediately after spawning. */
-	void InitProjectile(const FVector& Direction, float Damage, AActor* Shooter);
+	void InitProjectile(const FVector& Direction, float Damage, AActor* Shooter, 
+	                    bool bPierce = false, int32 InRicochetCount = 0);
 
 protected:
 	virtual void BeginPlay() override;
@@ -57,7 +58,13 @@ public:
 
 private:
 	float DamageAmount = 10.f;
+	bool bPierceEnabled = false;
+	int32 RicochetCount = 0;
 
 	UPROPERTY()
 	TObjectPtr<AActor> ShooterActor;
+
+	/** Actors already hit by this projectile (to avoid multi-damage on pierce). */
+	UPROPERTY()
+	TArray<TObjectPtr<AActor>> HitActors;
 };

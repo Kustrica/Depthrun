@@ -23,6 +23,13 @@ public:
 	virtual void Fire() override;
 	virtual EWeaponType GetWeaponType() const override { return EWeaponType::Melee; }
 
+	/** Resets all item-applied modifiers to defaults. */
+	void ResetEffects();
+
+	void SetRangeMultiplier(float NewMultiplier) { RangeMultiplier = NewMultiplier; }
+	float GetRangeMultiplier() const { return RangeMultiplier; }
+	void SetDoubleSwing(bool bEnabled) { bDoubleSwing = bEnabled; }
+
 	/** Size of the melee hit zone in front of the character. */
 	UPROPERTY(EditAnywhere, Category = "Weapon|Melee")
 	float HitZoneHalfExtent = 40.f;
@@ -39,5 +46,14 @@ protected:
 private:
 	void ActivateHitZone();
 	void DeactivateHitZone();
+	
+	/** Logic for second swing if DoubleSwing is enabled. */
+	void PerformDoubleSwing();
+
 	FTimerHandle HitZoneTimer;
+	FTimerHandle DoubleSwingTimer;
+
+	float RangeMultiplier = 1.0f;
+	bool bDoubleSwing = false;
+	bool bIsSecondSwing = false;
 };

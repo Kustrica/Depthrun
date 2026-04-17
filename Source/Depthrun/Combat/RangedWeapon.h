@@ -23,7 +23,17 @@ public:
 	virtual void Fire() override;
 	virtual EWeaponType GetWeaponType() const override { return EWeaponType::Ranged; }
 
-	/** Projectile blueprint class — assign in Editor (Blueprint subclass of ABaseProjectile). */
+	/** Resets all item-applied modifiers to defaults. */
+	void ResetEffects();
+
+	void SetRicochetCount(int32 Count) { RicochetCount = Count; }
+	int32 GetRicochetCount() const { return RicochetCount; }
+	void SetPierceEnabled(bool bEnabled) { bPierceEnabled = bEnabled; }
+
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Ranged")
 	TSubclassOf<ABaseProjectile> ProjectileClass;
+
+private:
+	int32 RicochetCount = 0;
+	bool bPierceEnabled = false;
 };

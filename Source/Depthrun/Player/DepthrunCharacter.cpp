@@ -3,6 +3,7 @@
 #include "DepthrunCharacter.h"
 #include "Combat/BaseWeapon.h"
 #include "Core/DepthrunLogChannels.h"
+#include "Items/RunItemInventory.h"
 #include "PlayerActionTracker.h"
 #include "PlayerCombatComponent.h"
 
@@ -16,11 +17,10 @@
 #include "PaperFlipbookComponent.h"
 
 // ─── Timer handles for dash stop and attack reset ─────────────────────────
-namespace
-{
-	// Duration after LaunchCharacter until we zero the velocity to kill sliding
-	constexpr float DashStopDelay = 0.12f;
-}
+namespace {
+// Duration after LaunchCharacter until we zero the velocity to kill sliding
+constexpr float DashStopDelay = 0.12f;
+} // namespace
 
 ADepthrunCharacter::ADepthrunCharacter() {
   PrimaryActorTick.bCanEverTick = false;
@@ -46,6 +46,8 @@ ADepthrunCharacter::ADepthrunCharacter() {
       CreateDefaultSubobject<UPlayerCombatComponent>(TEXT("CombatComponent"));
   ActionTracker =
       CreateDefaultSubobject<UPlayerActionTracker>(TEXT("ActionTracker"));
+  ItemInventory =
+      CreateDefaultSubobject<URunItemInventory>(TEXT("ItemInventory"));
 
   // ─── Movement (top-down, sharp 2D feel) ───────────────────────────────
   GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -86,17 +88,25 @@ void ADepthrunCharacter::BeginPlay() {
     }
   }
 
-  // --- Spawn & Equip Default Weapon ---
-  if (DefaultWeaponClass) {
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = this;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-    
-    ABaseWeapon* SpawnedWeapon = GetWorld()->SpawnActor<ABaseWeapon>(DefaultWeaponClass, GetActorTransform(), SpawnParams);
-    if (SpawnedWeapon && CombatComponent) {
-      CombatComponent->EquipWeapon(SpawnedWeapon);
-      UE_LOG(LogDepthrun, Log, TEXT("Equipped DefaultWeaponClass %s"), *DefaultWeaponClass->GetName());
-    }
+  // ─── Spawn both weapon slots ───────────────────────────────────────────
+  auto SpawnWeapon = [this](TSubclassOf<ABaseWeapon> WClass) -> ABaseWeapon*
+  {
+    if (!WClass) return nullptr;
+    FActorSpawnParameters P;
+    P.Owner = this;
+    P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    return GetWorld()->SpawnActor<ABaseWeapon>(WClass, GetActorTransform(), P);
+  };
+
+  SpawnedWeapon1 = SpawnWeapon(WeaponSlotClass1);
+  SpawnedWeapon2 = SpawnWeapon(WeaponSlotClass2);
+
+  // Start with Slot 1 (Sword) active
+  SwitchToWeaponSlot(1);
+
+  if (!SpawnedWeapon1 && !SpawnedWeapon2)
+  {
+    UE_LOG(LogDepthrun, Warning, TEXT("[Character] No weapon slots assigned in BP_DepthrunCharacter!"));
   }
 
   UE_LOG(LogDepthrun, Log,
@@ -115,14 +125,14 @@ void ADepthrunCharacter::SetupPlayerInputComponent(
       EIC->BindAction(IA_Move, ETriggerEvent::Completed, this,
                       &ADepthrunCharacter::HandleMove);
     }
-    if (IA_Attack) {
-      EIC->BindAction(IA_Attack, ETriggerEvent::Started, this,
-                      &ADepthrunCharacter::HandleAttack);
-    }
-    if (IA_Dash) {
-      EIC->BindAction(IA_Dash, ETriggerEvent::Started, this,
-                      &ADepthrunCharacter::HandleDash);
-    }
+    if (IA_Attack)
+      EIC->BindAction(IA_Attack, ETriggerEvent::Started, this, &ADepthrunCharacter::HandleAttack);
+    if (IA_Dash)
+      EIC->BindAction(IA_Dash,   ETriggerEvent::Started, this, &ADepthrunCharacter::HandleDash);
+    if (IA_SwitchSlot1)
+      EIC->BindAction(IA_SwitchSlot1, ETriggerEvent::Started, this, &ADepthrunCharacter::HandleSwitchSlot1);
+    if (IA_SwitchSlot2)
+      EIC->BindAction(IA_SwitchSlot2, ETriggerEvent::Started, this, &ADepthrunCharacter::HandleSwitchSlot2);
   }
 }
 
@@ -145,7 +155,9 @@ void ADepthrunCharacter::HandleMove(const FInputActionValue &Value) {
 
 void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
   if (!CombatComponent || !IsValid(CombatComponent->CurrentWeapon)) {
-    UE_LOG(LogTemp, Warning, TEXT("[HandleAttack] Failed: No weapon equipped. Assign DefaultWeaponClass in BP_DepthrunCharacter!"));
+    UE_LOG(LogTemp, Warning,
+           TEXT("[HandleAttack] Failed: No weapon equipped. Assign "
+                "DefaultWeaponClass in BP_DepthrunCharacter!"));
     return;
   }
 
@@ -157,7 +169,10 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
   bIsAttacking = true;
   UpdateAnimation();
 
-  const float CooldownDur = CombatComponent->CurrentWeapon->AttackCooldown > 0.05f ? CombatComponent->CurrentWeapon->AttackCooldown : 0.3f;
+  const float CooldownDur =
+      CombatComponent->CurrentWeapon->AttackCooldown > 0.05f
+          ? CombatComponent->CurrentWeapon->AttackCooldown
+          : 0.3f;
   GetWorldTimerManager().SetTimer(
       AttackAnimTimer,
       [this]() {
@@ -174,7 +189,31 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
   ActionTracker->RecordAction(ActionType, GetActorLocation());
 }
 
-void ADepthrunCharacter::HandleDash(const FInputActionValue &Value) { Dash(); }
+void ADepthrunCharacter::HandleDash(const FInputActionValue &Value)    { Dash(); }
+void ADepthrunCharacter::HandleSwitchSlot1(const FInputActionValue &)  { SwitchToWeaponSlot(1); }
+void ADepthrunCharacter::HandleSwitchSlot2(const FInputActionValue &)  { SwitchToWeaponSlot(2); }
+
+// ─────────────────────────── Weapon Slot Switch ────────────────────────────
+
+void ADepthrunCharacter::SwitchToWeaponSlot(int32 SlotIndex)
+{
+  if (SlotIndex == ActiveWeaponSlot) return;
+  if (SlotIndex == 1 && SpawnedWeapon1)
+  {
+    if (CombatComponent) CombatComponent->EquipWeapon(SpawnedWeapon1);
+    if (ItemInventory)   ItemInventory->ApplyToWeapon(SpawnedWeapon1);
+    ActiveWeaponSlot = 1;
+    UE_LOG(LogDepthrun, Log, TEXT("[Weapon] Switched to Slot 1 (Sword)"));
+  }
+  else if (SlotIndex == 2 && SpawnedWeapon2)
+  {
+    if (CombatComponent) CombatComponent->EquipWeapon(SpawnedWeapon2);
+    if (ItemInventory)   ItemInventory->ApplyToWeapon(SpawnedWeapon2);
+    ActiveWeaponSlot = 2;
+    UE_LOG(LogDepthrun, Log, TEXT("[Weapon] Switched to Slot 2 (Bow)"));
+  }
+  UpdateAnimation();
+}
 
 // ─────────────────────────── Dash ─────────────────────────────────────────
 
@@ -194,9 +233,7 @@ void ADepthrunCharacter::Dash() {
   // ── Stop sliding: zero velocity shortly after the impulse ─────────────
   GetWorldTimerManager().SetTimer(
       DashStopTimer,
-      [this]() {
-        GetCharacterMovement()->StopMovementImmediately();
-      },
+      [this]() { GetCharacterMovement()->StopMovementImmediately(); },
       DashStopDelay, false);
 
   // Record dash for enemy memory
@@ -245,19 +282,20 @@ void ADepthrunCharacter::UpdateAnimation() {
 
   // ─── 1. Determine if we should FLIP the sprite (for Left direction) ────
   const bool bShouldFlip = (FacingDirection == EPlayerFacingDirection::Left);
-  
+
   // Use Scale3D.X = -1 to flip the sprite properly in Paper2D
   FVector TargetScale = GetSprite()->GetRelativeScale3D();
   TargetScale.X = bShouldFlip ? -1.f : 1.f;
-  if (GetSprite()->GetRelativeScale3D().X != TargetScale.X)
-  {
-      GetSprite()->SetRelativeScale3D(TargetScale);
+  if (GetSprite()->GetRelativeScale3D().X != TargetScale.X) {
+    GetSprite()->SetRelativeScale3D(TargetScale);
   }
 
   // ─── 2. Select appropriate Flipbook ──────────────────────────────────
-  if (bIsAttacking && CombatComponent && IsValid(CombatComponent->CurrentWeapon)) {
-    const bool bIsMelee = CombatComponent->CurrentWeapon->GetWeaponType() == EWeaponType::Melee;
-    
+  if (bIsAttacking && CombatComponent &&
+      IsValid(CombatComponent->CurrentWeapon)) {
+    const bool bIsMelee =
+        CombatComponent->CurrentWeapon->GetWeaponType() == EWeaponType::Melee;
+
     switch (FacingDirection) {
     case EPlayerFacingDirection::Right:
     case EPlayerFacingDirection::Left: // Handled by flip

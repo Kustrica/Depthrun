@@ -8,9 +8,20 @@ ABaseWeapon::ABaseWeapon()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
+void ABaseWeapon::BeginPlay()
+{
+	Super::BeginPlay();
+	InitialBaseDamage = BaseDamage;
+}
+
 float ABaseWeapon::GetDamage() const
 {
 	return BaseDamage;
+}
+
+void ABaseWeapon::ResetBaseDamage()
+{
+	BaseDamage = InitialBaseDamage;
 }
 
 void ABaseWeapon::StartCooldown()
