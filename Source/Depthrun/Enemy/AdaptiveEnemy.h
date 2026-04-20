@@ -35,10 +35,6 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void OnKilled() override;
 
-public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UFSMComponent> FSMComp;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UAdaptiveBehaviorComponent> AdaptiveComp;
 };

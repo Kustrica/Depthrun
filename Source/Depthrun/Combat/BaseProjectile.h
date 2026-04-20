@@ -3,68 +3,69 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+
 #include "BaseProjectile.generated.h"
 
-class UProjectileMovementComponent;
 class USphereComponent;
 class UPaperSpriteComponent;
 
 /**
  * ABaseProjectile
- * Spawned by ARangedWeapon. Flies in given direction, deals damage on hit, then destroys itself.
- * Uses UProjectileMovementComponent with zero gravity (top-down 2D).
+ * Spawned by ARangedWeapon. Moves manually via Tick (no
+ * ProjectileMovementComponent). Detects enemy overlaps for damage, stops at
+ * WorldStatic (walls). PMC was removed because it fought Blueprint physics
+ * settings and caused 1.5s freezes.
  */
 UCLASS()
-class DEPTHRUN_API ABaseProjectile : public AActor
-{
-	GENERATED_BODY()
+class DEPTHRUN_API ABaseProjectile : public AActor {
+  GENERATED_BODY()
 
 public:
-	ABaseProjectile();
+  ABaseProjectile();
 
-	/** Called by ARangedWeapon immediately after spawning. */
-	void InitProjectile(const FVector& Direction, float Damage, AActor* Shooter, 
-	                    bool bPierce = false, int32 InRicochetCount = 0);
+  /** Called by ARangedWeapon immediately after SpawnActorDeferred. */
+  void InitProjectile(const FVector &Direction, float Damage, AActor *Shooter,
+                      bool bPierce = false, int32 InRicochetCount = 0);
 
 protected:
-	virtual void BeginPlay() override;
+  virtual void BeginPlay() override;
+  virtual void Tick(float DeltaTime) override;
 
-	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
-	           UPrimitiveComponent* OtherComp, FVector NormalImpulse,
-	           const FHitResult& Hit);
-
-	/** Fallback: fires when the projectile overlaps another actor (no blocking hit needed). */
-	UFUNCTION()
-	void OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-	               UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-	               bool bFromSweep, const FHitResult& SweepResult);
+  /** Fires when the projectile overlaps a Pawn (enemies). */
+  UFUNCTION()
+  void OnOverlap(UPrimitiveComponent *OverlappedComp, AActor *OtherActor,
+                 UPrimitiveComponent *OtherComp, int32 OtherBodyIndex,
+                 bool bFromSweep, const FHitResult &SweepResult);
 
 public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
-	TObjectPtr<USphereComponent> CollisionSphere;
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+  TObjectPtr<USphereComponent> CollisionSphere;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
-	TObjectPtr<UProjectileMovementComponent> ProjectileMovement;
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+  TObjectPtr<UPaperSpriteComponent> SpriteComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
-	TObjectPtr<UPaperSpriteComponent> SpriteComponent;
+  /** Projectile speed in UU/s. Set in Blueprint for per-weapon tuning. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
+  float ProjectileSpeed = 800.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
-	float ProjectileSpeed = 800.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
-	float ProjectileLifeSpan = 3.f;
+  /** Projectile lifetime in seconds before auto-destroy. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
+  float ProjectileLifeSpan = 3.f;
 
 private:
-	float DamageAmount = 10.f;
-	bool bPierceEnabled = false;
-	int32 RicochetCount = 0;
+  /** World-space normalized direction. Set by InitProjectile. */
+  FVector LaunchDirection = FVector::ZeroVector;
 
-	UPROPERTY()
-	TObjectPtr<AActor> ShooterActor;
+  float DamageAmount = 10.f;
+  bool bPierceEnabled = false;
+  int32 RicochetCount = 0;
 
-	/** Actors already hit by this projectile (to avoid multi-damage on pierce). */
-	UPROPERTY()
-	TArray<TObjectPtr<AActor>> HitActors;
+  /** Reference to the character that fired this projectile. */
+  UPROPERTY()
+  TObjectPtr<AActor> ShooterActor;
+
+  /** Already-hit actors (prevents multi-hit on the same target in pierce mode).
+   */
+  UPROPERTY()
+  TArray<TObjectPtr<AActor>> HitActors;
 };

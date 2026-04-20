@@ -36,4 +36,7 @@ private:
 	float   TimeSinceDirectionRefresh = 0.f;
 	/** +1 or -1: left or right of player. Randomised on Enter. */
 	int32   FlankSide = 1;
+
+	/** Recomputes FlankDirection based on current player position. */
+	void RecalculateFlankDirection(ABaseEnemy* Owner);
 };

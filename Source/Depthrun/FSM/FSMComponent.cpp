@@ -51,7 +51,7 @@ void UFSMComponent::TransitionTo(EFSMStateType NewState)
 		CurrentState->ExitState(OwnerEnemy);
 	}
 
-	UFSMState** Found = States.Find(NewState);
+	auto Found = States.Find(NewState);
 	if (!Found || !(*Found))
 	{
 		UE_LOG(LogFSM, Warning, TEXT("UFSMComponent::TransitionTo — state %d not registered!"), (int32)NewState);
@@ -66,7 +66,9 @@ void UFSMComponent::TransitionTo(EFSMStateType NewState)
 		CurrentState->EnterState(OwnerEnemy);
 	}
 
-	UE_LOG(LogFSM, Log, TEXT("FSM[%s]: %d → %d"), *GetOwner()->GetName(), (int32)OldState, (int32)NewState);
+	const FString OldName = UEnum::GetValueAsString(OldState);
+	const FString NewName = UEnum::GetValueAsString(NewState);
+	UE_LOG(LogFSM, Log, TEXT("FSM[%s]: %s → %s"), *GetOwner()->GetName(), *OldName, *NewName);
 	OnStateChanged.Broadcast(OldState, NewState);
 }
 

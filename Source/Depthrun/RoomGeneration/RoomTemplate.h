@@ -6,6 +6,8 @@
 #include "Enemy/EnemyTypes.h"
 #include "RoomTemplate.generated.h"
 
+class ARoomBase;
+
 /**
  * URoomTemplate
  * DataAsset describing a room layout for use by URoomGeneratorSubsystem.

@@ -61,7 +61,7 @@ void URunItemInventory::ApplyToWeapon(ABaseWeapon* Weapon) const
 			if (AMeleeWeapon* Melee = Cast<AMeleeWeapon>(Weapon))
 				Melee->SetRangeMultiplier(Melee->GetRangeMultiplier() + (Item->RangeMultiplier - 1.0f));
 			break;
-		case ERunItemEffect::DoubleSwing:
+		case ERunItemEffect::MeleeDoubleSwing:
 			if (AMeleeWeapon* Melee = Cast<AMeleeWeapon>(Weapon))
 				Melee->SetDoubleSwing(true);
 			break;

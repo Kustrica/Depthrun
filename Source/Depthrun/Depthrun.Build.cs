@@ -11,7 +11,10 @@ public class Depthrun : ModuleRules
 		// UE 5.7 IWYU mode does NOT automatically add the module source root
 		// to include paths. We add it explicitly so that cross-directory
 		// includes like "Core/DepthrunLogChannels.h" resolve correctly.
-		PrivateIncludePaths.Add(ModuleDirectory);
+		PrivateIncludePaths.AddRange(new string[] {
+			ModuleDirectory,
+			System.IO.Path.Combine(ModuleDirectory, "Core")
+		});
 
 		PublicDependencyModuleNames.AddRange(new string[]
 		{

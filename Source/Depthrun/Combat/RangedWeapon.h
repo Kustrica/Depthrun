@@ -33,7 +33,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Ranged")
 	TSubclassOf<ABaseProjectile> ProjectileClass;
 
+	/** Delay between clicking and actual arrow spawn (to match animation). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Ranged")
+	float ShotDelay = 0.15f;
+
 private:
 	int32 RicochetCount = 0;
 	bool bPierceEnabled = false;
+
+	FTimerHandle ShotTimer;
+	void ActuallyFire();
 };

@@ -2,98 +2,128 @@
 
 #include "BaseProjectile.h"
 #include "Components/SphereComponent.h"
-#include "GameFramework/ProjectileMovementComponent.h"
-#include "PaperSpriteComponent.h"
-#include "Engine/DamageEvents.h"
 #include "Core/DepthrunLogChannels.h"
+#include "Engine/DamageEvents.h"
+#include "PaperSpriteComponent.h"
 
-ABaseProjectile::ABaseProjectile()
-{
-	PrimaryActorTick.bCanEverTick = false;
+// ─────────────────────────────────────────────────────────────────────────────
+// Constructor
+// ─────────────────────────────────────────────────────────────────────────────
 
-	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
-	CollisionSphere->SetSphereRadius(8.f);
+ABaseProjectile::ABaseProjectile() {
+  PrimaryActorTick.bCanEverTick = true; // Manual Tick enabled for movement
 
-	// Use BlockAllDynamic — always exists in UE. We generate Hit events + Overlap events.
-	CollisionSphere->SetCollisionProfileName(TEXT("BlockAllDynamic"));
-	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	CollisionSphere->SetGenerateOverlapEvents(true);
-	RootComponent = CollisionSphere;
+  CollisionSphere =
+      CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
+  CollisionSphere->SetSphereRadius(10.f);
+  CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+  CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
+  CollisionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+  CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+  CollisionSphere->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+  CollisionSphere->SetGenerateOverlapEvents(true);
+  RootComponent = CollisionSphere;
 
-	SpriteComponent = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("Sprite"));
-	SpriteComponent->SetupAttachment(RootComponent);
+  SpriteComponent =
+      CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("Sprite"));
+  SpriteComponent->SetupAttachment(RootComponent);
+  SpriteComponent->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+  SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
-	ProjectileMovement->InitialSpeed            = ProjectileSpeed;
-	ProjectileMovement->MaxSpeed                = ProjectileSpeed;
-	ProjectileMovement->bRotationFollowsVelocity = true;
-	ProjectileMovement->ProjectileGravityScale   = 0.f; // top-down: no gravity
+  // PMC removed to fix 1.5s lag/freezes and physics conflicts in 2D
 }
 
-void ABaseProjectile::BeginPlay()
-{
-	Super::BeginPlay();
-	// OnComponentHit fires when the collision profile generates blocking hits
-	CollisionSphere->OnComponentHit.AddDynamic(this, &ABaseProjectile::OnHit);
-	// OnComponentBeginOverlap fires even without a blocking hit (fallback)
-	CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &ABaseProjectile::OnOverlap);
-	SetLifeSpan(ProjectileLifeSpan);
+// ─────────────────────────────────────────────────────────────────────────────
+// BeginPlay
+// ─────────────────────────────────────────────────────────────────────────────
+
+void ABaseProjectile::BeginPlay() {
+  Super::BeginPlay();
+
+  CollisionSphere->OnComponentBeginOverlap.AddDynamic(
+      this, &ABaseProjectile::OnOverlap);
+
+  SetLifeSpan(ProjectileLifeSpan);
 }
 
-void ABaseProjectile::InitProjectile(const FVector& Direction, float Damage, AActor* Shooter, bool bPierce, int32 InRicochetCount)
-{
-	DamageAmount = Damage;
-	ShooterActor = Shooter;
-	bPierceEnabled = bPierce;
-	RicochetCount = InRicochetCount;
+// ─────────────────────────────────────────────────────────────────────────────
+// Tick — Manual Movement (Lag-free and 100% predictable)
+// ─────────────────────────────────────────────────────────────────────────────
 
-	if (ProjectileMovement)
-	{
-		ProjectileMovement->Velocity = Direction.GetSafeNormal() * ProjectileSpeed;
-		
-		// If ricochet is enabled, we need to allow bounce
-		if (RicochetCount > 0)
-		{
-			ProjectileMovement->bShouldBounce = true;
-			ProjectileMovement->Bounciness = 1.0f;
-			ProjectileMovement->Friction = 0.0f;
-		}
-	}
+void ABaseProjectile::Tick(float DeltaTime) {
+  Super::Tick(DeltaTime);
+
+  if (LaunchDirection.IsNearlyZero()) return;
+
+  const FVector DeltaLocation = LaunchDirection * ProjectileSpeed * DeltaTime;
+  
+  FHitResult Hit;
+  AddActorWorldOffset(DeltaLocation, true, &Hit);
+
+  // If we hit something static (wall), destroy the projectile
+  if (Hit.bBlockingHit)
+  {
+      UE_LOG(LogCombat, Log, TEXT("[Projectile] %s destroyed by wall hit"), *GetName());
+      Destroy();
+  }
 }
 
-void ABaseProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
-                             UPrimitiveComponent* OtherComp, FVector NormalImpulse,
-                             const FHitResult& Hit)
-{
-	if (RicochetCount > 0)
-	{
-		RicochetCount--;
-		UE_LOG(LogCombat, Verbose, TEXT("Projectile ricocheted! Left: %d"), RicochetCount);
-		// If this was the last ricochet, disable further bouncing
-		if (RicochetCount <= 0 && ProjectileMovement)
-		{
-			ProjectileMovement->bShouldBounce = false;
-		}
-		return;
-	}
+// ─────────────────────────────────────────────────────────────────────────────
+// InitProjectile — called by ARangedWeapon between SpawnActorDeferred /
+// FinishSpawning
+// ─────────────────────────────────────────────────────────────────────────────
 
-	// Always treat wall hits as destruction if no ricochets left
-	Destroy();
+void ABaseProjectile::InitProjectile(const FVector &Direction, float Damage,
+                                     AActor *Shooter, bool bPierce,
+                                     int32 InRicochetCount) {
+  LaunchDirection = Direction.GetSafeNormal();
+  DamageAmount = Damage;
+  ShooterActor = Shooter;
+  bPierceEnabled = bPierce;
+  RicochetCount = InRicochetCount;
+
+  // Manual rotation of the actor to face movement direction
+  if (!LaunchDirection.IsNearlyZero())
+  {
+      SetActorRotation(LaunchDirection.Rotation());
+  }
+
+  UE_LOG(
+      LogCombat, Verbose,
+      TEXT("[Projectile] InitProjectile — dir=(%.2f,%.2f,%.2f) dmg=%.1f "
+           "pierce=%d ricochet=%d"),
+      LaunchDirection.X, LaunchDirection.Y, LaunchDirection.Z, Damage, bPierce,
+      InRicochetCount);
 }
 
-void ABaseProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-                                 UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-                                 bool bFromSweep, const FHitResult& SweepResult)
-{
-	if (!IsValid(OtherActor) || OtherActor == ShooterActor || HitActors.Contains(OtherActor)) return;
+// ─────────────────────────────────────────────────────────────────────────────
+// OnOverlap — damage on enemy contact
+// ─────────────────────────────────────────────────────────────────────────────
 
-	UE_LOG(LogCombat, Log, TEXT("ABaseProjectile::OnOverlap → %s"), *OtherActor->GetName());
+void ABaseProjectile::OnOverlap(UPrimitiveComponent *OverlappedComp,
+                                 AActor *OtherActor,
+                                 UPrimitiveComponent *OtherComp,
+                                 int32 OtherBodyIndex, bool bFromSweep,
+                                 const FHitResult &SweepResult) {
+  if (!IsValid(OtherActor))
+    return;
+  if (OtherActor == this)
+    return;
+  if (OtherActor == ShooterActor)
+    return;
+  if (OtherActor == GetOwner())
+    return; // skip weapon actor
+  if (HitActors.Contains(OtherActor))
+    return; // already hit (pierce mode guard)
 
-	OtherActor->TakeDamage(DamageAmount, FDamageEvent(), nullptr, ShooterActor);
-	HitActors.Add(OtherActor);
+  UE_LOG(LogCombat, Log, TEXT("[Projectile] OnOverlap → %s  dmg=%.1f"),
+         *OtherActor->GetName(), DamageAmount);
 
-	if (!bPierceEnabled)
-	{
-		Destroy();
-	}
+  OtherActor->TakeDamage(DamageAmount, FDamageEvent(), nullptr, ShooterActor);
+  HitActors.Add(OtherActor);
+
+  if (!bPierceEnabled) {
+    UE_LOG(LogCombat, Log, TEXT("[Projectile] %s destroyed after hit (pierce disabled)"), *GetName());
+    Destroy();
+  }
 }

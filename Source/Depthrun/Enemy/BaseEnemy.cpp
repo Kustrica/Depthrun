@@ -1,61 +1,204 @@
+// Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "BaseEnemy.h"
-#include "EnemyHealthComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "EnemyHealthComponent.h"
+#include "Engine/DamageEvents.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "PaperFlipbookComponent.h"
 
-ABaseEnemy::ABaseEnemy()
+// FSM includes
+#include "FSM/FSMComponent.h"
+#include "FSM/States/FSMState_Attack.h"
+#include "FSM/States/FSMState_Chase.h"
+#include "FSM/States/FSMState_Flank.h"
+#include "FSM/States/FSMState_Idle.h"
+#include "FSM/States/FSMState_Retreat.h"
+
+ABaseEnemy::ABaseEnemy() {
+  PrimaryActorTick.bCanEverTick = true;
+
+  HealthComponent =
+      CreateDefaultSubobject<UEnemyHealthComponent>(TEXT("HealthComponent"));
+  FSMComponent = CreateDefaultSubobject<UFSMComponent>(TEXT("FSMComponent"));
+
+  EnemyType = EEnemyType::Melee;
+
+  // ─── Capsule: flat for top-down 2D ────────────────────────────────────
+  if (GetCapsuleComponent()) {
+    GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
+    GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+    // Commercial Fix: 2.0 is too flat for reliable overlap in 2D.
+    // Increased to 22.0 to be more forgiving with Z-offsets.
+    GetCapsuleComponent()->SetCapsuleHalfHeight(22.f);
+    GetCapsuleComponent()->SetCapsuleRadius(14.f);
+  }
+
+  // ─── Sprite: lie flat on XY, no collision ─────────────────────────────
+  if (GetSprite()) {
+    GetSprite()->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+    GetSprite()->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
+    GetSprite()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  }
+
+  // ─── Movement: Flying mode (same reason as player — avoids floor-loss
+  // sliding) ─
+  GetCharacterMovement()->GravityScale = 0.f;
+  GetCharacterMovement()->bOrientRotationToMovement = false;
+  GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+  GetCharacterMovement()->MaxFlySpeed = 300.f;
+  GetCharacterMovement()->BrakingDecelerationFlying = 8192.f;
+}
+
+void ABaseEnemy::BeginPlay() {
+  Super::BeginPlay();
+
+  // ─── Health callbacks ─────────────────────────────────────────────────
+  if (HealthComponent) {
+    HealthComponent->OnDeath.AddDynamic(this, &ABaseEnemy::OnDeath);
+  }
+
+  // ─── Movement speed from config ───────────────────────────────────────
+  if (GetCharacterMovement()) {
+    GetCharacterMovement()->MaxFlySpeed = MoveSpeed;
+    GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
+  }
+
+  // ─── FSM setup: register all 5 states ─────────────────────────────────
+  if (FSMComponent) {
+    FSMComponent->RegisterState(EFSMStateType::Idle,
+                                NewObject<UFSMState_Idle>(this));
+    FSMComponent->RegisterState(EFSMStateType::Chase,
+                                NewObject<UFSMState_Chase>(this));
+
+    // Attack state: inherit cooldown from enemy config.
+    UFSMState_Attack *AttackState = NewObject<UFSMState_Attack>(this);
+    AttackState->AttackCooldown = AttackCooldown;
+    FSMComponent->RegisterState(EFSMStateType::Attack, AttackState);
+
+    FSMComponent->RegisterState(EFSMStateType::Retreat,
+                                NewObject<UFSMState_Retreat>(this));
+    FSMComponent->RegisterState(EFSMStateType::Flank,
+                                NewObject<UFSMState_Flank>(this));
+
+    // Start in Idle.
+    FSMComponent->TransitionTo(EFSMStateType::Idle);
+  }
+
+  OnSpawned();
+}
+
+void ABaseEnemy::Tick(float DeltaTime) {
+  Super::Tick(DeltaTime);
+  UpdateAnimation();
+}
+
+void ABaseEnemy::PerformMeleeAttack() {
+  ACharacter *Player = UGameplayStatics::GetPlayerCharacter(this, 0);
+  if (!IsValid(Player))
+    return;
+
+  const float Dist =
+      FVector::Dist2D(GetActorLocation(), Player->GetActorLocation());
+  if (Dist > AttackRange)
+    return; // sanity check: don't hit at range
+
+  Player->TakeDamage(AttackDamage, FDamageEvent(), nullptr, this);
+}
+
+float ABaseEnemy::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	PrimaryActorTick.bCanEverTick = true; // May be needed for FSM later, or timers might suffice
-
-	HealthComponent = CreateDefaultSubobject<UEnemyHealthComponent>(TEXT("HealthComponent"));
+	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	
-	// Default orientation
-	EnemyType = EEnemyType::Melee;
-
-	// Configure collision so projectiles can hit the enemy
-	if (GetCapsuleComponent())
+	if (ActualDamage > 0.f && !bIsDead)
 	{
-		GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
-		GetCapsuleComponent()->SetGenerateOverlapEvents(true);
-	}
-}
-
-void ABaseEnemy::BeginPlay()
-{
-	Super::BeginPlay();
-	
-	if (HealthComponent)
-	{
-		HealthComponent->OnDeath.AddDynamic(this, &ABaseEnemy::OnDeath);
+		bIsHitAnimationActive = true;
+		GetWorldTimerManager().SetTimer(HitAnimationTimer, this, &ABaseEnemy::ResetHitAnimation, 0.25f, false);
 	}
 
-	OnSpawned();
+	return ActualDamage;
 }
 
-void ABaseEnemy::Tick(float DeltaTime)
+void ABaseEnemy::ResetHitAnimation()
 {
-	Super::Tick(DeltaTime);
+	bIsHitAnimationActive = false;
 }
 
-void ABaseEnemy::OnSpawned()
-{
-	// Log or initialize when spawned
-	UE_LOG(LogTemp, Log, TEXT("ABaseEnemy::OnSpawned -> %s"), *GetName());
+void ABaseEnemy::OnSpawned() {
+  UE_LOG(LogTemp, Log, TEXT("ABaseEnemy::OnSpawned → %s"), *GetName());
 }
 
 void ABaseEnemy::OnKilled()
 {
-	// Disable collision, visually die, or destroy
-	UE_LOG(LogTemp, Log, TEXT("ABaseEnemy::OnKilled -> %s"), *GetName());
-	
+	if (bIsDead) return;
+	bIsDead = true;
+
+	// Stop brain (FSM)
+	if (FSMComponent)
+	{
+		FSMComponent->Deactivate();
+	}
+
+	// Stop updating movement
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->StopMovementImmediately();
+		GetCharacterMovement()->DisableMovement();
+	}
+
 	if (GetCapsuleComponent())
 	{
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
-	
-	SetLifeSpan(3.0f); // Destroy after 3 seconds
+
+	// Play death animation instead of hiding immediately
+	if (FB_Death && GetSprite())
+	{
+		GetSprite()->SetFlipbook(FB_Death);
+		GetSprite()->SetLooping(false);
+		GetSprite()->Play();
+	}
+	else if (GetSprite())
+	{
+		GetSprite()->SetHiddenInGame(true);
+	}
+
+	SetLifeSpan(3.0f);
 }
 
-void ABaseEnemy::OnDeath()
-{
-	OnKilled();
+void ABaseEnemy::OnDeath() { OnKilled(); }
+
+void ABaseEnemy::UpdateAnimation() {
+  if (!GetSprite() || bIsDead)
+    return;
+
+  // Pick flipbook: Hit/Attack anims take priority, then move/idle.
+  UPaperFlipbook *DesiredFB = nullptr;
+
+  const bool bAttacking = FSMComponent && FSMComponent->GetCurrentStateType() ==
+                                               EFSMStateType::Attack;
+
+  if (bIsHitAnimationActive && FB_Hit) {
+    DesiredFB = FB_Hit;
+  } else if (bAttacking) {
+    DesiredFB = FB_Attack ? FB_Attack : FB_Idle;
+  } else if (GetVelocity().SizeSquared() > 10.f) {
+    DesiredFB = FB_Walk ? FB_Walk : FB_Idle;
+  } else {
+    DesiredFB = FB_Idle;
+  }
+
+  if (DesiredFB && GetSprite()->GetFlipbook() != DesiredFB) {
+    GetSprite()->SetFlipbook(DesiredFB);
+  }
+
+  // Mirror sprite horizontally based on lateral movement direction.
+  if (GetVelocity().SizeSquared() > 10.f) {
+    const FVector V = GetVelocity();
+    if (FMath::Abs(V.Y) > 0.1f) {
+      FVector Scale = GetSprite()->GetRelativeScale3D();
+      Scale.X = (V.Y < 0.f) ? -1.f : 1.f;
+      GetSprite()->SetRelativeScale3D(Scale);
+    }
+  }
 }

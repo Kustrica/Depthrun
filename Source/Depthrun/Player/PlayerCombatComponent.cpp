@@ -16,13 +16,10 @@ void UPlayerCombatComponent::Attack() {
   }
 
   CurrentWeapon->Fire();
-  UE_LOG(LogCombat, Log, TEXT("UPlayerCombatComponent::Attack — fired"));
 }
 
 void UPlayerCombatComponent::EquipWeapon(ABaseWeapon *NewWeapon) {
-  if (IsValid(CurrentWeapon)) {
-    CurrentWeapon->Destroy();
-  }
+  // Commercial Fix: Do NOT destroy weapons when switching, as they are pre-spawned and persistent in our system.
   CurrentWeapon = NewWeapon;
   UE_LOG(LogCombat, Log,
          TEXT("UPlayerCombatComponent::EquipWeapon — equipped %s"),

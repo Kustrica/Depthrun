@@ -22,6 +22,9 @@ enum class ERunItemEffect : uint8
 {
 	None               UMETA(DisplayName = "None"),
 
+	// Universal
+	FlatDamage         UMETA(DisplayName = "Power: Flat Damage"),
+
 	// Melee (Sword)
 	MeleeExtendedRange UMETA(DisplayName = "Melee: Extended Range"),
 	MeleeDoubleSwing   UMETA(DisplayName = "Melee: Double Swing"),

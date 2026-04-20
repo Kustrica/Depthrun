@@ -3,9 +3,9 @@
 
 #include "Combat/BaseWeapon.h" // EWeaponType (needed for attack tracking)
 #include "CoreMinimal.h"
-#include "DepthrunCharacter.generated.h"
 #include "InputActionValue.h"
 #include "PaperCharacter.h"
+#include "DepthrunCharacter.generated.h"
 
 class UCameraComponent;
 class USpringArmComponent;
@@ -15,6 +15,7 @@ class UInputAction;
 class UPlayerCombatComponent;
 class UPlayerActionTracker;
 class URunItemInventory;
+class UPlayerMovementConfig;
 
 /** Which direction the character sprite faces. */
 UENUM(BlueprintType)
@@ -43,6 +44,7 @@ public:
   ADepthrunCharacter();
 
   UPlayerActionTracker *GetActionTracker() const { return ActionTracker; }
+  bool IsDead() const { return bIsDead; }
 
 protected:
   virtual void BeginPlay() override;
@@ -62,6 +64,9 @@ protected:
   void UpdateFacingDirection(const FVector2D &Input);
   void UpdateAnimation();
   FVector GetFireDirection() const;
+  
+  virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+  void Die();
 
 public:
   // ────────────────────── Components ──────────────────────
@@ -82,10 +87,10 @@ public:
 
   // ────────────────────── Stats ────────────────────────────
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player|Stats")
-  float MaxHP = 100.f;
+  float MaxHP = 500.f;
 
   UPROPERTY(BlueprintReadOnly, Category = "Player|Stats")
-  float CurrentHP = 100.f;
+  float CurrentHP = 500.f;
 
   // ────────────────────── Facing ───────────────────────────
   UPROPERTY(BlueprintReadOnly, Category = "Player")
@@ -121,9 +126,10 @@ public:
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Combat")
   TSubclassOf<ABaseWeapon> WeaponSlotClass2;
 
-  /** Currently active weapon slot (1 or 2). Read-only for HUD. */
+  /** Currently active weapon slot (1 or 2). Initialized to 0 to force first
+   * equip. */
   UPROPERTY(BlueprintReadOnly, Category = "Player|Combat")
-  int32 ActiveWeaponSlot = 1;
+  int32 ActiveWeaponSlot = 0;
 
   /**
    * Switch active weapon to slot 1 (Sword) or slot 2 (Bow).
@@ -184,13 +190,29 @@ public:
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player|Dash")
   float DashCooldown = 1.0f;
 
+  /** Config data asset for movement tuning. Assign in BP_DepthrunCharacter. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player|Config")
+  TObjectPtr<UPlayerMovementConfig> MovementConfig;
+
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation|Combat")
+  TObjectPtr<UPaperFlipbook> FB_Hit;
+
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation|Combat")
+  TObjectPtr<UPaperFlipbook> FB_Death;
+
 private:
   bool bCanDash = true;
   bool bIsMoving = false;
   bool bIsAttacking = false;
+  bool bIsHitAnimationActive = false;
+  bool bIsDead = false;
+
   FTimerHandle DashCooldownTimer;
   FTimerHandle DashStopTimer;
   FTimerHandle AttackAnimTimer;
+  FTimerHandle HitAnimTimer;
+
+  void ResetHitAnimation() { bIsHitAnimationActive = false; }
 
   /** Live weapon actor instances (spawned in BeginPlay). */
   UPROPERTY()

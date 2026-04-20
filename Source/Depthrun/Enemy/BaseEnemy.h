@@ -5,6 +5,8 @@
 #include "BaseEnemy.generated.h"
 
 class UEnemyHealthComponent;
+class UFSMComponent;
+class UPaperFlipbook;
 
 UENUM(BlueprintType)
 enum class EEnemyType : uint8
@@ -24,21 +26,95 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UEnemyHealthComponent> HealthComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFSMComponent> FSMComponent;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy")
 	EEnemyType EnemyType;
 
-	// Callbacks for Health
 	UFUNCTION()
 	virtual void OnDeath();
 
-public:
-	virtual void Tick(float DeltaTime) override;
+	void UpdateAnimation();
 
-	// Virtual methods specified in PLAN.MD
+public:
+	EEnemyType GetEnemyType() const { return EnemyType; }
+
+	// ── Config ─────────────────────────────────────────────────────────────
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+	TObjectPtr<UPaperFlipbook> FB_Idle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+	TObjectPtr<UPaperFlipbook> FB_Walk;
+
+	/** Plays when the enemy is in Attack FSM state. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+	TObjectPtr<UPaperFlipbook> FB_Attack;
+
+	/** Plays briefly when taking damage. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+	TObjectPtr<UPaperFlipbook> FB_Hit;
+
+	/** Plays on death. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+	TObjectPtr<UPaperFlipbook> FB_Death;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Stats")
+	float MoveSpeed = 300.f;
+
+	/** Range at which the enemy first detects the player and starts chasing. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+	float DetectionRange = 500.f;
+
+	/** Range at which the enemy enters Attack state. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+	float AttackRange = 60.f;
+
+	/** Ranged enemies will try to retreat if player is closer than this. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+	float MinAttackRange = 200.f;
+
+	/** Damage dealt per melee attack. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+	float AttackDamage = 10.f;
+
+	/** Seconds between melee attacks. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+	float AttackCooldown = 1.5f;
+
+	/** For Ranged/Adaptive types: class of projectile to spawn. */
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Ranged")
+	TSubclassOf<class ABaseProjectile> ProjectileClass;
+
+	/** Delay between clicking and actual arrow spawn (to match animation). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Ranged")
+	float ShotDelay = 0.15f;
+
+	/** For Ranged/Adaptive types: attacks per second. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+	float FireRate = 1.0f;
+
+	/**
+	 * Called by FSMState_Attack to trigger a melee attack on the player.
+	 * Default implementation applies damage via TakeDamage to the nearest player.
+	 */
+	virtual void PerformMeleeAttack();
+
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+
 	virtual void OnSpawned();
 	virtual void OnKilled();
+
+protected:
+	bool bIsHitAnimationActive = false;
+	bool bIsDead = false;
+	FTimerHandle HitAnimationTimer;
+
+	void ResetHitAnimation();
 };

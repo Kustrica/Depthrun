@@ -8,7 +8,6 @@ AAdaptiveEnemy::AAdaptiveEnemy()
 {
 	EnemyType = EEnemyType::Adaptive;
 
-	FSMComp      = CreateDefaultSubobject<UFSMComponent>(TEXT("FSMComponent"));
 	AdaptiveComp = CreateDefaultSubobject<UAdaptiveBehaviorComponent>(TEXT("AdaptiveBehaviorComponent"));
 }
 

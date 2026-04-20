@@ -6,6 +6,7 @@
 #include "Items/RunItemInventory.h"
 #include "PlayerActionTracker.h"
 #include "PlayerCombatComponent.h"
+#include "PlayerMovementConfig.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -41,6 +42,33 @@ ADepthrunCharacter::ADepthrunCharacter() {
   FollowCamera->SetProjectionMode(ECameraProjectionMode::Orthographic);
   FollowCamera->OrthoWidth = 1024.f;
 
+  // Commercial Fix: Disable ALL post-process effects that cause artifacts in 2D
+  // Paper2D
+  // 1. Motion Blur
+  FollowCamera->PostProcessSettings.bOverride_MotionBlurAmount = true;
+  FollowCamera->PostProcessSettings.MotionBlurAmount = 0.f;
+  // 2. Depth of Field (disable completely - keep sprite sharp at all times)
+  FollowCamera->PostProcessSettings.bOverride_DepthOfFieldFstop = true;
+  FollowCamera->PostProcessSettings.DepthOfFieldFstop = 32.f;
+  // 3. Anti-Aliasing: Note: This must be set in Project Settings -> Rendering
+  // -> Anti-Aliasing Method = None (In modern UE5, AA method is a global
+  // setting and cannot be overridden per-camera in FPostProcessSettings)
+  // 4. Lumen Global Illumination: the MAIN cause of ghosting/blur with
+  // lighting!
+  FollowCamera->PostProcessSettings.bOverride_DynamicGlobalIlluminationMethod =
+      true;
+  FollowCamera->PostProcessSettings.DynamicGlobalIlluminationMethod =
+      EDynamicGlobalIlluminationMethod::None;
+  // 5. Lumen Reflections
+  FollowCamera->PostProcessSettings.bOverride_ReflectionMethod = true;
+  FollowCamera->PostProcessSettings.ReflectionMethod = EReflectionMethod::None;
+  // 6. Bloom (can cause halo artifacts on bright sprites)
+  FollowCamera->PostProcessSettings.bOverride_BloomIntensity = true;
+  FollowCamera->PostProcessSettings.BloomIntensity = 0.f;
+  // 7. Ambient Occlusion (irrelevant in 2D, causes darkening)
+  FollowCamera->PostProcessSettings.bOverride_AmbientOcclusionIntensity = true;
+  FollowCamera->PostProcessSettings.AmbientOcclusionIntensity = 0.f;
+
   // ─── Player components ─────────────────────────────────────────────────
   CombatComponent =
       CreateDefaultSubobject<UPlayerCombatComponent>(TEXT("CombatComponent"));
@@ -54,16 +82,33 @@ ADepthrunCharacter::ADepthrunCharacter() {
   GetCharacterMovement()->GravityScale = 0.f;
 
   // Sharp movement: high acceleration and braking to prevent "ice effect"
-  GetCharacterMovement()->MaxWalkSpeed = 500.f;
-  GetCharacterMovement()->MaxAcceleration = 50000.f;
-  GetCharacterMovement()->BrakingDecelerationWalking = 50000.f;
-  GetCharacterMovement()->GroundFriction = 10.f;
-  GetCharacterMovement()->BrakingFrictionFactor = 2.f;
+  // CRITICAL FIX: Use MOVE_Flying, not Walking. In top-down gravity=0 games,
+  // Walking mode loses floor contact after LaunchCharacter (dash), switching to
+  // Falling mode which has BrakingDecelerationFalling=0 by default — causing
+  // infinite sliding.
+  GetCharacterMovement()->MaxFlySpeed = 450.f;
+  GetCharacterMovement()->MaxWalkSpeed = 450.f; // fallback
+  GetCharacterMovement()->MaxAcceleration = 20480.f;
+  GetCharacterMovement()->BrakingDecelerationFlying =
+      20480.f; // Flying mode uses this
+  GetCharacterMovement()->BrakingDecelerationWalking = 20480.f; // fallback
+  GetCharacterMovement()->BrakingDecelerationFalling =
+      20480.f; // in case of state transition
+  GetCharacterMovement()->GroundFriction = 12.f;
+  GetCharacterMovement()->BrakingFrictionFactor = 1.f;
+  GetCharacterMovement()->bUseSeparateBrakingFriction = true;
+  GetCharacterMovement()->BrakingFriction = 10.f;
 
-  GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+  GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 
   // ─── Capsule: small for 2D top-down ───────────────────────────────────
   GetCapsuleComponent()->SetCapsuleHalfHeight(16.f);
+  GetCapsuleComponent()->SetCapsuleRadius(12.f);
+
+  // Commercial Fix: Rotate sprite to lie flat on XY plane for top-down view
+  if (GetSprite()) {
+    GetSprite()->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+  }
   GetCapsuleComponent()->SetCapsuleRadius(12.f);
 
   // Sprite faces camera (no auto-rotation from movement)
@@ -76,6 +121,32 @@ void ADepthrunCharacter::BeginPlay() {
   Super::BeginPlay();
 
   CurrentHP = MaxHP;
+  bCanDash = true;
+
+  // ─── Apply Movement Configuration ─────────────────────────────────────
+  if (MovementConfig) {
+    UCharacterMovementComponent *MoveComp = GetCharacterMovement();
+    // Use MaxWalkSpeed for Flying mode's MaxFlySpeed too
+    MoveComp->MaxFlySpeed = MovementConfig->MaxWalkSpeed;
+    MoveComp->MaxWalkSpeed = MovementConfig->MaxWalkSpeed;
+    MoveComp->MaxAcceleration = MovementConfig->MaxAcceleration;
+    // Apply the BrakingDeceleration to ALL modes so dash never gets stuck in
+    // wrong mode
+    MoveComp->BrakingDecelerationFlying =
+        MovementConfig->BrakingDecelerationWalking;
+    MoveComp->BrakingDecelerationWalking =
+        MovementConfig->BrakingDecelerationWalking;
+    MoveComp->BrakingDecelerationFalling =
+        MovementConfig->BrakingDecelerationWalking;
+    MoveComp->GroundFriction = MovementConfig->GroundFriction;
+    MoveComp->BrakingFrictionFactor = MovementConfig->BrakingFrictionFactor;
+    MoveComp->bUseSeparateBrakingFriction =
+        MovementConfig->bUseSeparateBrakingFriction;
+    MoveComp->BrakingFriction = MovementConfig->BrakingFriction;
+
+    DashImpulse = MovementConfig->DashImpulse;
+    DashCooldown = MovementConfig->DashCooldown;
+  }
 
   // Register Enhanced Input mapping context
   if (APlayerController *PC = Cast<APlayerController>(GetController())) {
@@ -89,24 +160,45 @@ void ADepthrunCharacter::BeginPlay() {
   }
 
   // ─── Spawn both weapon slots ───────────────────────────────────────────
-  auto SpawnWeapon = [this](TSubclassOf<ABaseWeapon> WClass) -> ABaseWeapon*
-  {
-    if (!WClass) return nullptr;
+  auto SpawnWeapon = [this](TSubclassOf<ABaseWeapon> WClass) -> ABaseWeapon * {
+    if (!WClass)
+      return nullptr;
     FActorSpawnParameters P;
     P.Owner = this;
-    P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    P.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
     return GetWorld()->SpawnActor<ABaseWeapon>(WClass, GetActorTransform(), P);
   };
 
   SpawnedWeapon1 = SpawnWeapon(WeaponSlotClass1);
+  if (SpawnedWeapon1)
+    SpawnedWeapon1->AttachToComponent(
+        GetRootComponent(),
+        FAttachmentTransformRules::SnapToTargetIncludingScale);
+
   SpawnedWeapon2 = SpawnWeapon(WeaponSlotClass2);
+  if (SpawnedWeapon2)
+    SpawnedWeapon2->AttachToComponent(
+        GetRootComponent(),
+        FAttachmentTransformRules::SnapToTargetIncludingScale);
+
+  // Commercial Fix: Hide and disable collisions for both weapons initially
+  auto DisableWeapon = [](ABaseWeapon *W) {
+    if (W) {
+      W->SetActorHiddenInGame(true);
+      W->SetActorEnableCollision(false);
+    }
+  };
+  DisableWeapon(SpawnedWeapon1);
+  DisableWeapon(SpawnedWeapon2);
 
   // Start with Slot 1 (Sword) active
   SwitchToWeaponSlot(1);
 
-  if (!SpawnedWeapon1 && !SpawnedWeapon2)
-  {
-    UE_LOG(LogDepthrun, Warning, TEXT("[Character] No weapon slots assigned in BP_DepthrunCharacter!"));
+  if (!SpawnedWeapon1 && !SpawnedWeapon2) {
+    UE_LOG(
+        LogDepthrun, Warning,
+        TEXT("[Character] No weapon slots assigned in BP_DepthrunCharacter!"));
   }
 
   UE_LOG(LogDepthrun, Log,
@@ -126,13 +218,17 @@ void ADepthrunCharacter::SetupPlayerInputComponent(
                       &ADepthrunCharacter::HandleMove);
     }
     if (IA_Attack)
-      EIC->BindAction(IA_Attack, ETriggerEvent::Started, this, &ADepthrunCharacter::HandleAttack);
+      EIC->BindAction(IA_Attack, ETriggerEvent::Started, this,
+                      &ADepthrunCharacter::HandleAttack);
     if (IA_Dash)
-      EIC->BindAction(IA_Dash,   ETriggerEvent::Started, this, &ADepthrunCharacter::HandleDash);
+      EIC->BindAction(IA_Dash, ETriggerEvent::Started, this,
+                      &ADepthrunCharacter::HandleDash);
     if (IA_SwitchSlot1)
-      EIC->BindAction(IA_SwitchSlot1, ETriggerEvent::Started, this, &ADepthrunCharacter::HandleSwitchSlot1);
+      EIC->BindAction(IA_SwitchSlot1, ETriggerEvent::Started, this,
+                      &ADepthrunCharacter::HandleSwitchSlot1);
     if (IA_SwitchSlot2)
-      EIC->BindAction(IA_SwitchSlot2, ETriggerEvent::Started, this, &ADepthrunCharacter::HandleSwitchSlot2);
+      EIC->BindAction(IA_SwitchSlot2, ETriggerEvent::Started, this,
+                      &ADepthrunCharacter::HandleSwitchSlot2);
   }
 }
 
@@ -189,26 +285,43 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
   ActionTracker->RecordAction(ActionType, GetActorLocation());
 }
 
-void ADepthrunCharacter::HandleDash(const FInputActionValue &Value)    { Dash(); }
-void ADepthrunCharacter::HandleSwitchSlot1(const FInputActionValue &)  { SwitchToWeaponSlot(1); }
-void ADepthrunCharacter::HandleSwitchSlot2(const FInputActionValue &)  { SwitchToWeaponSlot(2); }
+void ADepthrunCharacter::HandleDash(const FInputActionValue &Value) { Dash(); }
+void ADepthrunCharacter::HandleSwitchSlot1(const FInputActionValue &) {
+  SwitchToWeaponSlot(1);
+}
+void ADepthrunCharacter::HandleSwitchSlot2(const FInputActionValue &) {
+  SwitchToWeaponSlot(2);
+}
 
 // ─────────────────────────── Weapon Slot Switch ────────────────────────────
 
-void ADepthrunCharacter::SwitchToWeaponSlot(int32 SlotIndex)
-{
-  if (SlotIndex == ActiveWeaponSlot) return;
-  if (SlotIndex == 1 && SpawnedWeapon1)
-  {
-    if (CombatComponent) CombatComponent->EquipWeapon(SpawnedWeapon1);
-    if (ItemInventory)   ItemInventory->ApplyToWeapon(SpawnedWeapon1);
+void ADepthrunCharacter::SwitchToWeaponSlot(int32 SlotIndex) {
+  // Commercial Fix: Allow switching even if it's the same slot to fix potential
+  // desyncs, or at least ensure the correct weapon is visible/enabled.
+
+  auto UpdateWeaponState = [](ABaseWeapon *W, bool bActive) {
+    if (W) {
+      W->SetActorHiddenInGame(!bActive);
+      W->SetActorEnableCollision(bActive);
+    }
+  };
+
+  if (SlotIndex == 1 && SpawnedWeapon1) {
+    UpdateWeaponState(SpawnedWeapon1, true);
+    UpdateWeaponState(SpawnedWeapon2, false);
+    if (CombatComponent)
+      CombatComponent->EquipWeapon(SpawnedWeapon1);
+    if (ItemInventory)
+      ItemInventory->ApplyToWeapon(SpawnedWeapon1);
     ActiveWeaponSlot = 1;
     UE_LOG(LogDepthrun, Log, TEXT("[Weapon] Switched to Slot 1 (Sword)"));
-  }
-  else if (SlotIndex == 2 && SpawnedWeapon2)
-  {
-    if (CombatComponent) CombatComponent->EquipWeapon(SpawnedWeapon2);
-    if (ItemInventory)   ItemInventory->ApplyToWeapon(SpawnedWeapon2);
+  } else if (SlotIndex == 2 && SpawnedWeapon2) {
+    UpdateWeaponState(SpawnedWeapon1, false);
+    UpdateWeaponState(SpawnedWeapon2, true);
+    if (CombatComponent)
+      CombatComponent->EquipWeapon(SpawnedWeapon2);
+    if (ItemInventory)
+      ItemInventory->ApplyToWeapon(SpawnedWeapon2);
     ActiveWeaponSlot = 2;
     UE_LOG(LogDepthrun, Log, TEXT("[Weapon] Switched to Slot 2 (Bow)"));
   }
@@ -218,37 +331,136 @@ void ADepthrunCharacter::SwitchToWeaponSlot(int32 SlotIndex)
 // ─────────────────────────── Dash ─────────────────────────────────────────
 
 void ADepthrunCharacter::Dash() {
-  if (!bCanDash)
+  if (!bCanDash || bIsDead)
     return;
 
   bCanDash = false;
 
-  // Dash in current facing direction; if standing still — use last facing
+  // Дэш в направлении движения; если стоим — по направлению взгляда
   const FVector DashDir = GetVelocity().IsNearlyZero()
                               ? GetFireDirection()
                               : GetVelocity().GetSafeNormal();
 
-  LaunchCharacter(DashDir * DashImpulse, true, true);
+  UCharacterMovementComponent *MoveComp = GetCharacterMovement();
+  const float Impulse =
+      MovementConfig ? MovementConfig->DashImpulse : DashImpulse;
+  const float Duration = MovementConfig ? MovementConfig->DashDuration : 0.15f;
+  const float CancelFactor =
+      MovementConfig ? MovementConfig->PostDashVelocityCancelFactor : 0.1f;
 
-  // ── Stop sliding: zero velocity shortly after the impulse ─────────────
+  // ── FIX: Отключаем торможение на время дэша, иначе BrakingDecelerationFlying
+  //         гасит импульс в тот же тик, в котором он был применён (именно это
+  //         вызывало «дёргание» камеры без реального перемещения персонажа).
+  MoveComp->BrakingDecelerationFlying = 0.f;
+  MoveComp->BrakingFriction = 0.f;
+  MoveComp->GroundFriction = 0.f;
+
+  // ── FIX: Снимаем ограничение MaxFlySpeed на время дэша, иначе импульс
+  //         обрезается до 400 UU/s ещё до того, как CMC его применит.
+  //         Продолжительность дэша контролируется таймером, а не скоростью.
+  MoveComp->MaxFlySpeed = 9999.f;
+
+  // Напрямую задаём Velocity — надёжнее, чем LaunchCharacter в MOVE_Flying,
+  // потому что LaunchCharacter всё равно проходит через ConsumeInputVector()
+  // и может быть частично погашен той же декелерацией в том же SubStep.
+  MoveComp->Velocity = DashDir * Impulse;
+
+  // ── Через DashDuration: восстанавливаем параметры торможения и гасим инерцию
   GetWorldTimerManager().SetTimer(
       DashStopTimer,
-      [this]() { GetCharacterMovement()->StopMovementImmediately(); },
-      DashStopDelay, false);
+      [this, CancelFactor]() {
+        UCharacterMovementComponent *MC = GetCharacterMovement();
+        if (!MC)
+          return;
 
-  // Record dash for enemy memory
+        // Восстанавливаем параметры из конфига (или дефолты конструктора)
+        const float BrakeDec = MovementConfig
+                                   ? MovementConfig->BrakingDecelerationWalking
+                                   : 20480.f;
+        const float BrakeFric =
+            MovementConfig ? MovementConfig->BrakingFriction : 10.f;
+        const float GndFric =
+            MovementConfig ? MovementConfig->GroundFriction : 12.f;
+        const float FlySpeed =
+            MovementConfig ? MovementConfig->MaxWalkSpeed : 450.f;
+
+        MC->BrakingDecelerationFlying = BrakeDec;
+        MC->BrakingFriction = BrakeFric;
+        MC->GroundFriction = GndFric;
+        MC->MaxFlySpeed = FlySpeed;
+
+        // Гасим остаточную скорость после дэша
+        MC->Velocity *= CancelFactor;
+        if (CancelFactor <= 0.05f) {
+          MC->StopMovementImmediately();
+        }
+      },
+      Duration, false);
+
+  // Записываем действие в память врагов
   ActionTracker->RecordAction(EPlayerActionType::Dash, GetActorLocation());
 
   UE_LOG(LogDepthrun, Verbose,
-         TEXT("ADepthrunCharacter::Dash dir=(%.1f,%.1f,%.1f)"), DashDir.X,
-         DashDir.Y, DashDir.Z);
+         TEXT("ADepthrunCharacter::Dash dir=(%.1f,%.1f,%.1f) impulse=%.0f "
+              "dur=%.2fs"),
+         DashDir.X, DashDir.Y, DashDir.Z, Impulse, Duration);
 
+  const float Cooldown =
+      MovementConfig ? MovementConfig->DashCooldown : DashCooldown;
   GetWorldTimerManager().SetTimer(DashCooldownTimer, this,
                                   &ADepthrunCharacter::OnDashCooldownEnd,
-                                  DashCooldown, false);
+                                  Cooldown, false);
 }
 
 void ADepthrunCharacter::OnDashCooldownEnd() { bCanDash = true; }
+
+float ADepthrunCharacter::TakeDamage(float DamageAmount,
+                                     FDamageEvent const &DamageEvent,
+                                     AController *EventInstigator,
+                                     AActor *DamageCauser) {
+  if (DamageAmount <= 0.f || bIsDead)
+    return 0.f;
+
+  const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent,
+                                               EventInstigator, DamageCauser);
+  CurrentHP -= ActualDamage;
+
+  if (ActualDamage > 0.f) {
+    bIsHitAnimationActive = true;
+    GetWorldTimerManager().SetTimer(HitAnimTimer, this,
+                                    &ADepthrunCharacter::ResetHitAnimation,
+                                    0.2f, false);
+  }
+
+  UE_LOG(LogDepthrun, Log,
+         TEXT("[Player] Took %.1f damage. Remaining HP: %.1f"), ActualDamage,
+         CurrentHP);
+
+  if (CurrentHP <= 0.f) {
+    Die();
+  }
+
+  UpdateAnimation();
+  return ActualDamage;
+}
+
+void ADepthrunCharacter::Die() {
+  if (bIsDead)
+    return;
+  bIsDead = true;
+
+  UE_LOG(LogDepthrun, Error, TEXT("[Player] DIED!"));
+
+  if (GetCharacterMovement())
+    GetCharacterMovement()->StopMovementImmediately();
+  SetActorEnableCollision(false);
+
+  if (FB_Death && GetSprite()) {
+    GetSprite()->SetFlipbook(FB_Death);
+    GetSprite()->SetLooping(false);
+    GetSprite()->Play();
+  }
+}
 
 // ─────────────────────────── Helpers ──────────────────────────────────────
 
@@ -265,19 +477,22 @@ void ADepthrunCharacter::UpdateFacingDirection(const FVector2D &Input) {
 FVector ADepthrunCharacter::GetFireDirection() const {
   switch (FacingDirection) {
   case EPlayerFacingDirection::Right:
-    return FVector(1.f, 0.f, 0.f);
+    return FVector(0.f, 1.f, 0.f); // In HandleMove, A/D (Input.X) -> World Y
   case EPlayerFacingDirection::Left:
-    return FVector(-1.f, 0.f, 0.f);
-  case EPlayerFacingDirection::Up:
-    return FVector(0.f, 1.f, 0.f);
-  case EPlayerFacingDirection::Down:
     return FVector(0.f, -1.f, 0.f);
+  case EPlayerFacingDirection::Up:
+    return FVector(1.f, 0.f, 0.f); // In HandleMove, W/S (Input.Y) -> World X
+  case EPlayerFacingDirection::Down:
+    return FVector(-1.f, 0.f, 0.f);
   default:
     return FVector(1.f, 0.f, 0.f);
   }
 }
 
 void ADepthrunCharacter::UpdateAnimation() {
+  if (!GetSprite() || bIsDead)
+    return;
+
   UPaperFlipbook *Desired = nullptr;
 
   // ─── 1. Determine if we should FLIP the sprite (for Left direction) ────
@@ -291,8 +506,10 @@ void ADepthrunCharacter::UpdateAnimation() {
   }
 
   // ─── 2. Select appropriate Flipbook ──────────────────────────────────
-  if (bIsAttacking && CombatComponent &&
-      IsValid(CombatComponent->CurrentWeapon)) {
+  if (bIsHitAnimationActive && FB_Hit) {
+    Desired = FB_Hit;
+  } else if (bIsAttacking && CombatComponent &&
+             IsValid(CombatComponent->CurrentWeapon)) {
     const bool bIsMelee =
         CombatComponent->CurrentWeapon->GetWeaponType() == EWeaponType::Melee;
 
