@@ -31,8 +31,8 @@ EFSMStateType UStateTransitionResolver::ResolveNextState(
 		FStateScore Score;
 		Score.State = Candidate;
 		
-		// 1. Utility from curves (Stage 6H)
-		Score.UtilityValue = UtilCurves->EvaluateUtility(Candidate, Threat.ThreatFinal, Context, Config);
+		// 1. Utility from curves (Stage 6H + 6K Adaptive)
+		Score.UtilityValue = UtilCurves->EvaluateUtility(Candidate, Threat, Context, Config);
 		
 		// 2. Transition cost from matrix (Stage 6I)
 		Score.TransitionCost = CostMatrix->GetCost(CurrentState, Candidate);

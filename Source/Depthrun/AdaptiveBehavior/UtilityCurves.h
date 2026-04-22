@@ -31,12 +31,13 @@ public:
 	/**
 	 * Evaluate utility of a given state for the current T_final and context.
 	 * Context is needed for Flank (requires A_norm).
+	 * Threat is needed for Adaptive Thresholds (Stage 6K).
 	 */
 	float EvaluateUtility(
-		EFSMStateType          State,
-		float                  ThreatFinal,
-		const FContextData&    Context,
-		const UAdaptiveConfig* Config) const;
+		EFSMStateType           State,
+		const FThreatAssessment& Threat,
+		const FContextData&     Context,
+		const UAdaptiveConfig*  Config) const;
 
 private:
 	float EvaluateIdle   (float T) const;

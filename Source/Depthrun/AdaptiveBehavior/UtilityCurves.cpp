@@ -4,15 +4,26 @@
 #include "Utils/MathUtils.h"
 
 float UUtilityCurves::EvaluateUtility(
-	EFSMStateType State, float T, const FContextData& Context, const UAdaptiveConfig* Cfg) const
+	EFSMStateType State, const FThreatAssessment& Threat, const FContextData& Context, const UAdaptiveConfig* Cfg) const
 {
+	const float T = Threat.ThreatFinal;
+	
+	// Stage 6K: Adaptive Center Shifting
+	// Shift centers based on how much the current mean threat (μ) deviates from the default threat.
+	// If the world is generally "scarier" now, we shift centers right, becoming more tolerant.
+	float AdaptiveShift = 0.f;
+	if (Cfg && Threat.AdaptiveMeanThreat > 0.f)
+	{
+		AdaptiveShift = Threat.AdaptiveMeanThreat - Cfg->DefaultThreat;
+	}
+
 	switch (State)
 	{
 	case EFSMStateType::Idle:    return EvaluateIdle(T);
-	case EFSMStateType::Chase:   return EvaluateChase(T, Cfg);
-	case EFSMStateType::Attack:  return EvaluateAttack(T, Cfg);
-	case EFSMStateType::Flank:   return EvaluateFlank(T, Context.AllyCountNorm, Cfg);
-	case EFSMStateType::Retreat: return EvaluateRetreat(T, Cfg);
+	case EFSMStateType::Chase:   return EvaluateChase(T + AdaptiveShift, Cfg);
+	case EFSMStateType::Attack:  return EvaluateAttack(T + AdaptiveShift, Cfg);
+	case EFSMStateType::Flank:   return EvaluateFlank(T + AdaptiveShift, Context.AllyCountNorm, Cfg);
+	case EFSMStateType::Retreat: return EvaluateRetreat(T, Cfg); // Retreat is usually absolute
 	default:                     return 0.f;
 	}
 }
