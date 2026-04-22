@@ -15,7 +15,18 @@ void UTransitionCostMatrix::InitializeFromConfig(const UAdaptiveConfig* Config)
 	};
 	FMemory::Memcpy(Matrix, Defaults, sizeof(Matrix));
 
-	// TODO (Stage 6I): override from Config->TransitionCostMatrix if populated
+	// Override from Config if valid (must be 5x5 = 25 elements)
+	if (Config && Config->TransitionCostMatrix.Num() == 25)
+	{
+		for (int32 Row = 0; Row < 5; ++Row)
+		{
+			for (int32 Col = 0; Col < 5; ++Col)
+			{
+				Matrix[Row][Col] = Config->TransitionCostMatrix[Row * 5 + Col];
+			}
+		}
+	}
+
 	bInitialized = true;
 }
 
