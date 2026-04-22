@@ -1,9 +1,9 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #pragma once
 
+#include "AdaptiveEnemy.generated.h"
 #include "CoreMinimal.h"
 #include "Enemy/BaseEnemy.h"
-#include "AdaptiveEnemy.generated.h"
 
 class UFSMComponent;
 class UAdaptiveBehaviorComponent;
@@ -24,17 +24,32 @@ class UAdaptiveBehaviorComponent;
  *   4. Subscribe to HealthComponent damage delegates for reward signals
  */
 UCLASS()
-class DEPTHRUN_API AAdaptiveEnemy : public ABaseEnemy
-{
-	GENERATED_BODY()
+class DEPTHRUN_API AAdaptiveEnemy : public ABaseEnemy {
+  GENERATED_BODY()
 
 public:
-	AAdaptiveEnemy();
+  AAdaptiveEnemy();
 
 protected:
-	virtual void BeginPlay() override;
-	virtual void OnKilled() override;
+  virtual void BeginPlay() override;
+  virtual void OnKilled() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UAdaptiveBehaviorComponent> AdaptiveComp;
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+  TObjectPtr<UAdaptiveBehaviorComponent> AdaptiveComp;
+
+  // ─── Animation: Ranged Mode ─────────────────────────────────────────────
+
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+  TObjectPtr<class UPaperFlipbook> FB_Idle_Ranged;
+
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+  TObjectPtr<class UPaperFlipbook> FB_Walk_Ranged;
+
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+  TObjectPtr<class UPaperFlipbook> FB_Attack_Ranged;
+
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Combat")
+  bool bIsRangedMode = false;
+
+  virtual void UpdateAnimation();
 };

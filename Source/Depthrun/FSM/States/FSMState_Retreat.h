@@ -25,10 +25,6 @@ public:
 		return EFSMStateType::Retreat;
 	}
 
-	/** Minimum safe distance to maintain from player (cm). */
-	UPROPERTY(EditDefaultsOnly, Category = "FSM|Retreat")
-	float SafeDistance = 600.f;
-
 private:
 	/** Cached retreat direction (recalculated on Enter and periodically). */
 	FVector RetreatDirection = FVector::ZeroVector;

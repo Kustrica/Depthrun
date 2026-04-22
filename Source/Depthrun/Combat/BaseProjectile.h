@@ -25,7 +25,8 @@ public:
 
   /** Called by ARangedWeapon immediately after SpawnActorDeferred. */
   void InitProjectile(const FVector &Direction, float Damage, AActor *Shooter,
-                      bool bPierce = false, int32 InRicochetCount = 0);
+                      float InSpeed = 800.f, bool bPierce = false,
+                      int32 InRicochetCount = 0);
 
 protected:
   virtual void BeginPlay() override;

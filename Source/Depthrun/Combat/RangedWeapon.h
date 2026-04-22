@@ -1,46 +1,50 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #pragma once
 
-#include "CoreMinimal.h"
 #include "BaseWeapon.h"
+#include "CoreMinimal.h"
 #include "RangedWeapon.generated.h"
 
 class ABaseProjectile;
 
 /**
  * ARangedWeapon
- * Spawns ABaseProjectile in FireDirection on Fire(). 
+ * Spawns ABaseProjectile in FireDirection on Fire().
  * Direction is set by ADepthrunCharacter before calling Attack().
  */
 UCLASS()
-class DEPTHRUN_API ARangedWeapon : public ABaseWeapon
-{
-	GENERATED_BODY()
+class DEPTHRUN_API ARangedWeapon : public ABaseWeapon {
+  GENERATED_BODY()
 
 public:
-	ARangedWeapon();
+  ARangedWeapon();
 
-	virtual void Fire() override;
-	virtual EWeaponType GetWeaponType() const override { return EWeaponType::Ranged; }
+  virtual void Fire() override;
+  virtual EWeaponType GetWeaponType() const override {
+    return EWeaponType::Ranged;
+  }
 
-	/** Resets all item-applied modifiers to defaults. */
-	void ResetEffects();
+  /** Resets all item-applied modifiers to defaults. */
+  void ResetEffects();
 
-	void SetRicochetCount(int32 Count) { RicochetCount = Count; }
-	int32 GetRicochetCount() const { return RicochetCount; }
-	void SetPierceEnabled(bool bEnabled) { bPierceEnabled = bEnabled; }
+  void SetRicochetCount(int32 Count) { RicochetCount = Count; }
+  int32 GetRicochetCount() const { return RicochetCount; }
+  void SetPierceEnabled(bool bEnabled) { bPierceEnabled = bEnabled; }
 
-	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Ranged")
-	TSubclassOf<ABaseProjectile> ProjectileClass;
+  UPROPERTY(EditDefaultsOnly, Category = "Weapon|Ranged")
+  TSubclassOf<ABaseProjectile> ProjectileClass;
 
-	/** Delay between clicking and actual arrow spawn (to match animation). */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Ranged")
-	float ShotDelay = 0.15f;
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Ranged")
+  float ProjectileSpeed = 800.f;
+
+  /** Delay between clicking and actual arrow spawn (to match animation). */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Ranged")
+  float ShotDelay = 0.15f;
 
 private:
-	int32 RicochetCount = 0;
-	bool bPierceEnabled = false;
+  int32 RicochetCount = 0;
+  bool bPierceEnabled = false;
 
-	FTimerHandle ShotTimer;
-	void ActuallyFire();
+  FTimerHandle ShotTimer;
+  void ActuallyFire();
 };

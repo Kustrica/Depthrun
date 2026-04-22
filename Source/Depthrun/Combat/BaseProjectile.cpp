@@ -74,9 +74,10 @@ void ABaseProjectile::Tick(float DeltaTime) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 void ABaseProjectile::InitProjectile(const FVector &Direction, float Damage,
-                                     AActor *Shooter, bool bPierce,
-                                     int32 InRicochetCount) {
+                                     AActor *Shooter, float InSpeed,
+                                     bool bPierce, int32 InRicochetCount) {
   LaunchDirection = Direction.GetSafeNormal();
+  ProjectileSpeed = InSpeed;
   DamageAmount = Damage;
   ShooterActor = Shooter;
   bPierceEnabled = bPierce;
@@ -87,13 +88,6 @@ void ABaseProjectile::InitProjectile(const FVector &Direction, float Damage,
   {
       SetActorRotation(LaunchDirection.Rotation());
   }
-
-  UE_LOG(
-      LogCombat, Verbose,
-      TEXT("[Projectile] InitProjectile — dir=(%.2f,%.2f,%.2f) dmg=%.1f "
-           "pierce=%d ricochet=%d"),
-      LaunchDirection.X, LaunchDirection.Y, LaunchDirection.Z, Damage, bPierce,
-      InRicochetCount);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -42,6 +42,13 @@ void UFSMState_Chase::TickState(ABaseEnemy* Owner, float DeltaTime)
 	if (!FSM) return;
 
 	// ── Transition checks ─────────────────────────────────────────────────
+	// Commercial Fix: Ranged enemies should retreat if player is too close
+	if (Owner->GetEnemyType() == EEnemyType::Ranged && Dist < Owner->MinAttackRange)
+	{
+		FSM->TransitionTo(EFSMStateType::Retreat);
+		return;
+	}
+
 	if (Dist <= Owner->AttackRange)
 	{
 		FSM->TransitionTo(EFSMStateType::Attack);

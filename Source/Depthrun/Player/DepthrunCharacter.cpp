@@ -433,8 +433,8 @@ float ADepthrunCharacter::TakeDamage(float DamageAmount,
   }
 
   UE_LOG(LogDepthrun, Log,
-         TEXT("[Player] Took %.1f damage. Remaining HP: %.1f"), ActualDamage,
-         CurrentHP);
+         TEXT("[Player] Took %.1f damage from %s. Remaining HP: %.1f"), ActualDamage,
+         DamageCauser ? *DamageCauser->GetName() : TEXT("Unknown"), CurrentHP);
 
   if (CurrentHP <= 0.f) {
     Die();

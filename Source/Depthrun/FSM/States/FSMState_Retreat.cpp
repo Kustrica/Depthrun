@@ -20,8 +20,7 @@ void UFSMState_Retreat::EnterState(ABaseEnemy* Owner)
 		RetreatDirection = (Owner->GetActorLocation() - Player->GetActorLocation()).GetSafeNormal2D();
 	}
 
-	UE_LOG(LogFSM, Log, TEXT("[Retreat] Enter — %s  dir=(%.1f,%.1f)"),
-		*GetNameSafe(Owner), RetreatDirection.X, RetreatDirection.Y);
+	UE_LOG(LogFSM, Warning, TEXT("[STATE] %s → RETREAT! Dist from player is too low."), *GetNameSafe(Owner));
 }
 
 void UFSMState_Retreat::TickState(ABaseEnemy* Owner, float DeltaTime)
@@ -51,7 +50,7 @@ void UFSMState_Retreat::TickState(ABaseEnemy* Owner, float DeltaTime)
 	if (!FSM) return;
 
 	// ── Stop retreating when safe distance achieved ────────────────────────
-	if (Dist >= SafeDistance)
+	if (Dist >= Owner->SafeDistance)
 	{
 		FSM->TransitionTo(EFSMStateType::Idle);
 		return;

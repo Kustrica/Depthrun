@@ -1,5 +1,7 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "BaseEnemy.h"
+#include "Combat/BaseProjectile.h"
+#include "Combat/RangedWeapon.h"
 #include "Components/CapsuleComponent.h"
 #include "EnemyHealthComponent.h"
 #include "Engine/DamageEvents.h"
@@ -52,6 +54,31 @@ ABaseEnemy::ABaseEnemy() {
 
 void ABaseEnemy::BeginPlay() {
   Super::BeginPlay();
+
+  // ─── Weapon Spawning ──────────────────────────────────────────────────
+  if (WeaponClass) {
+    FActorSpawnParameters P;
+    P.Owner = this;
+    P.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    SpawnedWeapon = GetWorld()->SpawnActor<ABaseWeapon>(WeaponClass,
+                                                        GetActorTransform(), P);
+    if (SpawnedWeapon) {
+      SpawnedWeapon->AttachToComponent(
+          GetRootComponent(),
+          FAttachmentTransformRules::SnapToTargetIncludingScale);
+
+      // Commercial Fix: Explicitly pass the projectile class from the enemy to
+      // the weapon. This solves the issue where the spawned weapon instance
+      // might have a NULL ProjectileClass if it wasn't set in the class
+      // defaults.
+      if (ARangedWeapon *RW = Cast<ARangedWeapon>(SpawnedWeapon)) {
+        if (ProjectileClass) {
+          RW->ProjectileClass = ProjectileClass;
+        }
+      }
+    }
+  }
 
   // ─── Health callbacks ─────────────────────────────────────────────────
   if (HealthComponent) {
@@ -106,64 +133,58 @@ void ABaseEnemy::PerformMeleeAttack() {
   Player->TakeDamage(AttackDamage, FDamageEvent(), nullptr, this);
 }
 
-float ABaseEnemy::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
-{
-	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-	
-	if (ActualDamage > 0.f && !bIsDead)
-	{
-		bIsHitAnimationActive = true;
-		GetWorldTimerManager().SetTimer(HitAnimationTimer, this, &ABaseEnemy::ResetHitAnimation, 0.25f, false);
-	}
+float ABaseEnemy::TakeDamage(float DamageAmount,
+                             FDamageEvent const &DamageEvent,
+                             AController *EventInstigator,
+                             AActor *DamageCauser) {
+  const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent,
+                                               EventInstigator, DamageCauser);
 
-	return ActualDamage;
+  if (ActualDamage > 0.f && !bIsDead) {
+    bIsHitAnimationActive = true;
+    GetWorldTimerManager().SetTimer(
+        HitAnimationTimer, this, &ABaseEnemy::ResetHitAnimation, 0.25f, false);
+  }
+
+  return ActualDamage;
 }
 
-void ABaseEnemy::ResetHitAnimation()
-{
-	bIsHitAnimationActive = false;
-}
+void ABaseEnemy::ResetHitAnimation() { bIsHitAnimationActive = false; }
 
 void ABaseEnemy::OnSpawned() {
   UE_LOG(LogTemp, Log, TEXT("ABaseEnemy::OnSpawned → %s"), *GetName());
 }
 
-void ABaseEnemy::OnKilled()
-{
-	if (bIsDead) return;
-	bIsDead = true;
+void ABaseEnemy::OnKilled() {
+  if (bIsDead)
+    return;
+  bIsDead = true;
 
-	// Stop brain (FSM)
-	if (FSMComponent)
-	{
-		FSMComponent->Deactivate();
-	}
+  // Stop brain (FSM)
+  if (FSMComponent) {
+    FSMComponent->Deactivate();
+  }
 
-	// Stop updating movement
-	if (GetCharacterMovement())
-	{
-		GetCharacterMovement()->StopMovementImmediately();
-		GetCharacterMovement()->DisableMovement();
-	}
+  // Stop updating movement
+  if (GetCharacterMovement()) {
+    GetCharacterMovement()->StopMovementImmediately();
+    GetCharacterMovement()->DisableMovement();
+  }
 
-	if (GetCapsuleComponent())
-	{
-		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
+  if (GetCapsuleComponent()) {
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  }
 
-	// Play death animation instead of hiding immediately
-	if (FB_Death && GetSprite())
-	{
-		GetSprite()->SetFlipbook(FB_Death);
-		GetSprite()->SetLooping(false);
-		GetSprite()->Play();
-	}
-	else if (GetSprite())
-	{
-		GetSprite()->SetHiddenInGame(true);
-	}
+  // Play death animation instead of hiding immediately
+  if (FB_Death && GetSprite()) {
+    GetSprite()->SetFlipbook(FB_Death);
+    GetSprite()->SetLooping(false);
+    GetSprite()->Play();
+  } else if (GetSprite()) {
+    GetSprite()->SetHiddenInGame(true);
+  }
 
-	SetLifeSpan(3.0f);
+  SetLifeSpan(3.0f);
 }
 
 void ABaseEnemy::OnDeath() { OnKilled(); }
@@ -176,7 +197,7 @@ void ABaseEnemy::UpdateAnimation() {
   UPaperFlipbook *DesiredFB = nullptr;
 
   const bool bAttacking = FSMComponent && FSMComponent->GetCurrentStateType() ==
-                                               EFSMStateType::Attack;
+                                              EFSMStateType::Attack;
 
   if (bIsHitAnimationActive && FB_Hit) {
     DesiredFB = FB_Hit;
