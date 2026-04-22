@@ -133,6 +133,7 @@ private:
   FTimerHandle EvaluationTimerHandle;
 
   /** Cached from last evaluation for debug readouts. */
+  FContextData LastContext;
   FThreatAssessment LastThreatAssessment;
   TArray<FStateScore> LastStateScores;
 };

@@ -58,19 +58,67 @@ void UAdaptiveBehaviorComponent::InitializeSubsystems() {
          *GetOwner()->GetName());
 }
 
+#include "Kismet/GameplayStatics.h"
+#include "Enemy/BaseEnemy.h"
+#include "Player/DepthrunCharacter.h"
+
 void UAdaptiveBehaviorComponent::EvaluationTick() {
-  // TODO (Stage 6L): full pipeline implementation
-  // Context → Threat → Resolve → Transition
-  UE_LOG(LogAdaptiveBehavior, Verbose,
-         TEXT("[AdaptiveBehavior] EvaluationTick — stub"));
+  if (!Config || !ContextEval || !ThreatCalc || !Resolver || !FSMComp) return;
+
+  ABaseEnemy* Owner = Cast<ABaseEnemy>(GetOwner());
+  ADepthrunCharacter* Player = Cast<ADepthrunCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+  if (!Owner || !Player) return;
+
+  // ── Layer 1: Context Evaluation (Stage 6C)
+  LastContext = ContextEval->EvaluateContextWithMemory(Owner, Player, Memory, Config);
+
+  // ── Layer 2: Threat Calculation (Stage 6F)
+  LastThreatAssessment = ThreatCalc->CalculateThreat(LastContext, Memory, WeightManager, Config);
+  OnThreatEvaluated.Broadcast(LastThreatAssessment);
+
+  // ── Layer 3: Decision Making (Stage 6J)
+  float TimeInState = FSMComp->GetTimeInCurrentState();
+  EFSMStateType NewState = Resolver->ResolveNextState(
+      FSMComp->GetCurrentStateType(),
+      LastThreatAssessment,
+      LastContext,
+      TimeInState,
+      UtilCurves,
+      CostMatrix,
+      PatternRecog,
+      Config,
+      LastStateScores
+  );
+
+  // Apply decision
+  if (NewState != FSMComp->GetCurrentStateType())
+  {
+      FSMComp->TransitionTo(NewState);
+      OnAdaptiveDecisionMade.Broadcast(NewState);
+  }
+
+  // Broadcast pattern for debug
+  FString Pattern = PatternRecog->GetDominantPattern();
+  if (!Pattern.IsEmpty())
+  {
+      OnPatternRecognized.Broadcast(Pattern);
+  }
 }
 
 void UAdaptiveBehaviorComponent::OnDamageDealt() {
-  // TODO (Stage 6L): WeightManager->UpdateWeights(+1.f, ...)
+  if (WeightManager && Config)
+  {
+      // Reward = +1 (success)
+      WeightManager->UpdateWeights(1.0f, LastContext, Config);
+  }
 }
 
 void UAdaptiveBehaviorComponent::OnDamageTaken() {
-  // TODO (Stage 6L): WeightManager->UpdateWeights(-1.f, ...)
+  if (WeightManager && Config)
+  {
+      // Reward = -1 (failure)
+      WeightManager->UpdateWeights(-1.0f, LastContext, Config);
+  }
 }
 
 void UAdaptiveBehaviorComponent::HandlePlayerAction(
