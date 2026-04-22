@@ -1,5 +1,9 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "StateTransitionResolver.h"
+#include "AdaptiveConfig.h"
+#include "PatternRecognizer.h"
+#include "TransitionCostMatrix.h"
+#include "UtilityCurves.h"
 
 EFSMStateType UStateTransitionResolver::ResolveNextState(
 	EFSMStateType           CurrentState,

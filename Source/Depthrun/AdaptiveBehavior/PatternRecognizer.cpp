@@ -16,30 +16,37 @@ void UPatternRecognizer::AddAction(EPlayerActionType ActionType)
 
 FString UPatternRecognizer::GetDominantPattern() const
 {
-	// Find argmax over bigrams + trigrams (trigrams weighted x2 for specificity)
+	// Stage 7.1 Implementation: Weighting Trigrams > Bigrams > Unigrams.
 	FString BestPattern = TEXT("None");
-	int32 BestCount = 0;
+	int32 BestScore = 0;
+
+	for (const auto& Pair : Unigrams)
+	{
+		if (Pair.Value > BestScore)
+		{
+			BestScore = Pair.Value;
+			BestPattern = Pair.Key;
+		}
+	}
 
 	for (const auto& Pair : Bigrams)
 	{
-		if (Pair.Value > BestCount)
+		if (Pair.Value * 2 > BestScore)
 		{
-			BestCount = Pair.Value;
+			BestScore = Pair.Value * 2;
 			BestPattern = Pair.Key;
 		}
 	}
 
-	// Trigrams take priority if their count * 2 > current best (they encode more intent)
 	for (const auto& Pair : Trigrams)
 	{
-		if (Pair.Value * 2 > BestCount)
+		if (Pair.Value * 3 > BestScore)
 		{
-			BestCount = Pair.Value * 2;
+			BestScore = Pair.Value * 3;
 			BestPattern = Pair.Key;
 		}
 	}
 
-	UE_LOG(LogPatternRecognizer, Verbose, TEXT("[Pattern] dominant=%s count=%d"), *BestPattern, BestCount);
 	return BestPattern;
 }
 
@@ -47,29 +54,23 @@ float UPatternRecognizer::GetPatternModifier(EFSMStateType CandidateState) const
 {
 	const FString Dominant = GetDominantPattern();
 
-	// Pattern → state modifier table (from architecture plan)
-	// "Melee+Dash"  (aggressive rush)  → Retreat +0.2, Flank +0.15
-	// "Dash+Melee"                     → Retreat +0.2, Flank +0.15
-	// "Shot+Shot+Dash" (kiting)        → Chase +0.2
-	// "Dash+Dash"    (evasive)         → Attack -0.1
-	// "Shot+Shot"    (ranged pressure) → Retreat +0.1
-
-	struct FPatternRule
-	{
-		FString Pattern;
-		EFSMStateType State;
-		float Modifier;
-	};
-
 	static const TArray<FPatternRule> Rules =
 	{
-		{ TEXT("Melee+Dash"),     EFSMStateType::Retreat, +0.20f },
+		// Complex Patterns (Trigrams/Bigrams)
+		{ TEXT("Melee+Dash"),     EFSMStateType::Retreat, +0.25f },
 		{ TEXT("Melee+Dash"),     EFSMStateType::Flank,   +0.15f },
-		{ TEXT("Dash+Melee"),     EFSMStateType::Retreat, +0.20f },
+		{ TEXT("Dash+Melee"),     EFSMStateType::Retreat, +0.25f },
 		{ TEXT("Dash+Melee"),     EFSMStateType::Flank,   +0.15f },
-		{ TEXT("Shot+Shot+Dash"), EFSMStateType::Chase,   +0.20f },
-		{ TEXT("Dash+Dash"),      EFSMStateType::Attack,  -0.10f },
-		{ TEXT("Shot+Shot"),      EFSMStateType::Retreat, +0.10f },
+		{ TEXT("Shot+Shot+Dash"), EFSMStateType::Chase,   +0.35f },
+		{ TEXT("Dash+Dash"),      EFSMStateType::Attack,  -0.15f },
+		{ TEXT("Dash+Dash"),      EFSMStateType::Chase,   +0.20f },
+		{ TEXT("Shot+Shot"),      EFSMStateType::Retreat, +0.15f },
+		
+		// Simple Spam Counters (Unigrams) - Stage 7.1
+		{ TEXT("Melee"),          EFSMStateType::Flank,   +0.30f }, 
+		{ TEXT("Melee"),          EFSMStateType::Retreat, +0.10f },
+		{ TEXT("Shot"),           EFSMStateType::Chase,   +0.30f }, 
+		{ TEXT("Shot"),           EFSMStateType::Flank,   +0.20f }, 
 	};
 
 	for (const FPatternRule& Rule : Rules)
@@ -86,16 +87,24 @@ float UPatternRecognizer::GetPatternModifier(EFSMStateType CandidateState) const
 void UPatternRecognizer::Reset()
 {
 	ActionWindow.Reset();
+	Unigrams.Reset();
 	Bigrams.Reset();
 	Trigrams.Reset();
 }
 
 void UPatternRecognizer::RebuildNgrams()
 {
+	Unigrams.Reset();
 	Bigrams.Reset();
 	Trigrams.Reset();
 
 	const int32 N = ActionWindow.Num();
+
+	// Build 1-grams
+	for (int32 i = 0; i < N; ++i)
+	{
+		Unigrams.FindOrAdd(ActionToString(ActionWindow[i]))++;
+	}
 
 	// Build 2-grams
 	for (int32 i = 0; i + 1 < N; ++i)

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "BaseEnemy.generated.h"
 #include "CoreMinimal.h"
 #include "PaperCharacter.h"
+#include "BaseEnemy.generated.h"
 
 class UEnemyHealthComponent;
 class UFSMComponent;

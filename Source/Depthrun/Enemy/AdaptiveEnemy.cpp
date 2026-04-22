@@ -2,7 +2,17 @@
 #include "AdaptiveEnemy.h"
 #include "AdaptiveBehavior/AdaptiveBehaviorComponent.h"
 #include "DepthrunLogChannels.h"
+#include "Enemy/EnemyHealthComponent.h"
 #include "FSM/FSMComponent.h"
+#include "FSM/States/FSMState_Attack.h"
+#include "FSM/States/FSMState_Chase.h"
+#include "FSM/States/FSMState_Flank.h"
+#include "FSM/States/FSMState_Idle.h"
+#include "FSM/States/FSMState_Retreat.h"
+#include "Kismet/GameplayStatics.h"
+#include "Player/DepthrunCharacter.h"
+#include "Player/PlayerActionTracker.h"
+#include "PaperFlipbookComponent.h"
 
 AAdaptiveEnemy::AAdaptiveEnemy() {
   EnemyType = EEnemyType::Adaptive;
@@ -13,10 +23,59 @@ AAdaptiveEnemy::AAdaptiveEnemy() {
 
 void AAdaptiveEnemy::BeginPlay() {
   Super::BeginPlay();
-  UE_LOG(LogAdaptiveBehavior, Log,
-         TEXT("[AdaptiveEnemy] BeginPlay — stub, full init in Stage 7"));
-  // TODO (Stage 7): register FSM states, subscribe to PlayerActionTracker, wire
-  // reward delegates
+
+  // 1. Register FSM states
+  if (FSMComponent) {
+    FSMComponent->RegisterState(EFSMStateType::Idle,
+                                NewObject<UFSMState_Idle>(this));
+    FSMComponent->RegisterState(EFSMStateType::Chase,
+                                NewObject<UFSMState_Chase>(this));
+
+    UFSMState_Attack *Atk = NewObject<UFSMState_Attack>(this);
+    Atk->AttackCooldown = AttackCooldown;
+    FSMComponent->RegisterState(EFSMStateType::Attack, Atk);
+
+    FSMComponent->RegisterState(EFSMStateType::Retreat,
+                                NewObject<UFSMState_Retreat>(this));
+    FSMComponent->RegisterState(EFSMStateType::Flank,
+                                NewObject<UFSMState_Flank>(this));
+
+    // Start in Idle
+    FSMComponent->TransitionTo(EFSMStateType::Idle);
+  }
+
+  // 2. Subscribe to Player Actions (for Memory and Pattern Recognition)
+  ADepthrunCharacter *Player = Cast<ADepthrunCharacter>(
+      UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+  if (Player && Player->GetActionTracker() && AdaptiveComp) {
+    Player->GetActionTracker()->OnPlayerAction.AddDynamic(
+        AdaptiveComp, &UAdaptiveBehaviorComponent::HandlePlayerAction);
+  }
+
+  // 3. Subscribe to Health delegates for Reward Signal (online adaptation)
+  if (HealthComponent && AdaptiveComp) {
+    // reward = -1 when taking damage
+    HealthComponent->OnHealthChanged.AddDynamic(
+        this, &AAdaptiveEnemy::HandleHealthChanged);
+  }
+
+  UE_LOG(LogAdaptiveBehavior, Log, TEXT("[AdaptiveEnemy] Initialized: %s"),
+         *GetName());
+}
+
+void AAdaptiveEnemy::HandleHealthChanged(float OldHP, float NewHP,
+                                         float MaxHP) {
+  if (NewHP < OldHP && AdaptiveComp) {
+    AdaptiveComp->OnDamageTaken();
+  }
+}
+
+void AAdaptiveEnemy::PerformMeleeAttack() {
+  Super::PerformMeleeAttack();
+
+  if (AdaptiveComp) {
+    AdaptiveComp->OnDamageDealt();
+  }
 }
 
 void AAdaptiveEnemy::OnKilled() {
@@ -35,7 +94,7 @@ void AAdaptiveEnemy::UpdateAnimation() {
 
   UPaperFlipbook *DesiredFB = nullptr;
   const bool bAttacking = FSMComponent && FSMComponent->GetCurrentStateType() ==
-                                               EFSMStateType::Attack;
+                                              EFSMStateType::Attack;
 
   if (bIsHitAnimationActive && FB_Hit) {
     DesiredFB = FB_Hit;

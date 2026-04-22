@@ -66,8 +66,8 @@ void UFSMComponent::TransitionTo(EFSMStateType NewState)
 		CurrentState->EnterState(OwnerEnemy);
 	}
 
-	const FString OldName = UEnum::GetValueAsString(OldState);
-	const FString NewName = UEnum::GetValueAsString(NewState);
+	const FString OldName = GetStateName(OldState);
+	const FString NewName = GetStateName(NewState);
 	UE_LOG(LogFSM, Log, TEXT("FSM[%s]: %s → %s"), *GetOwner()->GetName(), *OldName, *NewName);
 	OnStateChanged.Broadcast(OldState, NewState);
 }

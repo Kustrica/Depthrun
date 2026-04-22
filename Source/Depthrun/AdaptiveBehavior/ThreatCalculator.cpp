@@ -54,6 +54,12 @@ FThreatAssessment UThreatCalculator::CalculateThreat(
 	Result.ThreatCross = ComputeTCross(Context, W, Config);
 	Result.ThreatRaw   = FMath::Clamp(Result.ThreatBase + Config->CrossTermBeta * Result.ThreatCross, 0.f, 1.f);
 
+	// Commercial Fix: If player is too far (DistanceNorm == 0), there is no threat.
+	if (Context.DistanceNorm <= 0.001f)
+	{
+		Result.ThreatRaw = 0.f;
+	}
+
 	// ── Phase 5a: Store T_raw for σ² computation ─────────────────────────────
 	PushToRingBuffer(TRawHistory, Result.ThreatRaw, Config->ConfidenceWindow);
 

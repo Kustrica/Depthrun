@@ -20,6 +20,8 @@ class DEPTHRUN_API UAdaptiveConfig : public UDataAsset {
   GENERATED_BODY()
 
 public:
+  UAdaptiveConfig();
+
   // ─── Context Evaluation ──────────────────────────────────────────────────
 
   /** Maximum engagement distance (cm). Beyond this D_norm = 0. */

@@ -1,9 +1,9 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #pragma once
 
-#include "AdaptiveEnemy.generated.h"
 #include "CoreMinimal.h"
 #include "Enemy/BaseEnemy.h"
+#include "AdaptiveEnemy.generated.h"
 
 class UFSMComponent;
 class UAdaptiveBehaviorComponent;
@@ -30,9 +30,16 @@ class DEPTHRUN_API AAdaptiveEnemy : public ABaseEnemy {
 public:
   AAdaptiveEnemy();
 
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Combat")
+  bool bIsRangedMode = false;
+
 protected:
   virtual void BeginPlay() override;
   virtual void OnKilled() override;
+  virtual void PerformMeleeAttack() override;
+
+  UFUNCTION()
+  void HandleHealthChanged(float OldHP, float NewHP, float MaxHP);
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
   TObjectPtr<UAdaptiveBehaviorComponent> AdaptiveComp;
@@ -48,8 +55,6 @@ protected:
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
   TObjectPtr<class UPaperFlipbook> FB_Attack_Ranged;
 
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Combat")
-  bool bIsRangedMode = false;
 
   virtual void UpdateAnimation();
 };

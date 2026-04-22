@@ -16,6 +16,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "PaperFlipbook.h"
 #include "PaperFlipbookComponent.h"
+#include "UI/DepthrunHUD.h"
 
 // ─── Timer handles for dash stop and attack reset ─────────────────────────
 namespace {
@@ -203,6 +204,14 @@ void ADepthrunCharacter::BeginPlay() {
 
   UE_LOG(LogDepthrun, Log,
          TEXT("ADepthrunCharacter::BeginPlay — player ready, HP=%.0f"), MaxHP);
+
+  if (APlayerController* PC = Cast<APlayerController>(GetController()))
+  {
+      if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
+      {
+          HUD->UpdatePlayerHP(CurrentHP, MaxHP);
+      }
+  }
 }
 
 void ADepthrunCharacter::SetupPlayerInputComponent(
@@ -438,6 +447,14 @@ float ADepthrunCharacter::TakeDamage(float DamageAmount,
 
   if (CurrentHP <= 0.f) {
     Die();
+  }
+
+  if (APlayerController* PC = Cast<APlayerController>(GetController()))
+  {
+      if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
+      {
+          HUD->UpdatePlayerHP(CurrentHP, MaxHP);
+      }
   }
 
   UpdateAnimation();

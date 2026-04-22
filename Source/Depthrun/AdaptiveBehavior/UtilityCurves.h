@@ -44,5 +44,5 @@ private:
 	float EvaluateChase  (float T, const UAdaptiveConfig* Cfg) const;
 	float EvaluateAttack (float T, const UAdaptiveConfig* Cfg) const;
 	float EvaluateFlank  (float T, float ANorm, const UAdaptiveConfig* Cfg) const;
-	float EvaluateRetreat(float T, const UAdaptiveConfig* Cfg) const;
+	float EvaluateRetreat(float T, const FContextData& Context, const UAdaptiveConfig* Cfg) const;
 };

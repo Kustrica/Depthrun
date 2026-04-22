@@ -2,9 +2,9 @@
 #pragma once
 
 #include "AdaptiveBehavior/AdaptiveTypes.h"
-#include "AdaptiveBehaviorComponent.generated.h"
 #include "Components/ActorComponent.h"
 #include "CoreMinimal.h"
+#include "AdaptiveBehaviorComponent.generated.h"
 
 class UAdaptiveConfig;
 class UContextEvaluator;
@@ -46,8 +46,20 @@ public:
 
   // ─── Config (assign in Editor / DataAsset) ────────────────────────────────
 
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive")
+  /** If false, the component will collect data but will NOT make FSM transitions (Layer 3 bypass). */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Adaptive")
+  bool bAdaptiveEnabled = true;
+
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Adaptive")
   TObjectPtr<UAdaptiveConfig> Config;
+
+  /** Character personality: affects how much threat is ignored. */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Adaptive|Personality")
+  EEnemyBravery BraveryLevel = EEnemyBravery::Normal;
+
+  /** Combat preference: affects when the enemy switches between Melee and Ranged. */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Adaptive|Personality")
+  EEnemyCombatStyle CombatStyle = EEnemyCombatStyle::Balanced;
 
   // ─── Debug / Diploma readouts (all implemented in Stage 6L) ─────────────
 

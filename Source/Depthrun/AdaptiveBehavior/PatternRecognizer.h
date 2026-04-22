@@ -21,6 +21,13 @@
  *
  * Implementation: Stage 6E.
  */
+struct FPatternRule
+{
+	FString Pattern;
+	EFSMStateType State;
+	float Modifier;
+};
+
 UCLASS()
 class DEPTHRUN_API UPatternRecognizer : public UObject
 {
@@ -50,6 +57,9 @@ private:
 
 	/** Sliding action window (max WindowSize). */
 	TArray<EPlayerActionType> ActionWindow;
+
+	/** 1-gram frequency map. Key = "A". */
+	TMap<FString, int32> Unigrams;
 
 	/** 2-gram frequency map. Key = "A+B". */
 	TMap<FString, int32> Bigrams;

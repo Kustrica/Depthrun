@@ -134,6 +134,23 @@ struct FThreatAssessment
  * Per-state scoring breakdown used by UStateTransitionResolver.
  * Score(s) = UtilityValue - TransitionCost + InertiaBonus + PatternModifier.
  */
+UENUM(BlueprintType)
+enum class EEnemyBravery : uint8
+{
+    Coward,
+    Normal,
+    Brave,
+    Heroic
+};
+
+UENUM(BlueprintType)
+enum class EEnemyCombatStyle : uint8
+{
+    MeleeOriented,
+    Balanced,
+    RangedOriented
+};
+
 USTRUCT(BlueprintType)
 struct FStateScore
 {

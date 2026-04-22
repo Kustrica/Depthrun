@@ -50,7 +50,7 @@ public:
 private:
 	int32 StateToIndex(EFSMStateType State) const;
 
-	/** Flat 5×5 matrix [row * 5 + col]. Row = From, Col = To. */
-	float Matrix[5][5] = {};
+	/** Flat 6×6 matrix [row * 6 + col]. Row = From, Col = To. */
+	float Matrix[6][6] = {};
 	bool bInitialized = false;
 };

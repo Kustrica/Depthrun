@@ -11,6 +11,10 @@
 #include "ThreatCalculator.h"
 #include "TransitionCostMatrix.h"
 #include "UtilityCurves.h"
+#include "Kismet/GameplayStatics.h"
+#include "Enemy/BaseEnemy.h"
+#include "Enemy/AdaptiveEnemy.h"
+#include "Player/DepthrunCharacter.h"
 
 UAdaptiveBehaviorComponent::UAdaptiveBehaviorComponent() {
   PrimaryComponentTick.bCanEverTick = false; // timer-driven, not tick-driven
@@ -58,10 +62,6 @@ void UAdaptiveBehaviorComponent::InitializeSubsystems() {
          *GetOwner()->GetName());
 }
 
-#include "Kismet/GameplayStatics.h"
-#include "Enemy/BaseEnemy.h"
-#include "Player/DepthrunCharacter.h"
-
 void UAdaptiveBehaviorComponent::EvaluationTick() {
   if (!Config || !ContextEval || !ThreatCalc || !Resolver || !FSMComp) return;
 
@@ -76,11 +76,31 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
   LastThreatAssessment = ThreatCalc->CalculateThreat(LastContext, Memory, WeightManager, Config);
   OnThreatEvaluated.Broadcast(LastThreatAssessment);
 
+  if (!bAdaptiveEnabled)
+  {
+      UE_LOG(LogAdaptiveBehavior, Verbose, TEXT("[AdaptiveBehavior] Bypass Layer 3 (bAdaptiveEnabled=false)"));
+      return;
+  }
+
   // ── Layer 3: Decision Making (Stage 6J)
+  
+  // Stage 7.1 / Diploma Hack: Convert Enum to Bravery Bias
+  float BraveryModifier = 0.f;
+  switch (BraveryLevel)
+  {
+      case EEnemyBravery::Coward: BraveryModifier = -0.3f; break; // Scared earlier
+      case EEnemyBravery::Normal: BraveryModifier = 0.f; break;
+      case EEnemyBravery::Brave:  BraveryModifier = 0.25f; break; // Scared later
+      case EEnemyBravery::Heroic: BraveryModifier = 0.5f; break;  // Almost never scared
+  }
+
+  FThreatAssessment BiasedThreat = LastThreatAssessment;
+  BiasedThreat.ThreatFinal = FMath::Clamp(BiasedThreat.ThreatFinal - BraveryModifier, 0.f, 1.f);
+
   float TimeInState = FSMComp->GetTimeInCurrentState();
   EFSMStateType NewState = Resolver->ResolveNextState(
       FSMComp->GetCurrentStateType(),
-      LastThreatAssessment,
+      BiasedThreat,
       LastContext,
       TimeInState,
       UtilCurves,
@@ -91,10 +111,40 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
   );
 
   // Apply decision
-  if (NewState != FSMComp->GetCurrentStateType())
+  EFSMStateType OldState = FSMComp->GetCurrentStateType();
+  if (NewState != OldState)
   {
       FSMComp->TransitionTo(NewState);
-      OnAdaptiveDecisionMade.Broadcast(NewState);
+      OnAdaptiveDecisionMade.Broadcast(OldState, NewState);
+  }
+
+  // Stage 7.5: Dynamic Ranged Mode Toggle (Auto-Ranged)
+  if (Owner)
+  {
+      // Switch to range if Flanking (tactical) or if Chasing but far away
+      const float Dist = LastContext.DistanceToPlayer;
+      bool bShouldBeRanged = (NewState == EFSMStateType::Flank);
+      
+      // Determine distance threshold based on combat style
+      float RangeThreshold = 80.f;
+      switch (CombatStyle)
+      {
+          case EEnemyCombatStyle::MeleeOriented:  RangeThreshold = 250.f; break; // Stays melee longer
+          case EEnemyCombatStyle::Balanced:       RangeThreshold = 80.f;  break;
+          case EEnemyCombatStyle::RangedOriented: RangeThreshold = 30.f;  break; // Takes bow earlier
+      }
+
+      // Also stay ranged if we are far and in Attack/Chase
+      if (Dist > RangeThreshold && (NewState == EFSMStateType::Attack || NewState == EFSMStateType::Chase))
+      {
+          bShouldBeRanged = true;
+      }
+
+      // Cast to AdaptiveEnemy to access the property
+      if (AAdaptiveEnemy* AdaptiveOwner = Cast<AAdaptiveEnemy>(Owner))
+      {
+          AdaptiveOwner->bIsRangedMode = bShouldBeRanged;
+      }
   }
 
   // Broadcast pattern for debug

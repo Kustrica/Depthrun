@@ -7,6 +7,7 @@ float UUtilityCurves::EvaluateUtility(
 	EFSMStateType State, const FThreatAssessment& Threat, const FContextData& Context, const UAdaptiveConfig* Cfg) const
 {
 	const float T = Threat.ThreatFinal;
+	const float Dist = Context.DistanceToPlayer;
 	
 	// Stage 6K: Adaptive Center Shifting
 	// Shift centers based on how much the current mean threat (μ) deviates from the default threat.
@@ -23,7 +24,7 @@ float UUtilityCurves::EvaluateUtility(
 	case EFSMStateType::Chase:   return EvaluateChase(T + AdaptiveShift, Cfg);
 	case EFSMStateType::Attack:  return EvaluateAttack(T + AdaptiveShift, Cfg);
 	case EFSMStateType::Flank:   return EvaluateFlank(T + AdaptiveShift, Context.AllyCountNorm, Cfg);
-	case EFSMStateType::Retreat: return EvaluateRetreat(T, Cfg); // Retreat is usually absolute
+	case EFSMStateType::Retreat: return EvaluateRetreat(T, Context, Cfg); // Retreat is usually absolute
 	default:                     return 0.f;
 	}
 }
@@ -51,16 +52,29 @@ float UUtilityCurves::EvaluateAttack(float T, const UAdaptiveConfig* Cfg) const
 
 float UUtilityCurves::EvaluateFlank(float T, float ANorm, const UAdaptiveConfig* Cfg) const
 {
-	// BellCurve(T, 0.6, 0.2) * A_norm
+	// Commercial Fix: Don't multiply by ANorm directly (kills solo flanking).
+	// Use (0.5 + 0.5 * ANorm) so solo enemies have at least 50% utility.
 	const float Center = Cfg ? Cfg->FlankBellCenter : 0.6f;
 	const float Width  = Cfg ? Cfg->FlankBellWidth  : 0.2f;
-	return DepthrunMath::BellCurve(T, Center, Width) * ANorm;
+	const float AllyFactor = 0.5f + (0.5f * ANorm);
+	return DepthrunMath::BellCurve(T, Center, Width) * AllyFactor;
 }
 
-float UUtilityCurves::EvaluateRetreat(float T, const UAdaptiveConfig* Cfg) const
+float UUtilityCurves::EvaluateRetreat(float T, const FContextData& Context, const UAdaptiveConfig* Cfg) const
 {
 	// Sigmoid(T, center=0.75, k=12)
 	const float Center = Cfg ? Cfg->RetreatSigmoidCenter    : 0.75f;
 	const float K      = Cfg ? Cfg->RetreatSigmoidSteepness : 12.f;
-	return DepthrunMath::Sigmoid(T, K, Center);
+	
+	// Commercial Fix: If T is high but we are far, reduce retreat utility 
+	// to allow transition back to Attack (Ranged).
+	float Utility = DepthrunMath::Sigmoid(T, K, Center);
+
+	// If distance is safe (> 60), penalize retreat utility so enemy stops running
+	if (Context.DistanceToPlayer > 60.f)
+	{
+		Utility *= 0.5f; // Reduce desire to run further by half
+	}
+
+	return Utility;
 }
