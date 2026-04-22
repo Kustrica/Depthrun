@@ -103,6 +103,24 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
   {
       OnPatternRecognized.Broadcast(Pattern);
   }
+
+  // Stage 6M: Detailed Logging
+  if (UE_LOG_ACTIVE(LogAdaptiveBehavior, Verbose))
+  {
+      FString ScoresLog;
+      for (const FStateScore& S : LastStateScores)
+      {
+          ScoresLog += FString::Printf(TEXT("%s=%.2f "), *UFSMComponent::GetStateName(S.State), S.FinalScore);
+      }
+
+      UE_LOG(LogAdaptiveBehavior, Verbose,
+          TEXT("[AdaptiveBehavior] Enemy=%s | T=%.3f C=%.3f | %s | → %s"),
+          *Owner->GetName(),
+          LastThreatAssessment.ThreatFinal,
+          LastThreatAssessment.Confidence,
+          *ScoresLog,
+          *UFSMComponent::GetStateName(NewState));
+  }
 }
 
 void UAdaptiveBehaviorComponent::OnDamageDealt() {
