@@ -62,8 +62,11 @@ private:
 	/** Ring buffer of recent T_raw values for σ² computation. */
 	TArray<float> TRawHistory;
 
-	/** Ring buffer of recent T_final values for adaptive thresholds. */
+	/** Ring buffer of recent T_final values for adaptive thresholds (Stage 6K). */
 	TArray<float> TFinalHistory;
+
+	/** Fallback weights used if DynamicWeightManager is null (equal split across 6 factors). */
+	TArray<float> DefaultWeights = { 0.2f, 0.2f, 0.2f, 0.15f, 0.15f, 0.1f };
 
 	float LastTSmooth = 0.f;
 	FThreatAssessment LastAssessment;
