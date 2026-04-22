@@ -61,6 +61,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FSM")
 	float GetTimeInCurrentState() const;
 
+	static FString GetStateName(EFSMStateType State);
+
 	// ─── Events ──────────────────────────────────────────────────────────────
 
 	/** Broadcast whenever a state transition occurs. Subscribed by debug widget and logger. */

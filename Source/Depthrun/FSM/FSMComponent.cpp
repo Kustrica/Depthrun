@@ -76,3 +76,10 @@ float UFSMComponent::GetTimeInCurrentState() const
 {
 	return CurrentState ? CurrentState->GetTimeInState() : 0.f;
 }
+
+FString UFSMComponent::GetStateName(EFSMStateType State)
+{
+	const UEnum* EnumPtr = StaticEnum<EFSMStateType>();
+	if (!EnumPtr) return TEXT("Unknown");
+	return EnumPtr->GetDisplayNameTextByValue((int64)State).ToString();
+}
