@@ -9,6 +9,7 @@
 class ABaseEnemy;
 class ADepthrunCharacter;
 class UAdaptiveConfig;
+class UAdaptiveMemory;
 
 /**
  * UContextEvaluator — Layer 1
@@ -37,6 +38,16 @@ public:
 	FContextData EvaluateContext(
 		const ABaseEnemy*        Owner,
 		const ADepthrunCharacter* Player,
+		const UAdaptiveConfig*   Config) const;
+
+	/**
+	 * Extended version that also fills MemoryAggressiveness / MemoryMobility.
+	 * Used by the orchestrator (UAdaptiveBehaviorComponent).
+	 */
+	FContextData EvaluateContextWithMemory(
+		const ABaseEnemy*        Owner,
+		const ADepthrunCharacter* Player,
+		const UAdaptiveMemory*   Memory,
 		const UAdaptiveConfig*   Config) const;
 
 private:
