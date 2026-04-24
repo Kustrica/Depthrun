@@ -109,7 +109,8 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft, bool
 
 void ARoomBase::OnRoomEntry(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-    if (bIsCleared || !OtherActor || !OtherActor->IsA(APawn::StaticClass())) return;
+    APawn* Pawn = Cast<APawn>(OtherActor);
+    if (bIsCleared || !Pawn || !Pawn->IsPlayerControlled()) return;
 
     if (URoomGeneratorSubsystem* Sub = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
     {
