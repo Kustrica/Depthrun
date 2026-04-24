@@ -3,49 +3,68 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "Enemy/EnemyTypes.h"
+#include "DungeonTypes.h"
 #include "RoomTemplate.generated.h"
-
-class ARoomBase;
 
 /**
  * URoomTemplate
- * DataAsset describing a room layout for use by URoomGeneratorSubsystem.
- * Assign in Editor to populate room pools.
- * Implementation: Stage 8A.
+ * Configuration for a procedural room.
  */
 UCLASS(BlueprintType)
 class DEPTHRUN_API URoomTemplate : public UDataAsset
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	/** Friendly name shown in Editor. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Room")
-	FName TemplateName = TEXT("Room_Default");
+    UPROPERTY(EditAnywhere, Category = "Layout")
+    TObjectPtr<class UPaperTileMap> TileMapAsset;
 
-	/** Type of room this template represents. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Room")
-	ERoomType RoomType = ERoomType::Combat;
+    UPROPERTY(EditAnywhere, Category = "Layout")
+    ERoomType RoomType = ERoomType::Combat;
 
-	/** Reference to an ARoomBase Blueprint asset to spawn. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Room")
-	TSubclassOf<ARoomBase> RoomClass;
+    UPROPERTY(EditAnywhere, Category = "Layout")
+    ERoomShape Shape = ERoomShape::Single;
 
-	/** Size hint (used by generator for placement grid). */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Room")
-	FVector2D RoomSize = FVector2D(2000.f, 2000.f);
+    // ─── Tile Replacement ──────────────────────────────────────────────────
 
-	/** Difficulty rating [0,1]. Higher = more/harder enemies. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Room",
-		meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float DifficultyRating = 0.5f;
+    /** Tile used to fill a door slot if there is no connection. */
+    UPROPERTY(EditAnywhere, Category = "Tiles|Replacement")
+    FRoomTileInfo WallTile;
 
-	/** Enemy classes to spawn in this room template. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Room|Enemies")
-	TArray<TSubclassOf<AActor>> EnemyClasses;
+    /** Tile used for the floor in a door slot if the door is open. */
+    UPROPERTY(EditAnywhere, Category = "Tiles|Replacement")
+    FRoomTileInfo DoorFloorTile;
 
-	/** Max enemies this template spawns. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Room|Enemies")
-	int32 MaxEnemyCount = 3;
+    // ─── Prop Classes ──────────────────────────────────────────────────────
+
+    UPROPERTY(EditAnywhere, Category = "Generation|Props")
+    TSubclassOf<class AActor> DoorClass;
+
+    UPROPERTY(EditAnywhere, Category = "Generation|Props")
+    TSubclassOf<class AActor> TorchClass;
+
+    UPROPERTY(EditAnywhere, Category = "Generation|Props")
+    TSubclassOf<class AActor> ChestClass;
+
+    UPROPERTY(EditAnywhere, Category = "Generation|Props")
+    TSubclassOf<class AActor> BoneDecorClass;
+
+    // ─── Spawning Logic ────────────────────────────────────────────────────
+
+    UPROPERTY(EditAnywhere, Category = "Generation|Enemies")
+    TArray<FEnemySpawnInfo> PotentialEnemies;
+
+    UPROPERTY(EditAnywhere, Category = "Generation|Enemies")
+    int32 MinEnemies = 2;
+
+    UPROPERTY(EditAnywhere, Category = "Generation|Enemies")
+    int32 MaxEnemies = 4;
+
+    /** Chance [0-100] to spawn a chest after room clear. */
+    UPROPERTY(EditAnywhere, Category = "Generation|Chances", meta=(ClampMin="0", ClampMax="100"))
+    float ChestSpawnChance = 10.0f;
+
+    /** Chance [0-100] per valid spot to spawn a torch. */
+    UPROPERTY(EditAnywhere, Category = "Generation|Chances", meta=(ClampMin="0", ClampMax="100"))
+    float TorchSpawnChance = 50.0f;
 };

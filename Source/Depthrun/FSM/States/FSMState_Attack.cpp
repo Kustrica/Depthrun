@@ -70,6 +70,13 @@ void UFSMState_Attack::TickState(ABaseEnemy* Owner, float DeltaTime)
 		Owner->PerformMeleeAttack(); // Delegate actual attack to the enemy actor
 		UE_LOG(LogFSM, Log, TEXT("[Attack] %s → attack fired"), *GetNameSafe(Owner));
 	}
+
+    // Stage 12: Separation during attack
+    FVector Separation = Owner->GetSeparationSteering();
+    if (!Separation.IsNearlyZero())
+    {
+        Owner->AddMovementInput(Separation, 0.5f);
+    }
 }
 
 void UFSMState_Attack::ExitState(ABaseEnemy* Owner)

@@ -28,4 +28,6 @@ public:
 private:
 	/** Cached retreat direction (recalculated on Enter and periodically). */
 	FVector RetreatDirection = FVector::ZeroVector;
+
+	float TimeSinceLastShot = 0.f;
 };

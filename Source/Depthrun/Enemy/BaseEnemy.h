@@ -38,7 +38,7 @@ protected:
   UFUNCTION()
   virtual void OnDeath();
 
-  void UpdateAnimation();
+  virtual void UpdateAnimation();
 
 public:
   EEnemyType GetEnemyType() const { return EnemyType; }
@@ -68,20 +68,19 @@ public:
 
   /** Range at which the enemy first detects the player and starts chasing. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
-  float DetectionRange = 500.f;
+  float DetectionRange = 250.f;
 
   /** Range at which the enemy enters Attack state. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
-  float AttackRange = 60.f;
+  float AttackRange = 25.f;
 
   /** Ranged enemies will try to retreat if player is closer than this. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
-  float MinAttackRange = 200.f;
+  float MinAttackRange = 80.f;
 
-  /** Distance at which the enemy stops retreating. Default 350 is enough to
-   * clear melee range. */
+  /** Distance at which the enemy stops retreating. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
-  float SafeDistance = 350.f;
+  float SafeDistance = 140.f;
 
   /** Damage dealt per melee attack. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
@@ -125,6 +124,15 @@ public:
 
   virtual void OnSpawned();
   virtual void OnKilled();
+
+  UFUNCTION(BlueprintCallable, Category = "Enemy|Combat")
+  UEnemyHealthComponent* GetHealthComponent() const { return HealthComponent; }
+
+  UFUNCTION(BlueprintCallable, Category = "Enemy|Combat")
+  bool IsDead() const { return bIsDead; }
+
+  UFUNCTION(BlueprintPure, Category = "Enemy|Movement")
+  FVector GetSeparationSteering() const;
 
 protected:
   bool bIsHitAnimationActive = false;

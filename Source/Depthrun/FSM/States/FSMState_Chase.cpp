@@ -63,7 +63,12 @@ void UFSMState_Chase::TickState(ABaseEnemy* Owner, float DeltaTime)
 	// ── Move toward player ────────────────────────────────────────────────
 	// In top-down 2D with gravity=0 and Flying/Walking mode,
 	// AddMovementInput scales with MaxWalkSpeed/MaxFlySpeed.
-	const FVector Dir = (PlayerLoc - OwnerLoc).GetSafeNormal2D();
+	FVector Dir = (PlayerLoc - OwnerLoc).GetSafeNormal2D();
+    
+    // Stage 12: Separation Steering
+    FVector Separation = Owner->GetSeparationSteering();
+    Dir = (Dir + Separation * 0.8f).GetSafeNormal2D();
+
 	Owner->AddMovementInput(Dir);
 }
 

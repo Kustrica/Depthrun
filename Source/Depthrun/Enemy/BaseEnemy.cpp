@@ -55,6 +55,10 @@ ABaseEnemy::ABaseEnemy() {
 void ABaseEnemy::BeginPlay() {
   Super::BeginPlay();
 
+  // Stage 12: Integrity check. SafeDistance must be less than DetectionRange, 
+  // otherwise the enemy retreats into "Idle" state and never comes back.
+  SafeDistance = FMath::Clamp(SafeDistance, 50.f, DetectionRange * 0.8f);
+
   // ─── Weapon Spawning ──────────────────────────────────────────────────
   if (WeaponClass) {
     FActorSpawnParameters P;
@@ -197,7 +201,7 @@ void ABaseEnemy::UpdateAnimation() {
   UPaperFlipbook *DesiredFB = nullptr;
 
   const bool bAttacking = FSMComponent && FSMComponent->GetCurrentStateType() ==
-                                              EFSMStateType::Attack;
+                                               EFSMStateType::Attack;
 
   if (bIsHitAnimationActive && FB_Hit) {
     DesiredFB = FB_Hit;
@@ -222,4 +226,32 @@ void ABaseEnemy::UpdateAnimation() {
       GetSprite()->SetRelativeScale3D(Scale);
     }
   }
+}
+
+FVector ABaseEnemy::GetSeparationSteering() const
+{
+    TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+	TArray<AActor*> IgnoreActors;
+	IgnoreActors.Add(const_cast<ABaseEnemy*>(this));
+	TArray<AActor*> OutActors;
+
+    // Larger radius for better spacing (100 units)
+	UKismetSystemLibrary::SphereOverlapActors(
+		this, GetActorLocation(), 100.f, ObjectTypes, ABaseEnemy::StaticClass(), IgnoreActors, OutActors);
+
+    FVector Steer = FVector::ZeroVector;
+    for (AActor* Ally : OutActors)
+    {
+        if (Ally)
+        {
+            FVector Diff = GetActorLocation() - Ally->GetActorLocation();
+            float Dist = Diff.Size();
+            if (Dist > 0.01f)
+            {
+                Steer += Diff.GetSafeNormal() / Dist; // Stronger push if closer
+            }
+        }
+    }
+    return Steer.GetSafeNormal2D();
 }

@@ -87,7 +87,10 @@ void UFSMState_Flank::RecalculateFlankDirection(ABaseEnemy* Owner)
 
 	// Perpendicular to the player→enemy vector (rotated 90° on Z axis).
 	const FVector ToPlayer   = (Player->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal2D();
-	const FVector Perp       = FVector(-ToPlayer.Y, ToPlayer.X, 0.f); // 90° CCW
-	FlankDirection           = Perp * static_cast<float>(FlankSide);
-	FlankDirection.Normalize();
+	const FVector Perp       = FVector(-ToPlayer.Y, ToPlayer.X, 0.f) * static_cast<float>(FlankSide); // 90° rotated
+	
+	// Stage 12: Shallow Angled Approach (not a wide 90° arc, but a 30-45° push)
+	// We mix the direct direction to player with the perpendicular direction.
+	// 0.8 / 0.5 mix gives approx 32 degrees angle.
+	FlankDirection           = (ToPlayer * 0.8f + Perp * 0.5f).GetSafeNormal2D();
 }

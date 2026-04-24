@@ -1,6 +1,7 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "FSMState_Retreat.h"
 #include "Enemy/BaseEnemy.h"
+#include "Enemy/AdaptiveEnemy.h"
 #include "FSM/FSMComponent.h"
 #include "Core/DepthrunLogChannels.h"
 #include "Kismet/GameplayStatics.h"
@@ -63,6 +64,22 @@ void UFSMState_Retreat::TickState(ABaseEnemy* Owner, float DeltaTime)
 	}
 
 	Owner->AddMovementInput(RetreatDirection);
+
+    // ── Stage 12: Hybrid Support (Shoot while retreating) ──────────────────
+    if (AAdaptiveEnemy* AdaptiveOwner = Cast<AAdaptiveEnemy>(Owner))
+    {
+        if (AdaptiveOwner->bIsRangedMode)
+        {
+            TimeSinceLastShot += DeltaTime;
+            // Fire while running, but at 150% of normal cooldown (harder to aim while running)
+            if (TimeSinceLastShot >= AdaptiveOwner->AttackCooldown * 1.5f)
+            {
+                TimeSinceLastShot = 0.f;
+                AdaptiveOwner->PerformMeleeAttack(); // Calls the overridden shooting logic
+                UE_LOG(LogFSM, Verbose, TEXT("[Retreat] %s fired hybrid shot"), *Owner->GetName());
+            }
+        }
+    }
 }
 
 void UFSMState_Retreat::ExitState(ABaseEnemy* Owner)

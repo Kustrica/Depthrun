@@ -33,6 +33,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RoomGen")
 	void GenerateRooms(int32 RoomCount = 7);
 
+	/** Called by ARoomBase when player enters its bounds. */
+	void OnPlayerEnteredRoom(ARoomBase* Room);
+
 	/** Called by ARoomTransitionVolume when player enters a transition area. */
 	UFUNCTION(BlueprintCallable, Category = "RoomGen")
 	void OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex);
