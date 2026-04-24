@@ -21,9 +21,9 @@ float UUtilityCurves::EvaluateUtility(
 	switch (State)
 	{
 	case EFSMStateType::Idle:    return EvaluateIdle(T);
-	case EFSMStateType::Chase:   return EvaluateChase(T + AdaptiveShift, Cfg);
+	case EFSMStateType::Chase:   return EvaluateChase(T + AdaptiveShift, Context, Cfg);
 	case EFSMStateType::Attack:  return EvaluateAttack(T + AdaptiveShift, Cfg);
-	case EFSMStateType::Flank:   return EvaluateFlank(T + AdaptiveShift, Context.AllyCountNorm, Cfg);
+	case EFSMStateType::Flank:   return EvaluateFlank(T + AdaptiveShift, Context, Cfg);
 	case EFSMStateType::Retreat: return EvaluateRetreat(T, Context, Cfg); // Retreat is usually absolute
 	default:                     return 0.f;
 	}
@@ -31,16 +31,31 @@ float UUtilityCurves::EvaluateUtility(
 
 float UUtilityCurves::EvaluateIdle(float T) const
 {
-	// max(0, 1 - 4*T²)
-	return FMath::Max(0.f, 1.f - 4.f * T * T);
+	// max(0, 1 - 6*T²) — Stage 12: steeper drop-off to avoid Idle during combat
+	return FMath::Max(0.f, 1.f - 6.f * T * T);
 }
 
-float UUtilityCurves::EvaluateChase(float T, const UAdaptiveConfig* Cfg) const
+float UUtilityCurves::EvaluateChase(float T, const FContextData& Context, const UAdaptiveConfig* Cfg) const
 {
-	// BellCurve(T, center, width) — TODO (Stage 6H): use Cfg parameters
 	const float Center = Cfg ? Cfg->ChaseBellCenter : 0.3f;
 	const float Width  = Cfg ? Cfg->ChaseBellWidth  : 0.2f;
-	return DepthrunMath::BellCurve(T, Center, Width);
+	float Utility = DepthrunMath::BellCurve(T, Center, Width);
+
+    // Stage 12: Aggressive Push against ranged pressure
+    // Personality-aware: Brave/Heroic enemies push harder, Cowards almost never push.
+    float PushFactor = 0.4f;
+    if (Context.BraveryLevel == EEnemyBravery::Coward) PushFactor = 0.05f;
+    else if (Context.BraveryLevel == EEnemyBravery::Heroic) PushFactor = 0.7f;
+    
+    // Ranged types prefer not to push into melee
+    if (Context.CombatStyle == EEnemyCombatStyle::RangedOriented) PushFactor *= 0.4f;
+
+    if (Context.MemoryAggressiveness > 0.4f)
+    {
+        Utility += Context.MemoryAggressiveness * PushFactor;
+    }
+
+    return FMath::Clamp(Utility, 0.f, 1.2f); // Allow slight over-scoring for priority
 }
 
 float UUtilityCurves::EvaluateAttack(float T, const UAdaptiveConfig* Cfg) const
@@ -50,30 +65,42 @@ float UUtilityCurves::EvaluateAttack(float T, const UAdaptiveConfig* Cfg) const
 	return DepthrunMath::BellCurve(T, Center, Width);
 }
 
-float UUtilityCurves::EvaluateFlank(float T, float ANorm, const UAdaptiveConfig* Cfg) const
+float UUtilityCurves::EvaluateFlank(float T, const FContextData& Context, const UAdaptiveConfig* Cfg) const
 {
-	// Commercial Fix: Don't multiply by ANorm directly (kills solo flanking).
-	// Use (0.5 + 0.5 * ANorm) so solo enemies have at least 50% utility.
 	const float Center = Cfg ? Cfg->FlankBellCenter : 0.6f;
 	const float Width  = Cfg ? Cfg->FlankBellWidth  : 0.2f;
-	const float AllyFactor = 0.5f + (0.5f * ANorm);
-	return DepthrunMath::BellCurve(T, Center, Width) * AllyFactor;
+	const float AllyFactor = 0.5f + (0.5f * Context.AllyCountNorm);
+	
+    float Utility = DepthrunMath::BellCurve(T, Center, Width) * AllyFactor;
+
+    // Stage 12: Tactical penalization
+    // If player is too close (< 100), Flank is less effective than direct Attack/Retreat
+    if (Context.DistanceToPlayer < 100.f)
+    {
+        Utility *= 0.3f;
+    }
+
+    return Utility;
 }
 
 float UUtilityCurves::EvaluateRetreat(float T, const FContextData& Context, const UAdaptiveConfig* Cfg) const
 {
-	// Sigmoid(T, center=0.75, k=12)
 	const float Center = Cfg ? Cfg->RetreatSigmoidCenter    : 0.75f;
 	const float K      = Cfg ? Cfg->RetreatSigmoidSteepness : 12.f;
 	
-	// Commercial Fix: If T is high but we are far, reduce retreat utility 
-	// to allow transition back to Attack (Ranged).
 	float Utility = DepthrunMath::Sigmoid(T, K, Center);
 
-	// If distance is safe (> 60), penalize retreat utility so enemy stops running
-	if (Context.DistanceToPlayer > 60.f)
+    // Cowards prioritize retreat
+    if (Context.BraveryLevel == EEnemyBravery::Coward) Utility *= 1.4f;
+
+    // Cowards retreat to a safer distance
+    float SafeZoneDist = 150.f;
+    if (Context.BraveryLevel == EEnemyBravery::Coward) SafeZoneDist = 350.f;
+
+	// If distance is safe, penalize retreat utility so enemy stops running
+	if (Context.DistanceToPlayer > SafeZoneDist)
 	{
-		Utility *= 0.5f; // Reduce desire to run further by half
+		Utility *= 0.4f; 
 	}
 
 	return Utility;

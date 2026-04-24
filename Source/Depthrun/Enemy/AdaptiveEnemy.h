@@ -33,10 +33,14 @@ public:
   UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Combat")
   bool bIsRangedMode = false;
 
+  virtual void PerformMeleeAttack() override;
+
+  /** For ranged mode: fires a projectile. */
+  void ActuallyFire();
+
 protected:
   virtual void BeginPlay() override;
   virtual void OnKilled() override;
-  virtual void PerformMeleeAttack() override;
 
   UFUNCTION()
   void HandleHealthChanged(float OldHP, float NewHP, float MaxHP);
@@ -55,6 +59,15 @@ protected:
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
   TObjectPtr<class UPaperFlipbook> FB_Attack_Ranged;
 
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+  TObjectPtr<class UPaperFlipbook> FB_Hit_Ranged;
+
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
+  TObjectPtr<class UPaperFlipbook> FB_Death_Ranged;
+
 
   virtual void UpdateAnimation();
+
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+  float MuzzleOffset = 30.f;
 };

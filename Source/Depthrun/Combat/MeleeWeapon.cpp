@@ -99,6 +99,8 @@ void AMeleeWeapon::DeactivateHitZone() {
   HitZone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
+#include "Enemy/BaseEnemy.h"
+
 void AMeleeWeapon::OnHitZoneOverlap(UPrimitiveComponent *OverlappedComp,
                                     AActor *OtherActor,
                                     UPrimitiveComponent *OtherComp,
@@ -107,9 +109,9 @@ void AMeleeWeapon::OnHitZoneOverlap(UPrimitiveComponent *OverlappedComp,
   if (!IsValid(OtherActor) || OtherActor == GetOwner())
     return;
 
-  UE_LOG(LogCombat, Log,
-         TEXT("AMeleeWeapon::OnHitZoneOverlap → %s  damage=%.1f"),
-         *OtherActor->GetName(), BaseDamage);
+  // Friendly Fire Prevention: Enemies shouldn't hit other enemies
+  if (GetOwner() && GetOwner()->IsA(ABaseEnemy::StaticClass()) && OtherActor->IsA(ABaseEnemy::StaticClass()))
+    return;
 
   OtherActor->TakeDamage(BaseDamage, FDamageEvent(), nullptr, GetOwner());
 }

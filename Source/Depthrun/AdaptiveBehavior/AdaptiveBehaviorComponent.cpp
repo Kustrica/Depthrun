@@ -14,6 +14,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Enemy/BaseEnemy.h"
 #include "Enemy/AdaptiveEnemy.h"
+#include "Enemy/EnemyHealthComponent.h"
 #include "Player/DepthrunCharacter.h"
 
 UAdaptiveBehaviorComponent::UAdaptiveBehaviorComponent() {
@@ -29,7 +30,24 @@ void UAdaptiveBehaviorComponent::BeginPlay() {
         EvaluationTimerHandle, this,
         &UAdaptiveBehaviorComponent::EvaluationTick, Config->EvaluationInterval,
         true);
+  } else {
+      UE_LOG(LogAdaptiveBehavior, Error, TEXT("[AdaptiveBehavior] ERROR: Config is missing on %s! AI will be inactive."), *GetOwner()->GetName());
   }
+
+  // Subscribe to death to stop brain
+  if (ABaseEnemy* Owner = Cast<ABaseEnemy>(GetOwner()))
+  {
+      if (Owner->GetHealthComponent())
+      {
+          Owner->GetHealthComponent()->OnDeath.AddDynamic(this, &UAdaptiveBehaviorComponent::OnOwnerDeath);
+      }
+  }
+}
+
+void UAdaptiveBehaviorComponent::OnOwnerDeath()
+{
+    GetWorld()->GetTimerManager().ClearTimer(EvaluationTimerHandle);
+    UE_LOG(LogAdaptiveBehavior, Log, TEXT("[AdaptiveBehavior] Owner died, evaluation stopped."));
 }
 
 void UAdaptiveBehaviorComponent::EndPlay(
@@ -67,10 +85,13 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
 
   ABaseEnemy* Owner = Cast<ABaseEnemy>(GetOwner());
   ADepthrunCharacter* Player = Cast<ADepthrunCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
-  if (!Owner || !Player) return;
+  
+  if (!Owner || Owner->IsDead() || !Player) return;
 
   // ── Layer 1: Context Evaluation (Stage 6C)
   LastContext = ContextEval->EvaluateContextWithMemory(Owner, Player, Memory, Config);
+  LastContext.BraveryLevel = BraveryLevel;
+  LastContext.CombatStyle = CombatStyle;
 
   // ── Layer 2: Threat Calculation (Stage 6F)
   LastThreatAssessment = ThreatCalc->CalculateThreat(LastContext, Memory, WeightManager, Config);
@@ -112,30 +133,46 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
 
   // Apply decision
   EFSMStateType OldState = FSMComp->GetCurrentStateType();
+  
+  // Hysteresis: Prevent "Retreat -> Idle -> Retreat" loop for Cowards
+  if (NewState == EFSMStateType::Retreat && OldState == EFSMStateType::Idle)
+  {
+      float Now = GetWorld()->GetTimeSeconds();
+      if (Now - LastRetreatExitTime < RetreatHysteresisDuration)
+      {
+          UE_LOG(LogAdaptiveBehavior, Verbose, TEXT("[AdaptiveBehavior] Blocking Retreat transition due to hysteresis."));
+          NewState = EFSMStateType::Idle; // Stay in Idle for now
+      }
+  }
+
   if (NewState != OldState)
   {
+      if (OldState == EFSMStateType::Retreat)
+      {
+          LastRetreatExitTime = GetWorld()->GetTimeSeconds();
+      }
+
       FSMComp->TransitionTo(NewState);
       OnAdaptiveDecisionMade.Broadcast(OldState, NewState);
   }
 
-  // Stage 7.5: Dynamic Ranged Mode Toggle (Auto-Ranged)
+  // Stage 7.5 / Sprint Refinement: Dynamic Ranged Mode Toggle (Auto-Ranged)
   if (Owner)
   {
-      // Switch to range if Flanking (tactical) or if Chasing but far away
-      const float Dist = LastContext.DistanceToPlayer;
-      bool bShouldBeRanged = (NewState == EFSMStateType::Flank);
+      // Switch to range if Flanking (tactical) or if Retreating (hybrid support)
+      bool bShouldBeRanged = (NewState == EFSMStateType::Flank) || (NewState == EFSMStateType::Retreat);
       
-      // Determine distance threshold based on combat style
-      float RangeThreshold = 80.f;
+      // Determine distance threshold based on combat style for Chase/Attack
+      float RangeThreshold = 100.f;
       switch (CombatStyle)
       {
-          case EEnemyCombatStyle::MeleeOriented:  RangeThreshold = 250.f; break; // Stays melee longer
-          case EEnemyCombatStyle::Balanced:       RangeThreshold = 80.f;  break;
-          case EEnemyCombatStyle::RangedOriented: RangeThreshold = 30.f;  break; // Takes bow earlier
+          case EEnemyCombatStyle::MeleeOriented:  RangeThreshold = 300.f; break; // Stays melee longer
+          case EEnemyCombatStyle::Balanced:       RangeThreshold = 100.f; break;
+          case EEnemyCombatStyle::RangedOriented: RangeThreshold = 20.f;  break; // Takes bow MUCH earlier
       }
 
       // Also stay ranged if we are far and in Attack/Chase
-      if (Dist > RangeThreshold && (NewState == EFSMStateType::Attack || NewState == EFSMStateType::Chase))
+      if (LastContext.DistanceToPlayer > RangeThreshold && (NewState == EFSMStateType::Attack || NewState == EFSMStateType::Chase))
       {
           bShouldBeRanged = true;
       }

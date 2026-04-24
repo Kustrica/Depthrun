@@ -35,11 +35,11 @@ public:
 
   /** Reach of the weapon (distance forward). */
   UPROPERTY(EditAnywhere, Category = "Weapon|Melee")
-  float HitZoneHalfExtent = 60.f;
+  float HitZoneHalfExtent = 18.f;
 
   /** Width of the weapon swing (distance sideways). */
   UPROPERTY(EditAnywhere, Category = "Weapon|Melee")
-  float HitZoneWidth = 80.f;
+  float HitZoneWidth = 22.f;
 
   /** Z-thickness of the hit zone to ensure it hits enemies in 2D. */
   UPROPERTY(EditAnywhere, Category = "Weapon|Melee")

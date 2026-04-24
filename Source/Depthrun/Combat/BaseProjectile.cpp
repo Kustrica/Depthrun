@@ -94,6 +94,8 @@ void ABaseProjectile::InitProjectile(const FVector &Direction, float Damage,
 // OnOverlap — damage on enemy contact
 // ─────────────────────────────────────────────────────────────────────────────
 
+#include "Enemy/BaseEnemy.h"
+
 void ABaseProjectile::OnOverlap(UPrimitiveComponent *OverlappedComp,
                                  AActor *OtherActor,
                                  UPrimitiveComponent *OtherComp,
@@ -110,8 +112,9 @@ void ABaseProjectile::OnOverlap(UPrimitiveComponent *OverlappedComp,
   if (HitActors.Contains(OtherActor))
     return; // already hit (pierce mode guard)
 
-  UE_LOG(LogCombat, Log, TEXT("[Projectile] OnOverlap → %s  dmg=%.1f"),
-         *OtherActor->GetName(), DamageAmount);
+  // Friendly Fire Prevention: Enemies shouldn't hit other enemies
+  if (ShooterActor && ShooterActor->IsA(ABaseEnemy::StaticClass()) && OtherActor->IsA(ABaseEnemy::StaticClass()))
+    return;
 
   OtherActor->TakeDamage(DamageAmount, FDamageEvent(), nullptr, ShooterActor);
   HitActors.Add(OtherActor);

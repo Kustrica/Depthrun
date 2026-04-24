@@ -69,8 +69,8 @@ float UPatternRecognizer::GetPatternModifier(EFSMStateType CandidateState) const
 		// Simple Spam Counters (Unigrams) - Stage 7.1
 		{ TEXT("Melee"),          EFSMStateType::Flank,   +0.30f }, 
 		{ TEXT("Melee"),          EFSMStateType::Retreat, +0.10f },
-		{ TEXT("Shot"),           EFSMStateType::Chase,   +0.30f }, 
-		{ TEXT("Shot"),           EFSMStateType::Flank,   +0.20f }, 
+		{ TEXT("Shot"),           EFSMStateType::Chase,   +0.45f }, 
+		{ TEXT("Shot"),           EFSMStateType::Flank,   +0.25f }, 
 	};
 
 	for (const FPatternRule& Rule : Rules)

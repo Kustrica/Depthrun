@@ -13,7 +13,8 @@ public class Depthrun : ModuleRules
 		// includes like "Core/DepthrunLogChannels.h" resolve correctly.
 		PrivateIncludePaths.AddRange(new string[] {
 			ModuleDirectory,
-			System.IO.Path.Combine(ModuleDirectory, "Core")
+			System.IO.Path.Combine(ModuleDirectory, "Core"),
+			System.IO.Path.Combine(ModuleDirectory, "RoomGeneration")
 		});
 
 		PublicDependencyModuleNames.AddRange(new string[]

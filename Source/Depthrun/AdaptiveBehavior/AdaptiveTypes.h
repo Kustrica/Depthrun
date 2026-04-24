@@ -33,6 +33,28 @@ struct FMemoryEvent
 };
 
 /**
+ * FStateScore
+ * Per-state scoring breakdown used by UStateTransitionResolver.
+ * Score(s) = UtilityValue - TransitionCost + InertiaBonus + PatternModifier.
+ */
+UENUM(BlueprintType)
+enum class EEnemyBravery : uint8
+{
+    Coward,
+    Normal,
+    Brave,
+    Heroic
+};
+
+UENUM(BlueprintType)
+enum class EEnemyCombatStyle : uint8
+{
+    MeleeOriented,
+    Balanced,
+    RangedOriented
+};
+
+/**
  * FContextData
  * Layer 1 output: all normalized [0,1] inputs collected by UContextEvaluator.
  * Passed down the pipeline to Layer 2 (ThreatCalculator).
@@ -84,72 +106,58 @@ struct FContextData
 	/** Aggregated decayed mobility score from memory. */
 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Context")
 	float MemoryMobility = 0.f;
+
+    /** Personality traits for utility adjustment. */
+    UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Context")
+    EEnemyBravery BraveryLevel = EEnemyBravery::Normal;
+
+    UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Context")
+    EEnemyCombatStyle CombatStyle = EEnemyCombatStyle::Balanced;
 };
+ 
+ /**
+  * FThreatAssessment
+  * Layer 2 output: full threat computation result including confidence and smoothing.
+  * Used by Layer 3 (StateTransitionResolver) for utility scoring.
+  */
+ USTRUCT(BlueprintType)
+ struct FThreatAssessment
+ {
+ 	GENERATED_BODY()
+ 
+ 	/** T_base = Σ w_i * f_i(x_i) */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float ThreatBase = 0.f;
+ 
+ 	/** T_cross = w_DH * f_D * f_H + w_WM * W * M_attack */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float ThreatCross = 0.f;
+ 
+ 	/** T_raw = T_base + β * T_cross */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float ThreatRaw = 0.f;
+ 
+ 	/** T_smooth = α * T_raw + (1-α) * T_prev */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float ThreatSmoothed = 0.f;
+ 
+ 	/** T_final = C * T_smooth + (1-C) * T_default */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float ThreatFinal = 0.f;
+ 
+ 	/** C = 1 / (1 + σ²). High variance → low confidence → conservative behavior. */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float Confidence = 1.f;
+ 
+ 	/** Running mean of T_final (adaptive threshold). */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float AdaptiveMeanThreat = 0.f;
+ 
+ 	/** Running std dev (adaptive threshold). */
+ 	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
+ 	float AdaptiveStdDevThreat = 0.f;
+ };
 
-/**
- * FThreatAssessment
- * Layer 2 output: full threat computation result including confidence and smoothing.
- * Used by Layer 3 (StateTransitionResolver) for utility scoring.
- */
-USTRUCT(BlueprintType)
-struct FThreatAssessment
-{
-	GENERATED_BODY()
-
-	/** T_base = Σ w_i * f_i(x_i) */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float ThreatBase = 0.f;
-
-	/** T_cross = w_DH * f_D * f_H + w_WM * W * M_attack */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float ThreatCross = 0.f;
-
-	/** T_raw = T_base + β * T_cross */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float ThreatRaw = 0.f;
-
-	/** T_smooth = α * T_raw + (1-α) * T_prev */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float ThreatSmoothed = 0.f;
-
-	/** T_final = C * T_smooth + (1-C) * T_default */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float ThreatFinal = 0.f;
-
-	/** C = 1 / (1 + σ²). High variance → low confidence → conservative behavior. */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float Confidence = 1.f;
-
-	/** Running mean of T_final (adaptive threshold). */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float AdaptiveMeanThreat = 0.f;
-
-	/** Running std dev (adaptive threshold). */
-	UPROPERTY(BlueprintReadOnly, Category = "Adaptive|Threat")
-	float AdaptiveStdDevThreat = 0.f;
-};
-
-/**
- * FStateScore
- * Per-state scoring breakdown used by UStateTransitionResolver.
- * Score(s) = UtilityValue - TransitionCost + InertiaBonus + PatternModifier.
- */
-UENUM(BlueprintType)
-enum class EEnemyBravery : uint8
-{
-    Coward,
-    Normal,
-    Brave,
-    Heroic
-};
-
-UENUM(BlueprintType)
-enum class EEnemyCombatStyle : uint8
-{
-    MeleeOriented,
-    Balanced,
-    RangedOriented
-};
 
 USTRUCT(BlueprintType)
 struct FStateScore

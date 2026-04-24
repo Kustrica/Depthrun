@@ -110,6 +110,9 @@ private:
   /** Core evaluation loop — called by FTimerManager at EvaluationInterval. */
   void EvaluationTick();
 
+  UFUNCTION()
+  void OnOwnerDeath();
+
   void InitializeSubsystems();
 
   // ─── Subsystems (UObject-based, created in BeginPlay) ────────────────────
@@ -148,4 +151,7 @@ private:
   FContextData LastContext;
   FThreatAssessment LastThreatAssessment;
   TArray<FStateScore> LastStateScores;
+
+  float LastRetreatExitTime = -100.f;
+  const float RetreatHysteresisDuration = 2.5f;
 };

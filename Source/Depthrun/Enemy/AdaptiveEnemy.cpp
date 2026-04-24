@@ -1,7 +1,9 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "AdaptiveEnemy.h"
+#include "Enemy/BaseEnemy.h"
+#include "Combat/BaseProjectile.h"
 #include "AdaptiveBehavior/AdaptiveBehaviorComponent.h"
-#include "DepthrunLogChannels.h"
+#include "Core/DepthrunLogChannels.h"
 #include "Enemy/EnemyHealthComponent.h"
 #include "FSM/FSMComponent.h"
 #include "FSM/States/FSMState_Attack.h"
@@ -71,33 +73,94 @@ void AAdaptiveEnemy::HandleHealthChanged(float OldHP, float NewHP,
 }
 
 void AAdaptiveEnemy::PerformMeleeAttack() {
-  Super::PerformMeleeAttack();
+  if (bIsRangedMode) {
+      // Stage 12: Hybrid Support - Ranged Attack logic (same as RangedEnemy)
+      if (IsValid(SpawnedWeapon)) {
+          ACharacter *Player = UGameplayStatics::GetPlayerCharacter(this, 0);
+          if (IsValid(Player)) {
+              const FVector FireDir = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+              SpawnedWeapon->SetFireDirection(FireDir);
+              SpawnedWeapon->Fire();
+          }
+      } else if (ProjectileClass) {
+          // Manual spawn fallback
+          if (ShotDelay > 0.01f) {
+              FTimerHandle Timer;
+              GetWorldTimerManager().SetTimer(Timer, this, &AAdaptiveEnemy::ActuallyFire, ShotDelay, false);
+          } else {
+              ActuallyFire();
+          }
+      }
+  } else {
+      Super::PerformMeleeAttack();
+  }
 
   if (AdaptiveComp) {
     AdaptiveComp->OnDamageDealt();
   }
 }
 
+void AAdaptiveEnemy::ActuallyFire() {
+  ACharacter *Player = UGameplayStatics::GetPlayerCharacter(this, 0);
+  if (!IsValid(Player)) return;
+
+  const FVector EnemyLoc = GetActorLocation();
+  const FVector PlayerLoc = Player->GetActorLocation();
+  const FVector FireDir = (PlayerLoc - EnemyLoc).GetSafeNormal2D();
+
+  const FVector SpawnLoc = EnemyLoc + (FireDir * MuzzleOffset);
+  const FTransform SpawnTransform = FTransform(FireDir.Rotation(), SpawnLoc);
+
+  if (UWorld* World = GetWorld()) {
+      ABaseProjectile *Projectile = World->SpawnActorDeferred<ABaseProjectile>(
+          ProjectileClass, SpawnTransform, this, Cast<APawn>(this),
+          ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+
+      if (Projectile) {
+          Projectile->InitProjectile(FireDir, AttackDamage, this, ProjectileSpeed);
+          Projectile->FinishSpawning(SpawnTransform);
+      }
+  }
+}
+
 void AAdaptiveEnemy::OnKilled() {
+  // We set the correct death flipbook BEFORE calling Super::OnKilled
+  // so that BaseEnemy's logic picks it up (though BaseEnemy uses FB_Death directly, 
+  // so we actually need to swap FB_Death temporarily or handle it here).
+  
+  if (bIsRangedMode && FB_Death_Ranged)
+  {
+      // Swap FB_Death to the ranged version so Super::OnKilled uses the right one
+      FB_Death = FB_Death_Ranged;
+  }
+
   Super::OnKilled();
-  // Stop evaluation timer via AdaptiveComp EndPlay (handled automatically)
-  UE_LOG(LogAdaptiveBehavior, Log, TEXT("[AdaptiveEnemy] Killed"));
+  UE_LOG(LogAdaptiveBehavior, Log, TEXT("[AdaptiveEnemy] Killed: cleaning up evaluation."));
 }
 
 void AAdaptiveEnemy::UpdateAnimation() {
   if (!GetSprite() || bIsDead)
     return;
 
-  // If in ranged mode, swap the pointers temporarily or just logic here.
-  // We can't easily swap pointers because they are UPROPERTY.
-  // So we override the logic.
-
   UPaperFlipbook *DesiredFB = nullptr;
-  const bool bAttacking = FSMComponent && FSMComponent->GetCurrentStateType() ==
-                                              EFSMStateType::Attack;
+  
+  // Use FSM to check if we are in Attack state
+  const bool bAttacking = FSMComponent && FSMComponent->GetCurrentStateType() == EFSMStateType::Attack;
+  
+  // Also check if we are in Retreat state but shooting (Hybrid Stage 12)
+  bool bRetreatShooting = false;
+  if (FSMComponent && FSMComponent->GetCurrentStateType() == EFSMStateType::Retreat && bIsRangedMode)
+  {
+      // We'll consider it "attacking" animation if we just fired (this is a bit of a hack without a timer, but works for demo)
+      // Actually, let's just stick to Walk_Ranged for retreat for now to avoid flickering.
+  }
 
-  if (bIsHitAnimationActive && FB_Hit) {
-    DesiredFB = FB_Hit;
+  if (bIsHitAnimationActive) {
+    if (bIsRangedMode) {
+      DesiredFB = FB_Hit_Ranged ? FB_Hit_Ranged : FB_Hit;
+    } else {
+      DesiredFB = FB_Hit;
+    }
   } else if (bIsRangedMode) {
     if (bAttacking) {
       DesiredFB = FB_Attack_Ranged ? FB_Attack_Ranged : FB_Idle_Ranged;
@@ -121,7 +184,7 @@ void AAdaptiveEnemy::UpdateAnimation() {
     GetSprite()->SetFlipbook(DesiredFB);
   }
 
-  // Mirror sprite horizontally (same as base)
+  // Mirror sprite horizontally
   if (GetVelocity().SizeSquared() > 10.f) {
     const FVector V = GetVelocity();
     if (FMath::Abs(V.Y) > 0.1f) {
