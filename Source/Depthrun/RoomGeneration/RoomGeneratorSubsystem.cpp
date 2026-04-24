@@ -75,8 +75,7 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         // Pick template: 0 is Start, last is Boss, rest is Combat
         URoomTemplate* SelectedTemplate = nullptr;
         if (i == 0) {
-            // Use a combat template for start for now or a dedicated one
-            SelectedTemplate = CombatRoomTemplates.Num() > 0 ? CombatRoomTemplates[0] : nullptr;
+            SelectedTemplate = StartRoomTemplate ? StartRoomTemplate : (CombatRoomTemplates.Num() > 0 ? CombatRoomTemplates[0] : nullptr);
         }
         else if (i == RoomCoords.Num() - 1) {
             SelectedTemplate = BossRoomTemplate;
@@ -146,4 +145,12 @@ void URoomGeneratorSubsystem::OnPlayerEnteredRoom(ARoomBase* Room)
 void URoomGeneratorSubsystem::OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex)
 {
     // Logic to find neighbor and activate it
+}
+
+void URoomGeneratorSubsystem::SetTemplates(URoomTemplate* StartTemplate, const TArray<URoomTemplate*>& CombatTemplates, URoomTemplate* BossTemplate)
+{
+    StartRoomTemplate = StartTemplate;
+    CombatRoomTemplates.Empty();
+    for (URoomTemplate* T : CombatTemplates) CombatRoomTemplates.Add(T);
+    BossRoomTemplate = BossTemplate;
 }

@@ -40,6 +40,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RoomGen")
 	void OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex);
 
+	/** Set templates from GameMode. */
+	void SetTemplates(URoomTemplate* StartTemplate, const TArray<URoomTemplate*>& CombatTemplates, URoomTemplate* BossTemplate);
+
 	/** All generated rooms in sequence. */
 	const TArray<ARoomBase*>& GetRooms() const { return GeneratedRooms; }
 
@@ -47,11 +50,14 @@ public:
 	int32 GetCurrentRoomIndex() const { return CurrentRoomIndex; }
 
 	// ─── Room pool (assign templates in GameMode or LevelBlueprint) ──────────
+	
+	UPROPERTY()
+	TObjectPtr<URoomTemplate> StartRoomTemplate;
 
-	UPROPERTY(EditDefaultsOnly, Category = "RoomGen")
+	UPROPERTY()
 	TArray<TObjectPtr<URoomTemplate>> CombatRoomTemplates;
 
-	UPROPERTY(EditDefaultsOnly, Category = "RoomGen")
+	UPROPERTY()
 	TObjectPtr<URoomTemplate> BossRoomTemplate;
 
 private:
