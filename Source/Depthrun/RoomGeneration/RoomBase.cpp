@@ -71,6 +71,7 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
         AActor *Door = GetWorld()->SpawnActor<AActor>(
             MyTemplate->DoorClass, SpawnLoc, MyTemplate->PropRotation);
         if (Door) {
+          Door->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
           Door->AttachToActor(this,
                                FAttachmentTransformRules::KeepWorldTransform);
           if (ADoorActor *DA = Cast<ADoorActor>(Door)) {
@@ -84,24 +85,25 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     }
   };
 
-  HandleDoorSide(bHasTop, FVector(0.f, -TileSize * 3.f, 0.f),
+  HandleDoorSide(bHasTop, FVector(TileSize * 3.f, 0.f, 0.f),
                  MyTemplate->HorizontalDoorSprite, FIntPoint(3, 0), FIntPoint(4, 0));
-  HandleDoorSide(bHasBottom, FVector(0.f, TileSize * 3.f, 0.f),
+  HandleDoorSide(bHasBottom, FVector(-TileSize * 3.f, 0.f, 0.f),
                  MyTemplate->HorizontalDoorSprite, FIntPoint(3, 5), FIntPoint(4, 5));
-  HandleDoorSide(bHasLeft, FVector(-TileSize * 4.f, 0.f, 0.f),
+  HandleDoorSide(bHasLeft, FVector(0.f, -TileSize * 4.f, 0.f),
                  MyTemplate->VerticalDoorSprite, FIntPoint(0, 2), FIntPoint(0, 3));
-  HandleDoorSide(bHasRight, FVector(TileSize * 4.f, 0.f, 0.f),
+  HandleDoorSide(bHasRight, FVector(0.f, TileSize * 4.f, 0.f),
                  MyTemplate->VerticalDoorSprite, FIntPoint(7, 2), FIntPoint(7, 3));
 
   // 1. Spawning torches
   for (const FIntPoint &Spot : MyTemplate->TorchSpots) {
     if (FMath::FRandRange(0.f, 100.f) <= MyTemplate->TorchSpawnChance) {
       if (MyTemplate->TorchClass) {
-        FVector TorchLoc = RoomOrigin + FVector((Spot.X - 3.5f) * TileSize,
-                                                (Spot.Y - 2.5f) * TileSize, MyTemplate->PropsZ);
+        FVector TorchLoc = RoomOrigin + FVector((2.5f - Spot.Y) * TileSize,
+                                                (Spot.X - 3.5f) * TileSize, MyTemplate->PropsZ);
         AActor *Torch = GetWorld()->SpawnActor<AActor>(
             MyTemplate->TorchClass, TorchLoc, MyTemplate->PropRotation);
         if (Torch) {
+          Torch->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
           Torch->AttachToActor(this,
                                FAttachmentTransformRules::KeepWorldTransform);
           
@@ -123,8 +125,8 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
       continue;
 
-    FVector DecorLoc = RoomOrigin + FVector((RX - 3.5f) * TileSize,
-                                            (RY - 2.5f) * TileSize, MyTemplate->PropsZ);
+    FVector DecorLoc = RoomOrigin + FVector((2.5f - RY) * TileSize,
+                                            (RX - 3.5f) * TileSize, MyTemplate->PropsZ);
 
     TSubclassOf<AActor> SelectedClass = nullptr;
     float Rand = FMath::FRand();
@@ -139,6 +141,7 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
       AActor *Decor = GetWorld()->SpawnActor<AActor>(
           SelectedClass, DecorLoc, MyTemplate->PropRotation);
       if (Decor) {
+        Decor->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
         Decor->AttachToActor(this,
                              FAttachmentTransformRules::KeepWorldTransform);
         OccupiedTiles.Add(FIntPoint(RX, RY));
@@ -227,8 +230,9 @@ void ARoomBase::DeactivateRoom() {
     if (MyTemplate->TrapdoorClass) {
       FVector HatchLoc = GetActorLocation();
       HatchLoc.Z = MyTemplate->PropsZ;
-      GetWorld()->SpawnActor<AActor>(MyTemplate->TrapdoorClass, HatchLoc,
+      AActor* Hatch = GetWorld()->SpawnActor<AActor>(MyTemplate->TrapdoorClass, HatchLoc,
                                      MyTemplate->PropRotation);
+      if (Hatch) Hatch->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
       UE_LOG(LogTemp, Warning, TEXT("[DungeonGen] EXIT HATCH SPAWNED."));
     }
   }
@@ -257,7 +261,7 @@ void ARoomBase::SpawnEnemies() {
     int32 RY = FMath::RandRange(1, 4);
     FVector SpawnLoc =
         GetActorLocation() +
-        FVector((RX - 3.5f) * TileSize, (RY - 2.5f) * TileSize, MyTemplate->EnemyZ);
+        FVector((2.5f - RY) * TileSize, (RX - 3.5f) * TileSize, MyTemplate->EnemyZ);
 
     TSubclassOf<AActor> EnemyClass = nullptr;
     float Rand = FMath::FRand() * TotalWeight;
@@ -275,6 +279,7 @@ void ARoomBase::SpawnEnemies() {
         AActor *Enemy = GetWorld()->SpawnActor<AActor>(EnemyClass, SpawnLoc,
                                                        MyTemplate->EnemyRotation);
         if (Enemy) {
+          Enemy->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
           SpawnedEnemies.Add(Enemy);
         }
     }
@@ -303,7 +308,8 @@ void ARoomBase::TrySpawnChest() {
     bHasGeneratedChest = true;
     FVector ChestLoc = GetActorLocation();
     ChestLoc.Z = MyTemplate->PropsZ;
-    GetWorld()->SpawnActor<AActor>(MyTemplate->ChestClass, ChestLoc,
+    AActor* Chest = GetWorld()->SpawnActor<AActor>(MyTemplate->ChestClass, ChestLoc,
                                    MyTemplate->PropRotation);
+    if (Chest) Chest->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
   }
 }

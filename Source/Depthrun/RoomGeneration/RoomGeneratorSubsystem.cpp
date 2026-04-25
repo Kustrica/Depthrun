@@ -56,16 +56,21 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         if (!bFound) break;
     }
 
-    // 3. Расчет размеров (БЕЗ нахлеста, по просьбе пользователя)
+    // 3. Расчет размеров (БЕЗ нахлеста)
+    // Из-за поворота тайлмапа (-90, 0, 90):
+    // Ось X в мире (Вверх/Вниз) соответствует высоте комнаты (6 тайлов).
+    // Ось Y в мире (Влево/Вправо) соответствует ширине комнаты (8 тайлов).
     const float TileSize = 16.0f * 2.6f;
-    const float RoomWidth = 8.0f * TileSize;
-    const float RoomHeight = 6.0f * TileSize;
+    const float RoomSizeX = 6.0f * TileSize; // World X
+    const float RoomSizeY = 8.0f * TileSize; // World Y
 
     // 4. Спавн актеров
     for (int32 i = 0; i < Coords.Num(); ++i)
     {
         FIntPoint C = Coords[i];
-        FVector Loc = FVector(C.X * RoomWidth, C.Y * RoomHeight, 0.f);
+        // C.X это колонка (Влево/Вправо -> World Y)
+        // C.Y это строка (Вверх/Вниз -> World X)
+        FVector Loc = FVector(C.Y * RoomSizeX, C.X * RoomSizeY, 0.f);
 
         URoomTemplate* T = nullptr;
         if (i == 0) T = StartTemplate;
@@ -88,11 +93,13 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
             ARoomBase* NewRoom = GetWorld()->SpawnActor<ARoomBase>(ARoomBase::StaticClass(), Loc, FRotator::ZeroRotator, Params);
             if (NewRoom)
             {
+                // Для C.Y (World X, Up/Down): +1 это Top, -1 это Bottom
+                // Для C.X (World Y, Left/Right): -1 это Left, +1 это Right
                 NewRoom->SetupRoom(T, 
-                    Occupied.Contains(C + FIntPoint(0, -1)),
-                    Occupied.Contains(C + FIntPoint(0, 1)),
-                    Occupied.Contains(C + FIntPoint(-1, 0)),
-                    Occupied.Contains(C + FIntPoint(1, 0)));
+                    Occupied.Contains(C + FIntPoint(0, 1)),  // Top
+                    Occupied.Contains(C + FIntPoint(0, -1)), // Bottom
+                    Occupied.Contains(C + FIntPoint(-1, 0)), // Left
+                    Occupied.Contains(C + FIntPoint(1, 0))); // Right
                 GeneratedRooms.Add(NewRoom);
             }
         }
