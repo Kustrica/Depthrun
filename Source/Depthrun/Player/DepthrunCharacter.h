@@ -117,6 +117,10 @@ public:
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
   TObjectPtr<UInputAction> IA_SwitchSlot2;
 
+  /** Manual rotation offset for the sprite component to match top-down view. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation|Rotation")
+  FRotator SpriteRotationOffset = FRotator(-90.f, 0.f, 0.f);
+
   // ────────────────────── Combat / Weapon Slots ────────────
   /** Slot 1 — Melee (Sword). TSubclassOf assigned in BP_DepthrunCharacter. */
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Combat")
@@ -199,6 +203,26 @@ public:
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation|Combat")
   TObjectPtr<UPaperFlipbook> FB_Death;
+
+  // ────────────────────── Debug ────────────────────────────
+  UPROPERTY(BlueprintReadWrite, Category = "Player|Debug")
+  bool bGodMode = false;
+
+  UPROPERTY(BlueprintReadWrite, Category = "Player|Debug")
+  bool bSuperAttack = false;
+
+  UFUNCTION(BlueprintCallable, Exec, Category = "Player|Debug")
+  void ToggleGodMode() { bGodMode = !bGodMode; }
+
+  UFUNCTION(BlueprintCallable, Exec, Category = "Player|Debug")
+  void ToggleSuperAttack() { bSuperAttack = !bSuperAttack; }
+
+  /** Helper functions for HUD Binding - just select these in the Widget Text Bind dropdown! */
+  UFUNCTION(BlueprintPure, Category = "Player|Debug")
+  FText GetGodStatusText() const;
+
+  UFUNCTION(BlueprintPure, Category = "Player|Debug")
+  FText GetSuperAttackStatusText() const;
 
 private:
   bool bCanDash = true;

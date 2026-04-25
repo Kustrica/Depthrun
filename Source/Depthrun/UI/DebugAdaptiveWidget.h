@@ -51,6 +51,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Debug")
 	TArray<FStateScore> GetStateScores() const;
 
+	UFUNCTION(BlueprintPure, Category = "Debug")
+	FText GetGodModeText() const;
+
+	UFUNCTION(BlueprintPure, Category = "Debug")
+	FText GetSuperAttackText() const;
+
 protected:
 	/** Override in Blueprint to update individual UMG elements. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Debug")
