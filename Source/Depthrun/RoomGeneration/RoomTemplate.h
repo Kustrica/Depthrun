@@ -2,69 +2,124 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
 #include "DungeonTypes.h"
+#include "Engine/DataAsset.h"
 #include "RoomTemplate.generated.h"
 
-/**
- * URoomTemplate
- * Configuration for a procedural room.
- */
 UCLASS(BlueprintType)
-class DEPTHRUN_API URoomTemplate : public UDataAsset
-{
-    GENERATED_BODY()
+class DEPTHRUN_API URoomTemplate : public UDataAsset {
+  GENERATED_BODY()
 
 public:
-    UPROPERTY(EditAnywhere, Category = "Layout")
-    TObjectPtr<class UPaperTileMap> TileMapAsset;
+  UPROPERTY(EditAnywhere, Category = "Layout")
+  TObjectPtr<class UPaperTileMap> TileMapAsset;
 
-    UPROPERTY(EditAnywhere, Category = "Layout")
-    ERoomType RoomType = ERoomType::Combat;
+  UPROPERTY(EditAnywhere, Category = "Layout")
+  ERoomType RoomType = ERoomType::Combat;
 
-    UPROPERTY(EditAnywhere, Category = "Layout")
-    ERoomShape Shape = ERoomShape::Single;
+  // ─── Тайлы ──────────────────────────────────────────────────────────────
 
-    // ─── Tile Replacement ──────────────────────────────────────────────────
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorFloorShadowTop;
 
-    /** Tile used to fill a door slot if there is no connection. */
-    UPROPERTY(EditAnywhere, Category = "Tiles|Replacement")
-    FRoomTileInfo WallTile;
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorFloorShadowBottom;
 
-    /** Tile used for the floor in a door slot if the door is open. */
-    UPROPERTY(EditAnywhere, Category = "Tiles|Replacement")
-    FRoomTileInfo DoorFloorTile;
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorFloorShadowLeft;
 
-    // ─── Prop Classes ──────────────────────────────────────────────────────
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorFloorShadowRight;
 
-    UPROPERTY(EditAnywhere, Category = "Generation|Props")
-    TSubclassOf<class AActor> DoorClass;
+  // ─── Основные классы ───────────────────────────────────────────────────
 
-    UPROPERTY(EditAnywhere, Category = "Generation|Props")
-    TSubclassOf<class AActor> TorchClass;
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TSubclassOf<class ADoorActor> DoorClass;
 
-    UPROPERTY(EditAnywhere, Category = "Generation|Props")
-    TSubclassOf<class AActor> ChestClass;
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TSubclassOf<class AActor> TrapdoorClass;
 
-    UPROPERTY(EditAnywhere, Category = "Generation|Props")
-    TSubclassOf<class AActor> BoneDecorClass;
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TSubclassOf<class AActor> TorchClass;
 
-    // ─── Spawning Logic ────────────────────────────────────────────────────
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TSubclassOf<class AActor> ChestClass;
 
-    UPROPERTY(EditAnywhere, Category = "Generation|Enemies")
-    TArray<FEnemySpawnInfo> PotentialEnemies;
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TSubclassOf<class AActor> SkullDecorClass;
 
-    UPROPERTY(EditAnywhere, Category = "Generation|Enemies")
-    int32 MinEnemies = 2;
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TSubclassOf<class AActor> BonesDecorClass;
 
-    UPROPERTY(EditAnywhere, Category = "Generation|Enemies")
-    int32 MaxEnemies = 4;
+  /** Класс для торшера/препятствия. */
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TSubclassOf<class AActor> FloorObstacleClass;
 
-    /** Chance [0-100] to spawn a chest after room clear. */
-    UPROPERTY(EditAnywhere, Category = "Generation|Chances", meta=(ClampMin="0", ClampMax="100"))
-    float ChestSpawnChance = 10.0f;
+  // ─── Спрайты ────────────────────────────────────────────────────────────
 
-    /** Chance [0-100] per valid spot to spawn a torch. */
-    UPROPERTY(EditAnywhere, Category = "Generation|Chances", meta=(ClampMin="0", ClampMax="100"))
-    float TorchSpawnChance = 50.0f;
+  UPROPERTY(EditAnywhere, Category = "Props|Sprites")
+  TObjectPtr<class UPaperSprite> HorizontalDoorSprite;
+
+  UPROPERTY(EditAnywhere, Category = "Props|Sprites")
+  TObjectPtr<class UPaperSprite> VerticalDoorSprite;
+
+  /** 4 варианта спрайтов для торшера. */
+  UPROPERTY(EditAnywhere, Category = "Props|Sprites")
+  TArray<TObjectPtr<class UPaperSprite>> ObstacleVariants;
+
+  // ─── Настройки ──────────────────────────────────────────────────────────
+
+  UPROPERTY(EditAnywhere, Category = "Combat")
+  TArray<FEnemySpawnInfo> PotentialEnemies;
+
+  UPROPERTY(EditAnywhere, Category = "Combat")
+  int32 MinEnemies = 2;
+
+  UPROPERTY(EditAnywhere, Category = "Combat")
+  int32 MaxEnemies = 4;
+
+  UPROPERTY(EditAnywhere, Category = "Chances")
+  float ChestSpawnChance = 10.0f;
+
+  UPROPERTY(EditAnywhere, Category = "Chances")
+  float TorchSpawnChance = 50.0f;
+
+  // ─── Global Rotation Settings ──────────────────────────────────────────
+  
+  /** Rotation for the floor/walls (TileMap). */
+  UPROPERTY(EditAnywhere, Category = "Rotation")
+  FRotator TileMapRotation = FRotator(-90.f, 0.f, 90.f);
+
+  /** Rotation for props (torches, decor, doors). */
+  UPROPERTY(EditAnywhere, Category = "Rotation")
+  FRotator PropRotation = FRotator(-90.f, 0.f, 90.f);
+
+  /** Rotation for enemies. */
+  UPROPERTY(EditAnywhere, Category = "Rotation")
+  FRotator EnemyRotation = FRotator(-90.f, 0.f, 90.f);
+
+  // ─── Global Z-Height Settings ──────────────────────────────────────────
+
+  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
+  float TileMapZ = 0.0f;
+
+  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
+  float PropsZ = 1.0f;
+
+  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
+  float EnemyZ = 1.0f;
+  
+  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
+  float DoorZ = 1.0f;
+
+
+  UPROPERTY(EditAnywhere, Category = "Props|Spawning")
+  int32 MinProps = 2;
+
+  UPROPERTY(EditAnywhere, Category = "Props|Spawning")
+  int32 MaxProps = 6;
+
+  /** Tile coordinates for torches. */
+  UPROPERTY(EditAnywhere, Category = "Props|Spawning")
+  TArray<FIntPoint> TorchSpots = {{1, 0}, {2, 0}, {5, 0}, {6, 0}};
 };
