@@ -89,6 +89,7 @@ CrashReportClient/*
 # Agent and project metadata (not tracked in VCS)
 .agent/
 .project/
+.skills/
 
 # IDE-specific plugins
 Plugins/VisualStudioTools/
