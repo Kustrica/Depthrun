@@ -5,10 +5,6 @@
 #include "GameFramework/GameModeBase.h"
 #include "DepthrunGameMode.generated.h"
 
-/**
- * ADepthrunGameMode
- * Base game mode. Sets default classes and handles session-level state.
- */
 UCLASS()
 class DEPTHRUN_API ADepthrunGameMode : public AGameModeBase
 {
@@ -21,15 +17,27 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	/** Template for the starting room. */
+	/** Essential: Starting room template. */
 	UPROPERTY(EditAnywhere, Category = "RoomGeneration")
 	TObjectPtr<class URoomTemplate> StartRoomTemplate;
 
-	/** Templates for combat rooms. Set this in BP_DepthrunGameMode. */
+	/** Essential: Boss room template. */
+	UPROPERTY(EditAnywhere, Category = "RoomGeneration")
+	TObjectPtr<class URoomTemplate> BossRoomTemplate;
+
+	/** Variety: List of combat-oriented rooms. */
 	UPROPERTY(EditAnywhere, Category = "RoomGeneration")
 	TArray<TObjectPtr<class URoomTemplate>> CombatRoomTemplates;
 
-	/** Template for the boss room. Set this in BP_DepthrunGameMode. */
+	/** Variety: List of treasure/loot rooms. */
 	UPROPERTY(EditAnywhere, Category = "RoomGeneration")
-	TObjectPtr<class URoomTemplate> BossRoomTemplate;
+	TArray<TObjectPtr<class URoomTemplate>> TreasureRoomTemplates;
+
+	/** Variety: List of rest/safe rooms. */
+	UPROPERTY(EditAnywhere, Category = "RoomGeneration")
+	TArray<TObjectPtr<class URoomTemplate>> RestRoomTemplates;
+
+	/** Number of rooms to generate in the dungeon. */
+	UPROPERTY(EditAnywhere, Category = "RoomGeneration")
+	int32 RoomsToGenerate = 8;
 };

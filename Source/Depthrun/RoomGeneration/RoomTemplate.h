@@ -98,20 +98,29 @@ public:
   UPROPERTY(EditAnywhere, Category = "Rotation")
   FRotator EnemyRotation = FRotator(-90.f, 0.f, 90.f);
 
-  // ─── Global Z-Height Settings ──────────────────────────────────────────
+  /** Rotation for doors specifically, as they might need to face outward. */
+  UPROPERTY(EditAnywhere, Category = "Rotation")
+  FRotator DoorRotation = FRotator(-90.f, 0.f, 90.f);
 
-  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
+  /** Master offset for ALL procedurally spawned actors relative to the Room's zero point. Use this to center props/enemies within your TileMap. */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
+  FVector SpawnOffset = FVector(0.f, 0.f, 0.f);
+
+  /** Z-Height for the TileMap. */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
   float TileMapZ = 0.0f;
 
-  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
+  /** Z-Height for all props (Decor, Torches, Chests). */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
   float PropsZ = 1.0f;
 
-  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
-  float EnemyZ = 1.0f;
-  
-  UPROPERTY(EditAnywhere, Category = "Spawning|Z-Height")
+  /** Z-Height for doors. */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
   float DoorZ = 1.0f;
 
+  /** Z-Height for enemies. */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
+  float EnemyZ = 1.0f;
 
   UPROPERTY(EditAnywhere, Category = "Props|Spawning")
   int32 MinProps = 2;

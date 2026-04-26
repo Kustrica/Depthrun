@@ -17,7 +17,10 @@ public:
     TObjectPtr<class UBoxComponent> CollisionBox;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<class UPaperFlipbookComponent> SpriteComponent;
+    TObjectPtr<class UPaperSpriteComponent> SpriteComponent;
+
+    /** Настройка спрайта при спавне. */
+    void InitializeDoor(class UPaperSprite* DoorSprite);
 
     UFUNCTION(BlueprintCallable, Category = "Door")
     void OpenDoor();
@@ -26,12 +29,6 @@ public:
     void CloseDoor();
 
 protected:
-    UPROPERTY(EditAnywhere, Category = "Visuals")
-    TObjectPtr<class UPaperFlipbook> OpenFlipbook;
-
-    UPROPERTY(EditAnywhere, Category = "Visuals")
-    TObjectPtr<class UPaperFlipbook> ClosedFlipbook;
-
     UPROPERTY(BlueprintReadOnly, Category = "Door")
     bool bIsOpen = false;
 };

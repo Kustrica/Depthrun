@@ -2,6 +2,7 @@
 
 #include "DepthrunCharacter.h"
 #include "Combat/BaseWeapon.h"
+#include "Combat/MeleeWeapon.h"
 #include "Core/DepthrunLogChannels.h"
 #include "Items/RunItemInventory.h"
 #include "PlayerActionTracker.h"
@@ -107,8 +108,9 @@ ADepthrunCharacter::ADepthrunCharacter() {
   GetCapsuleComponent()->SetCapsuleRadius(12.f);
 
   // Commercial Fix: Rotate sprite to lie flat on XY plane for top-down view
+  // Aligned via SpriteRotationOffset property to allow manual adjustment in BP.
   if (GetSprite()) {
-    GetSprite()->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+    GetSprite()->SetRelativeRotation(SpriteRotationOffset);
   }
   GetCapsuleComponent()->SetCapsuleRadius(12.f);
 
@@ -239,6 +241,13 @@ void ADepthrunCharacter::SetupPlayerInputComponent(
       EIC->BindAction(IA_SwitchSlot2, ETriggerEvent::Started, this,
                       &ADepthrunCharacter::HandleSwitchSlot2);
   }
+
+  // --- Debug Bindings ---
+  // Using Y and U as requested (F4/F5 are used by Engine)
+  PlayerInputComponent->BindKey(EKeys::Y, IE_Pressed, this,
+                                &ADepthrunCharacter::ToggleGodMode);
+  PlayerInputComponent->BindKey(EKeys::U, IE_Pressed, this,
+                                &ADepthrunCharacter::ToggleSuperAttack);
 }
 
 // ─────────────────────────── Input handlers ───────────────────────────────
@@ -266,9 +275,32 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
     return;
   }
 
+  // --- Super Attack Debug Mode ---
+  float OriginalDamage = 0.f;
+  float OriginalRange = 1.0f;
+  AMeleeWeapon *MeleeW = Cast<AMeleeWeapon>(CombatComponent->CurrentWeapon);
+
+  if (bSuperAttack && CombatComponent->CurrentWeapon) {
+    OriginalDamage = CombatComponent->CurrentWeapon->BaseDamage;
+    CombatComponent->CurrentWeapon->BaseDamage = 9999.f;
+
+    if (MeleeW) {
+      OriginalRange = MeleeW->GetRangeMultiplier();
+      MeleeW->SetRangeMultiplier(5.0f); // 5x range for melee
+    }
+  }
+
   // Tell the weapon which direction to fire before calling Attack()
   CombatComponent->CurrentWeapon->SetFireDirection(GetFireDirection());
   CombatComponent->Attack();
+
+  // Reset Super Attack values after firing (so it doesn't permanently ruin weapon stats)
+  if (bSuperAttack && CombatComponent->CurrentWeapon) {
+    CombatComponent->CurrentWeapon->BaseDamage = OriginalDamage;
+    if (MeleeW) {
+      MeleeW->SetRangeMultiplier(OriginalRange);
+    }
+  }
 
   // ── Play attack animation for the duration of the weapon cooldown ──────
   bIsAttacking = true;
@@ -427,7 +459,7 @@ float ADepthrunCharacter::TakeDamage(float DamageAmount,
                                      FDamageEvent const &DamageEvent,
                                      AController *EventInstigator,
                                      AActor *DamageCauser) {
-  if (DamageAmount <= 0.f || bIsDead)
+  if (DamageAmount <= 0.f || bIsDead || bGodMode)
     return 0.f;
 
   const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent,
@@ -573,4 +605,12 @@ void ADepthrunCharacter::UpdateAnimation() {
   if (Desired && GetSprite()->GetFlipbook() != Desired) {
     GetSprite()->SetFlipbook(Desired);
   }
+}
+FText ADepthrunCharacter::GetGodStatusText() const {
+  return bGodMode ? FText::FromString(TEXT("GOD MODE: ON")) : FText::GetEmpty();
+}
+
+FText ADepthrunCharacter::GetSuperAttackStatusText() const {
+  return bSuperAttack ? FText::FromString(TEXT("SUPER ATTACK: ON"))
+                      : FText::GetEmpty();
 }

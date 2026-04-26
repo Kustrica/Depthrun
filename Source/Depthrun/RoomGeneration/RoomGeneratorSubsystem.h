@@ -8,18 +8,6 @@
 class ARoomBase;
 class URoomTemplate;
 
-/**
- * URoomGeneratorSubsystem
- * UWorldSubsystem that generates the roguelike room sequence on level load.
- *
- * Algorithm (Stage 8B): simple room graph, BSP or Random Walk.
- *   1. Generate room sequence (N rooms + 1 boss room)
- *   2. Assign types (Start, Combat, Rest, Boss)
- *   3. Spawn ARoomBase actors at grid positions
- *   4. Place ARoomTransitionVolume at exits
- *
- * Accessed via GetWorld()->GetSubsystem<URoomGeneratorSubsystem>()
- */
 UCLASS()
 class DEPTHRUN_API URoomGeneratorSubsystem : public UWorldSubsystem
 {
@@ -36,32 +24,38 @@ public:
 	/** Called by ARoomBase when player enters its bounds. */
 	void OnPlayerEnteredRoom(ARoomBase* Room);
 
-	/** Called by ARoomTransitionVolume when player enters a transition area. */
-	UFUNCTION(BlueprintCallable, Category = "RoomGen")
+	/** Initialization from GameMode. */
+	void SetTemplates(
+		URoomTemplate* Start, 
+		URoomTemplate* Boss, 
+		const TArray<URoomTemplate*>& Combat,
+		const TArray<URoomTemplate*>& Treasure,
+		const TArray<URoomTemplate*>& Rest
+	);
+
+	/** Called by transition volumes. */
 	void OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex);
 
-	/** Set templates from GameMode. */
-	void SetTemplates(URoomTemplate* StartTemplate, const TArray<URoomTemplate*>& CombatTemplates, URoomTemplate* BossTemplate);
-
-	/** All generated rooms in sequence. */
 	const TArray<ARoomBase*>& GetRooms() const { return GeneratedRooms; }
-
-	/** Index of the currently active room. */
 	int32 GetCurrentRoomIndex() const { return CurrentRoomIndex; }
 
-	// ─── Room pool (assign templates in GameMode or LevelBlueprint) ──────────
+protected:
+	UPROPERTY()
+	TObjectPtr<URoomTemplate> StartTemplate;
 	
 	UPROPERTY()
-	TObjectPtr<URoomTemplate> StartRoomTemplate;
+	TObjectPtr<URoomTemplate> BossTemplate;
 
 	UPROPERTY()
-	TArray<TObjectPtr<URoomTemplate>> CombatRoomTemplates;
+	TArray<TObjectPtr<URoomTemplate>> CombatPool;
 
 	UPROPERTY()
-	TObjectPtr<URoomTemplate> BossRoomTemplate;
+	TArray<TObjectPtr<URoomTemplate>> TreasurePool;
+
+	UPROPERTY()
+	TArray<TObjectPtr<URoomTemplate>> RestPool;
 
 private:
-	void SpawnRoom(URoomTemplate* Template, const FVector& Location);
 	void ActivateRoom(int32 Index);
 
 	UPROPERTY()

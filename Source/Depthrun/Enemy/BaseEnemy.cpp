@@ -38,7 +38,7 @@ ABaseEnemy::ABaseEnemy() {
 
   // ─── Sprite: lie flat on XY, no collision ─────────────────────────────
   if (GetSprite()) {
-    GetSprite()->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+    GetSprite()->SetRelativeRotation(EnemySpriteRotationOffset);
     GetSprite()->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
     GetSprite()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
   }

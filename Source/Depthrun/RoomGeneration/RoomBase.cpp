@@ -66,10 +66,10 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
                              UPaperSprite *DoorSprite, FIntPoint T1, FIntPoint T2) {
     if (bExists) {
       if (MyTemplate->DoorClass) {
-        FVector SpawnLoc = RoomOrigin + SpawnOffset;
+        FVector SpawnLoc = RoomOrigin + MyTemplate->SpawnOffset + SpawnOffset;
         SpawnLoc.Z = MyTemplate->DoorZ;
         AActor *Door = GetWorld()->SpawnActor<AActor>(
-            MyTemplate->DoorClass, SpawnLoc, MyTemplate->PropRotation);
+            MyTemplate->DoorClass, SpawnLoc, MyTemplate->DoorRotation);
         if (Door) {
           Door->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
           Door->AttachToActor(this,
@@ -85,21 +85,23 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     }
   };
 
+  // Swapped sprites due to rotated TileMap
   HandleDoorSide(bHasTop, FVector(TileSize * 3.f, 0.f, 0.f),
-                 MyTemplate->HorizontalDoorSprite, FIntPoint(3, 0), FIntPoint(4, 0));
+                 MyTemplate->VerticalDoorSprite, FIntPoint(3, 0), FIntPoint(4, 0));
   HandleDoorSide(bHasBottom, FVector(-TileSize * 3.f, 0.f, 0.f),
-                 MyTemplate->HorizontalDoorSprite, FIntPoint(3, 5), FIntPoint(4, 5));
+                 MyTemplate->VerticalDoorSprite, FIntPoint(3, 5), FIntPoint(4, 5));
   HandleDoorSide(bHasLeft, FVector(0.f, -TileSize * 4.f, 0.f),
-                 MyTemplate->VerticalDoorSprite, FIntPoint(0, 2), FIntPoint(0, 3));
+                 MyTemplate->HorizontalDoorSprite, FIntPoint(0, 2), FIntPoint(0, 3));
   HandleDoorSide(bHasRight, FVector(0.f, TileSize * 4.f, 0.f),
-                 MyTemplate->VerticalDoorSprite, FIntPoint(7, 2), FIntPoint(7, 3));
+                 MyTemplate->HorizontalDoorSprite, FIntPoint(7, 2), FIntPoint(7, 3));
 
   // 1. Spawning torches
   for (const FIntPoint &Spot : MyTemplate->TorchSpots) {
     if (FMath::FRandRange(0.f, 100.f) <= MyTemplate->TorchSpawnChance) {
       if (MyTemplate->TorchClass) {
-        FVector TorchLoc = RoomOrigin + FVector((2.5f - Spot.Y) * TileSize,
-                                                (Spot.X - 3.5f) * TileSize, MyTemplate->PropsZ);
+        FVector TorchLoc = RoomOrigin + MyTemplate->SpawnOffset + 
+                           FVector((2.5f - Spot.Y) * TileSize,
+                                   (Spot.X - 3.5f) * TileSize, MyTemplate->PropsZ);
         AActor *Torch = GetWorld()->SpawnActor<AActor>(
             MyTemplate->TorchClass, TorchLoc, MyTemplate->PropRotation);
         if (Torch) {
@@ -125,8 +127,9 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
       continue;
 
-    FVector DecorLoc = RoomOrigin + FVector((2.5f - RY) * TileSize,
-                                            (RX - 3.5f) * TileSize, MyTemplate->PropsZ);
+    FVector DecorLoc = RoomOrigin + MyTemplate->SpawnOffset + 
+                       FVector((2.5f - RY) * TileSize,
+                               (RX - 3.5f) * TileSize, MyTemplate->PropsZ);
 
     TSubclassOf<AActor> SelectedClass = nullptr;
     float Rand = FMath::FRand();
@@ -228,7 +231,7 @@ void ARoomBase::DeactivateRoom() {
 
     // Спавним люк (Hatch) в центре комнаты босса
     if (MyTemplate->TrapdoorClass) {
-      FVector HatchLoc = GetActorLocation();
+      FVector HatchLoc = GetActorLocation() + MyTemplate->SpawnOffset;
       HatchLoc.Z = MyTemplate->PropsZ;
       AActor* Hatch = GetWorld()->SpawnActor<AActor>(MyTemplate->TrapdoorClass, HatchLoc,
                                      MyTemplate->PropRotation);
@@ -260,7 +263,7 @@ void ARoomBase::SpawnEnemies() {
     int32 RX = FMath::RandRange(1, 6);
     int32 RY = FMath::RandRange(1, 4);
     FVector SpawnLoc =
-        GetActorLocation() +
+        GetActorLocation() + MyTemplate->SpawnOffset +
         FVector((2.5f - RY) * TileSize, (RX - 3.5f) * TileSize, MyTemplate->EnemyZ);
 
     TSubclassOf<AActor> EnemyClass = nullptr;
@@ -304,12 +307,26 @@ void ARoomBase::SetTileInLayer(int32 Layer, int32 X, int32 Y,
 void ARoomBase::TrySpawnChest() {
   if (bHasGeneratedChest || !MyTemplate || !MyTemplate->ChestClass)
     return;
+    
+  // Не спавним сундук в стартовой комнате, чтобы он не появлялся в игроке
+  if (MyTemplate->RoomType == ERoomType::Start)
+    return;
+
   if (FMath::FRandRange(0.f, 100.f) <= MyTemplate->ChestSpawnChance) {
     bHasGeneratedChest = true;
-    FVector ChestLoc = GetActorLocation();
+    
+    // Слегка смещаем сундук от идеального центра
+    const float TileSize = 16.0f * 2.6f;
+    float OffsetX = FMath::RandRange(-1.0f, 1.0f) * TileSize;
+    float OffsetY = FMath::RandRange(-1.0f, 1.0f) * TileSize;
+    
+    FVector ChestLoc = GetActorLocation() + MyTemplate->SpawnOffset + FVector(OffsetX, OffsetY, 0.f);
     ChestLoc.Z = MyTemplate->PropsZ;
+    
     AActor* Chest = GetWorld()->SpawnActor<AActor>(MyTemplate->ChestClass, ChestLoc,
                                    MyTemplate->PropRotation);
-    if (Chest) Chest->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
+    if (Chest) {
+        Chest->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
+    }
   }
 }

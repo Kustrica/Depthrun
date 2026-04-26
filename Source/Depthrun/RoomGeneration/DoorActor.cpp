@@ -1,7 +1,9 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
+
 #include "DoorActor.h"
 #include "Components/BoxComponent.h"
-#include "PaperFlipbookComponent.h"
+#include "PaperSpriteComponent.h"
+#include "PaperSprite.h"
 
 ADoorActor::ADoorActor()
 {
@@ -9,12 +11,19 @@ ADoorActor::ADoorActor()
 
     CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
     RootComponent = CollisionBox;
-    CollisionBox->SetBoxExtent(FVector(32.f, 32.f, 32.f));
     CollisionBox->SetCollisionProfileName(TEXT("BlockAll"));
+    CollisionBox->SetBoxExtent(FVector(20.f, 20.f, 50.f));
 
-    SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("SpriteComponent"));
+    SpriteComponent = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComponent"));
     SpriteComponent->SetupAttachment(RootComponent);
-    SpriteComponent->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+}
+
+void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite)
+{
+    if (SpriteComponent && DoorSprite)
+    {
+        SpriteComponent->SetSprite(DoorSprite);
+    }
 }
 
 void ADoorActor::OpenDoor()
@@ -22,16 +31,9 @@ void ADoorActor::OpenDoor()
     if (bIsOpen) return;
     bIsOpen = true;
 
-    if (OpenFlipbook)
-    {
-        SpriteComponent->SetFlipbook(OpenFlipbook);
-    }
-    else
-    {
-        SetActorHiddenInGame(true);
-    }
-
-    CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    // Дверь "исчезает" и перестает блокировать путь
+    SetActorHiddenInGame(true);
+    SetActorEnableCollision(false);
 }
 
 void ADoorActor::CloseDoor()
@@ -39,10 +41,7 @@ void ADoorActor::CloseDoor()
     if (!bIsOpen) return;
     bIsOpen = false;
 
+    // Дверь появляется и блокирует путь
     SetActorHiddenInGame(false);
-    if (ClosedFlipbook)
-    {
-        SpriteComponent->SetFlipbook(ClosedFlipbook);
-    }
-    CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    SetActorEnableCollision(true);
 }

@@ -51,6 +51,10 @@ public:
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
   TObjectPtr<UPaperFlipbook> FB_Walk;
 
+  /** Manual rotation offset for the sprite component to match top-down view. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation|Rotation")
+  FRotator EnemySpriteRotationOffset = FRotator(-90.f, 0.f, 0.f);
+
   /** Plays when the enemy is in Attack FSM state. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Animation")
   TObjectPtr<UPaperFlipbook> FB_Attack;

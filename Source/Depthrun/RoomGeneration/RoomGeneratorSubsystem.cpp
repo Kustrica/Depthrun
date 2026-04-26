@@ -113,6 +113,7 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         {
             FVector SpawnPos = GeneratedRooms[0]->GetActorLocation();
             if (StartTemplate) {
+                SpawnPos += StartTemplate->SpawnOffset;
                 SpawnPos.Z = StartTemplate->EnemyZ;
             } else {
                 SpawnPos.Z = 1.0f; 
