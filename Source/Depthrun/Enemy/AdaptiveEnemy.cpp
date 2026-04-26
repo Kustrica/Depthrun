@@ -2,6 +2,8 @@
 #include "AdaptiveEnemy.h"
 #include "Enemy/BaseEnemy.h"
 #include "Combat/BaseProjectile.h"
+#include "Combat/RangedWeapon.h"
+#include "Components/SphereComponent.h"
 #include "AdaptiveBehavior/AdaptiveBehaviorComponent.h"
 #include "Core/DepthrunLogChannels.h"
 #include "Enemy/EnemyHealthComponent.h"
@@ -74,25 +76,29 @@ void AAdaptiveEnemy::HandleHealthChanged(float OldHP, float NewHP,
 
 void AAdaptiveEnemy::PerformMeleeAttack() {
   if (bIsRangedMode) {
-      // Stage 12: Hybrid Support - Ranged Attack logic (same as RangedEnemy)
-      if (IsValid(SpawnedWeapon)) {
-          ACharacter *Player = UGameplayStatics::GetPlayerCharacter(this, 0);
-          if (IsValid(Player)) {
-              const FVector FireDir = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
-              SpawnedWeapon->SetFireDirection(FireDir);
-              SpawnedWeapon->Fire();
-          }
-      } else if (ProjectileClass) {
-          // Manual spawn fallback
-          if (ShotDelay > 0.01f) {
-              FTimerHandle Timer;
-              GetWorldTimerManager().SetTimer(Timer, this, &AAdaptiveEnemy::ActuallyFire, ShotDelay, false);
-          } else {
-              ActuallyFire();
-          }
-      }
+    // Always use direct projectile spawn for ranged mode.
+    // SpawnedWeapon is intentionally bypassed here — it is the melee weapon
+    // and must not intercept ranged attacks.
+    if (!ProjectileClass)
+    {
+      UE_LOG(LogAdaptiveBehavior, Warning,
+             TEXT("[AdaptiveEnemy] %s bIsRangedMode=true but ProjectileClass is NULL — assign it in BP!"),
+             *GetName());
+      return;
+    }
+
+    UE_LOG(LogAdaptiveBehavior, Log, TEXT("[AdaptiveEnemy] %s firing ranged projectile (ShotDelay=%.2f)"),
+           *GetName(), ShotDelay);
+
+    if (ShotDelay > 0.01f) {
+      FTimerHandle Timer;
+      GetWorldTimerManager().SetTimer(Timer, this, &AAdaptiveEnemy::ActuallyFire,
+                                      ShotDelay, false);
+    } else {
+      ActuallyFire();
+    }
   } else {
-      Super::PerformMeleeAttack();
+    Super::PerformMeleeAttack();
   }
 
   if (AdaptiveComp) {
@@ -102,25 +108,31 @@ void AAdaptiveEnemy::PerformMeleeAttack() {
 
 void AAdaptiveEnemy::ActuallyFire() {
   ACharacter *Player = UGameplayStatics::GetPlayerCharacter(this, 0);
-  if (!IsValid(Player)) return;
+  if (!IsValid(Player))
+    return;
 
   const FVector EnemyLoc = GetActorLocation();
   const FVector PlayerLoc = Player->GetActorLocation();
   const FVector FireDir = (PlayerLoc - EnemyLoc).GetSafeNormal2D();
 
-  const FVector SpawnLoc = EnemyLoc + (FireDir * MuzzleOffset);
+  const FVector SpawnLoc =
+      EnemyLoc + (FireDir * MuzzleOffset) + FVector(0.f, 0.f, 10.0f);
   const FTransform SpawnTransform = FTransform(FireDir.Rotation(), SpawnLoc);
 
-  if (UWorld* World = GetWorld()) {
-      ABaseProjectile *Projectile = World->SpawnActorDeferred<ABaseProjectile>(
-          ProjectileClass, SpawnTransform, this, Cast<APawn>(this),
-          ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+  UWorld *World = GetWorld();
+  if (!World)
+    return;
 
-      if (Projectile) {
-          Projectile->InitProjectile(FireDir, AttackDamage, this, ProjectileSpeed);
-          Projectile->FinishSpawning(SpawnTransform);
-      }
-  }
+  ABaseProjectile *Projectile = World->SpawnActorDeferred<ABaseProjectile>(
+      ProjectileClass, SpawnTransform, this, Cast<APawn>(this),
+      ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+
+  if (!IsValid(Projectile))
+    return;
+
+  Projectile->CollisionSphere->IgnoreActorWhenMoving(this, true);
+  Projectile->InitProjectile(FireDir, AttackDamage, this, ProjectileSpeed);
+  Projectile->FinishSpawning(SpawnTransform);
 }
 
 void AAdaptiveEnemy::OnKilled() {

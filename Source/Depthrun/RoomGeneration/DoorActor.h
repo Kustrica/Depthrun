@@ -20,7 +20,8 @@ public:
     TObjectPtr<class UPaperSpriteComponent> SpriteComponent;
 
     /** Initializes sprite and collision shape for the spawned door. */
-    void InitializeDoor(class UPaperSprite* DoorSprite, bool bVerticalDoor, const FRotator& SpriteRotation, float VisualScale);
+    void InitializeDoor(class UPaperSprite* DoorSprite, bool bVerticalDoor, const FRotator& SpriteRotation, float VisualScale,
+                        bool bInUseSpriteCollision);
 
     UFUNCTION(BlueprintCallable, Category = "Door")
     void OpenDoor();
@@ -29,6 +30,11 @@ public:
     void CloseDoor();
 
 protected:
+    void SetDoorCollisionEnabled(bool bEnabled);
+
     UPROPERTY(BlueprintReadOnly, Category = "Door")
     bool bIsOpen = false;
+
+    UPROPERTY(BlueprintReadOnly, Category = "Door")
+    bool bUseSpriteCollision = true;
 };

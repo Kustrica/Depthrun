@@ -18,7 +18,6 @@
 
 namespace {
 constexpr float BaseTileSize = 16.0f;
-const FVector LegacySpawnOffset = FVector(-96.f, 144.f, 0.f);
 
 float ResolveWorldScale(const URoomTemplate* Template) {
   if (!Template || Template->WorldScale <= 0.01f) {
@@ -31,12 +30,6 @@ FVector ResolveSpawnOffset(const URoomTemplate* Template) {
   if (!Template) {
     return FVector::ZeroVector;
   }
-
-  // Keep old assets (saved with zero offset) aligned with the current room grid.
-  if (Template->SpawnOffset.IsNearlyZero(0.01f)) {
-    return LegacySpawnOffset;
-  }
-
   return Template->SpawnOffset;
 }
 
@@ -83,10 +76,20 @@ ARoomBase::ARoomBase() {
   TileMapComponent->SetupAttachment(RootComponent);
   TileMapComponent->SetRelativeRotation(FRotator(-90.f, 0.f, 90.f));
   TileMapComponent->SetRelativeScale3D(FVector(2.6f, 2.6f, 2.6f));
+  TileMapComponent->SetCollisionProfileName(TEXT("BlockAll"));
+  TileMapComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+  TileMapComponent->SetGenerateOverlapEvents(false);
 }
 
-void ARoomBase::BeginPlay() { 
-  Super::BeginPlay(); 
+void ARoomBase::BeginPlay() {
+  Super::BeginPlay();
+
+  if (bPendingSetup && MyTemplate && MyTemplate->bUseProceduralWallColliders)
+  {
+    const float TileSize = ResolveTileSize(MyTemplate);
+    BuildWallColliders(TileSize, bPendingHasTop, bPendingHasBottom,
+                       bPendingHasLeft, bPendingHasRight);
+  }
 }
 
 void ARoomBase::SetupRoom(URoomTemplate *Template, bool bHasTop, bool bHasBottom,
@@ -99,10 +102,69 @@ void ARoomBase::SetupRoom(URoomTemplate *Template, bool bHasTop, bool bHasBottom
   TileMapComponent->SetTileMap(Template->TileMapAsset);
   TileMapComponent->MakeTileMapEditable();
   TileMapComponent->SetRelativeRotation(MyTemplate->TileMapRotation);
-  TileMapComponent->SetRelativeLocation(FVector(0.f, 0.f, MyTemplate->TileMapZ));
   TileMapComponent->SetRelativeScale3D(FVector(ResolveWorldScale(MyTemplate)));
+  TileMapComponent->SetTranslucentSortPriority(0);
 
-  RoomBounds->SetBoxExtent(FVector(3.0f * TileSize, 4.0f * TileSize, 120.f));
+  // Center the TileMap around the actor origin.
+  // With rotation (-90, 0, 90):
+  //   tile rows (6) grow in World -X direction -> shift +HalfX to center
+  //   tile cols (8) grow in World +Y direction -> shift -HalfY to center
+  const float HalfX = 3.0f * TileSize; // half of 6 rows
+  const float HalfY = 4.0f * TileSize; // half of 8 cols
+  // TileMapVisualOffset lets you nudge ONLY the art without moving colliders/props.
+  const FVector2D VO = MyTemplate->TileMapVisualOffset;
+  TileMapComponent->SetRelativeLocation(FVector(HalfX + VO.X, -HalfY + VO.Y, MyTemplate->TileMapZ));
+
+  // Trigger only over the inner floor area (1.5 tiles inset) so it does not
+  // fire when the player is just stepping into the doorway.
+  const float TriggerInset = TileSize * 1.5f;
+  RoomBounds->SetBoxExtent(FVector(FMath::Max(HalfX - TriggerInset, TileSize), FMath::Max(HalfY - TriggerInset, TileSize), 120.f));
+
+  const int32 FloorLayer = 0;
+  const int32 WallLayer = 2;
+  auto ApplyDoorOpening = [&](bool bConnected, int32 X1, int32 Y1, int32 X2,
+                              int32 Y2, const FRoomTileInfo& ShadowTile) {
+    if (!bConnected) {
+      return;
+    }
+
+    const FRoomTileInfo EmptyTile;
+    // Clear all known layers (Floor, Middle, Wall) so neighbour tilemaps don't
+    // produce z-fighting flicker in the doorway.
+    for (int32 L = 0; L < 3; ++L)
+    {
+      SetTileInLayer(L, X1, Y1, EmptyTile);
+      SetTileInLayer(L, X2, Y2, EmptyTile);
+    }
+
+    if (ShadowTile.TileSet && ShadowTile.PackedTileIndex >= 0) {
+      SetTileInLayer(FloorLayer, X1, Y1, ShadowTile);
+      SetTileInLayer(FloorLayer, X2, Y2, ShadowTile);
+    }
+  };
+
+  ApplyDoorOpening(bHasTop, 3, 0, 4, 0, MyTemplate->DoorFloorShadowTop);
+  ApplyDoorOpening(bHasBottom, 3, 5, 4, 5, MyTemplate->DoorFloorShadowBottom);
+  ApplyDoorOpening(bHasLeft, 0, 2, 0, 3, MyTemplate->DoorFloorShadowLeft);
+  ApplyDoorOpening(bHasRight, 7, 2, 7, 3, MyTemplate->DoorFloorShadowRight);
+
+  // Rebuild tilemap collision (works if TileSet has tile-level collision shapes).
+  if (TileMapComponent)
+  {
+    TileMapComponent->SetCollisionProfileName(TEXT("BlockAll"));
+    TileMapComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    TileMapComponent->SetGenerateOverlapEvents(false);
+    TileMapComponent->RebuildCollision();
+  }
+
+  // Save door flags — BuildWallColliders is deferred to BeginPlay so that
+  // Unreal's physics state is fully initialized before we register components.
+  bPendingHasTop    = bHasTop;
+  bPendingHasBottom = bHasBottom;
+  bPendingHasLeft   = bHasLeft;
+  bPendingHasRight  = bHasRight;
+  bPendingSetup     = true;
+
   GenerateProps(bHasTop, bHasBottom, bHasLeft, bHasRight);
 }
 
@@ -116,7 +178,6 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
   const float TileSize = ResolveTileSize(MyTemplate);
   const float VisualScale = ResolveWorldScale(MyTemplate);
   const FVector RoomOrigin = GetActorLocation();
-  const FVector SpawnOffset = ResolveSpawnOffset(MyTemplate);
   const FActorSpawnParameters SpawnParams = [] {
     FActorSpawnParameters Params;
     Params.SpawnCollisionHandlingOverride =
@@ -131,18 +192,22 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
       return;
     }
 
-    FVector SpawnLoc = RoomOrigin + SpawnOffset + SideOffset;
-    SpawnLoc.Z = MyTemplate->DoorZ;
+    FVector SpawnLoc = RoomOrigin + SideOffset;
+    // Lift slightly above floor to prevent z-fighting (10 units is enough)
+    SpawnLoc.Z = MyTemplate->DoorZ + 10.f;
+    // Spawn with ZeroRotator so CollisionBox extents map directly to world axes.
+    // SpriteComponent receives PropRotation inside InitializeDoor.
     ADoorActor* Door = GetWorld()->SpawnActor<ADoorActor>(
         MyTemplate->DoorClass, SpawnLoc,
-        MakeCollisionSafeRotation(MyTemplate->DoorRotation), SpawnParams);
+        FRotator::ZeroRotator, SpawnParams);
     if (!Door) {
       return;
     }
 
-    Door->InitializeDoor(DoorSprite, bVerticalDoor, MyTemplate->DoorRotation,
-                         VisualScale);
-    Door->OpenDoor();
+    Door->InitializeDoor(DoorSprite, bVerticalDoor, MyTemplate->PropRotation,
+                         VisualScale, MyTemplate->bUseDoorSpriteCollision);
+    // Door starts open (hidden, no collision) from the constructor.
+    // ActivateRoom() will call CloseDoor() to block the player.
     Door->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
     SpawnedDoors.Add(Door);
     OccupiedTiles.Add(T1);
@@ -150,16 +215,16 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
   };
 
   // Top/Bottom use horizontal doorway art, Left/Right use vertical doorway art.
-  HandleDoorSide(bHasTop, FVector(TileSize * 3.f, 0.f, 0.f),
+  HandleDoorSide(bHasTop, FVector(TileSize * 2.5f, 0.f, 0.f),
                  MyTemplate->HorizontalDoorSprite, FIntPoint(3, 0),
                  FIntPoint(4, 0), false);
-  HandleDoorSide(bHasBottom, FVector(-TileSize * 3.f, 0.f, 0.f),
+  HandleDoorSide(bHasBottom, FVector(-TileSize * 2.5f, 0.f, 0.f),
                  MyTemplate->HorizontalDoorSprite, FIntPoint(3, 5),
                  FIntPoint(4, 5), false);
-  HandleDoorSide(bHasLeft, FVector(0.f, -TileSize * 4.f, 0.f),
+  HandleDoorSide(bHasLeft, FVector(0.f, -TileSize * 3.5f, 0.f),
                  MyTemplate->VerticalDoorSprite, FIntPoint(0, 2),
                  FIntPoint(0, 3), true);
-  HandleDoorSide(bHasRight, FVector(0.f, TileSize * 4.f, 0.f),
+  HandleDoorSide(bHasRight, FVector(0.f, TileSize * 3.5f, 0.f),
                  MyTemplate->VerticalDoorSprite, FIntPoint(7, 2),
                  FIntPoint(7, 3), true);
 
@@ -167,7 +232,7 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
   for (const FIntPoint &Spot : MyTemplate->TorchSpots) {
     if (FMath::FRandRange(0.f, 100.f) <= MyTemplate->TorchSpawnChance) {
       if (MyTemplate->TorchClass) {
-        const FVector TorchLoc = RoomOrigin + SpawnOffset +
+        const FVector TorchLoc = RoomOrigin +
                                  MakeTileOffset(TileSize, Spot.X, Spot.Y,
                                                 MyTemplate->PropsZ);
         AActor *Torch = GetWorld()->SpawnActor<AActor>(
@@ -184,16 +249,18 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     }
   }
 
-  // 2. Decorative elements (always non-blocking by request)
+  // 2. Decorative elements
   int32 DecorCount = FMath::RandRange(MyTemplate->MinProps, MyTemplate->MaxProps);
   for (int32 i = 0; i < DecorCount; ++i) {
-    int32 RX = FMath::RandRange(1, 6);
-    int32 RY = FMath::RandRange(1, 4);
+    // Keep at least 2 tiles away from walls so the player can pass between
+    // an obstacle and the wall. Cols 2..5, rows 2..3 (centre of the room).
+    int32 RX = FMath::RandRange(2, 5);
+    int32 RY = FMath::RandRange(2, 3);
 
     if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
       continue;
 
-    FVector DecorLoc = RoomOrigin + SpawnOffset +
+    FVector DecorLoc = RoomOrigin +
                        MakeTileOffset(TileSize, RX, RY, MyTemplate->PropsZ);
 
     TSubclassOf<AActor> SelectedClass = nullptr;
@@ -215,15 +282,24 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
         OccupiedTiles.Add(FIntPoint(RX, RY));
 
         if (SelectedClass == MyTemplate->FloorObstacleClass) {
-          Decor->SetActorEnableCollision(false);
+          // Pick a random sprite variant. Collision mode is template-driven:
+          // sprite geometry collision (preferred) or no collision.
           if (UPaperSpriteComponent* SpriteComp = Decor->FindComponentByClass<UPaperSpriteComponent>()) {
               if (MyTemplate->ObstacleVariants.Num() > 0) {
                   int32 VariantIdx = FMath::RandRange(0, MyTemplate->ObstacleVariants.Num() - 1);
                   SpriteComp->SetSprite(MyTemplate->ObstacleVariants[VariantIdx]);
               }
+              if (MyTemplate->bUseObstacleSpriteCollision) {
+                  SpriteComp->SetCollisionProfileName(TEXT("BlockAll"));
+                  SpriteComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+                  SpriteComp->SetGenerateOverlapEvents(false);
+                  Decor->SetActorEnableCollision(true);
+              } else {
+                  SpriteComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+                  Decor->SetActorEnableCollision(false);
+              }
+              SpriteComp->SetTranslucentSortPriority(5);
           }
-        } else {
-          Decor->SetActorEnableCollision(false);
         }
       }
     }
@@ -245,10 +321,19 @@ void ARoomBase::OnRoomEntry(UPrimitiveComponent *OverlappedComp,
 }
 
 void ARoomBase::ActivateRoom() {
-  if (bIsCleared)
+  if (bIsCleared || bIsActive)
     return;
+  bIsActive = true;
 
-  SpawnEnemies();
+  if (!bHasSpawnedEnemies) {
+    SpawnEnemies();
+    bHasSpawnedEnemies = true;
+  }
+
+  if (SpawnedEnemies.Num() == 0) {
+    DeactivateRoom();
+    return;
+  }
 
   // Close all doors
   for (AActor *Door : SpawnedDoors) {
@@ -280,6 +365,8 @@ void ARoomBase::DeactivateRoom() {
   if (bIsCleared)
     return;
   bIsCleared = true;
+  bIsActive = false;
+  GetWorldTimerManager().ClearTimer(TimerHandle_CheckEnemies);
 
   for (AActor *Door : SpawnedDoors) {
     if (ADoorActor *DA = Cast<ADoorActor>(Door))
@@ -291,7 +378,7 @@ void ARoomBase::DeactivateRoom() {
            TEXT("[DungeonGen] BOSS CLEARED! EXIT HATCH OPEN."));
 
     if (MyTemplate->TrapdoorClass) {
-      FVector HatchLoc = GetActorLocation() + ResolveSpawnOffset(MyTemplate);
+      FVector HatchLoc = GetActorLocation();
       HatchLoc.Z = MyTemplate->PropsZ;
       FActorSpawnParameters SpawnParams;
       SpawnParams.SpawnCollisionHandlingOverride =
@@ -313,6 +400,8 @@ void ARoomBase::SpawnEnemies() {
   if (!MyTemplate || MyTemplate->RoomType == ERoomType::Start)
     return;
 
+  SpawnedEnemies.Reset();
+
   int32 Count =
       FMath::RandRange(MyTemplate->MinEnemies, MyTemplate->MaxEnemies);
   const float TileSize = ResolveTileSize(MyTemplate);
@@ -331,10 +420,16 @@ void ARoomBase::SpawnEnemies() {
     if (MyTemplate->PotentialEnemies.Num() == 0 || TotalWeight <= 0.f)
       break;
 
-    int32 RX = FMath::RandRange(1, 6);
-    int32 RY = FMath::RandRange(1, 4);
-    FVector SpawnLoc = GetActorLocation() + SpawnOffset +
-                       MakeTileOffset(TileSize, RX, RY, MyTemplate->EnemyZ);
+    // Spawn enemies in the inner area only — keep distance from doors
+    // so the player doesn't get stuck in an enemy when entering the room.
+    int32 RX = FMath::RandRange(2, 5);
+    int32 RY = FMath::RandRange(2, 3);
+    if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
+      continue;
+
+    // Lift enemy slightly above floor to prevent z-fighting.
+    FVector SpawnLoc = GetActorLocation() +
+                       MakeTileOffset(TileSize, RX, RY, MyTemplate->EnemyZ + 10.f);
 
     TSubclassOf<AActor> EnemyClass = nullptr;
     float Rand = FMath::FRand() * TotalWeight;
@@ -352,7 +447,7 @@ void ARoomBase::SpawnEnemies() {
         AActor *Enemy = GetWorld()->SpawnActor<AActor>(EnemyClass, SpawnLoc,
                                                        MakeCollisionSafeRotation(MyTemplate->EnemyRotation), SpawnParams);
         if (Enemy) {
-          ApplyVisualScale(Enemy, VisualScale);
+          // Enemies stay at scale 1.0 — do not apply the tilemap visual scale.
           SpawnedEnemies.Add(Enemy);
         }
     }
@@ -368,10 +463,95 @@ void ARoomBase::SetTileInLayer(int32 Layer, int32 X, int32 Y,
     PaperTile.TileSet = TileInfo.TileSet;
     PaperTile.PackedTileIndex = TileInfo.PackedTileIndex;
   } else {
-    PaperTile.TileSet = nullptr;
-    PaperTile.PackedTileIndex = -1;
+    PaperTile = FPaperTileInfo();
   }
   TileMapComponent->SetTile(X, Y, Layer, PaperTile);
+}
+
+void ARoomBase::BuildWallColliders(float TileSize, bool bHasTop, bool bHasBottom,
+                                   bool bHasLeft, bool bHasRight)
+{
+  // Destroy any previously created wall colliders (room re-setup guard).
+  for (UBoxComponent* Old : WallColliders)
+  {
+    if (Old) Old->DestroyComponent();
+  }
+  WallColliders.Empty();
+
+  // Room layout (actor origin = room center, rotation (-90,0,90)):
+  //   World X: rows grow in -X, so Top wall is at +HalfX, Bottom at -HalfX
+  //   World Y: cols grow in +Y, so Left wall is at -HalfY, Right at +HalfY
+  // Tile size: 6 rows x 8 cols.
+  const float HalfX   = 3.0f * TileSize;
+  const float HalfY   = 4.0f * TileSize;
+  const float WallT   = TileSize * 0.5f;   // half-extent of wall thickness
+  const float DoorHW  = TileSize;          // half-width of doorway (2 tiles / 2)
+
+  // Helper: creates one BoxComponent attached to this actor.
+  auto AddWall = [&](FVector RelCenter, FVector HalfExtent)
+  {
+    UBoxComponent* Box = NewObject<UBoxComponent>(this);
+    Box->SetupAttachment(RootComponent);
+    Box->RegisterComponent();
+    Box->SetRelativeLocation(RelCenter);
+    Box->SetBoxExtent(HalfExtent);
+    Box->SetCollisionProfileName(TEXT("BlockAll"));
+    Box->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    WallColliders.Add(Box);
+  };
+
+  // ── Top wall (WorldX = +HalfX - WallT) ─────────────────────────────────
+  // Full span Y: [-HalfY .. +HalfY]. Doorway center at Y=0, half-width=DoorHW.
+  if (bHasTop)
+  {
+    // Left segment: Y in [-HalfY .. -DoorHW]
+    float SegLen = (HalfY - DoorHW) * 0.5f;
+    AddWall(FVector(HalfX - WallT, -DoorHW - SegLen, 0.f), FVector(WallT, SegLen, 40.f));
+    // Right segment: Y in [+DoorHW .. +HalfY]
+    AddWall(FVector(HalfX - WallT,  DoorHW + SegLen, 0.f), FVector(WallT, SegLen, 40.f));
+  }
+  else
+  {
+    AddWall(FVector(HalfX - WallT, 0.f, 0.f), FVector(WallT, HalfY, 40.f));
+  }
+
+  // ── Bottom wall (WorldX = -HalfX + WallT) ───────────────────────────────
+  if (bHasBottom)
+  {
+    float SegLen = (HalfY - DoorHW) * 0.5f;
+    AddWall(FVector(-HalfX + WallT, -DoorHW - SegLen, 0.f), FVector(WallT, SegLen, 40.f));
+    AddWall(FVector(-HalfX + WallT,  DoorHW + SegLen, 0.f), FVector(WallT, SegLen, 40.f));
+  }
+  else
+  {
+    AddWall(FVector(-HalfX + WallT, 0.f, 0.f), FVector(WallT, HalfY, 40.f));
+  }
+
+  // ── Left wall (WorldY = -HalfY + WallT) ─────────────────────────────────
+  // Interior span X: [-(HalfX-WallT) .. +(HalfX-WallT)]. Doorway at X=0.
+  const float InnerHalfX = HalfX - WallT;
+  if (bHasLeft)
+  {
+    float SegLen = (InnerHalfX - DoorHW) * 0.5f;
+    AddWall(FVector(-DoorHW - SegLen, -HalfY + WallT, 0.f), FVector(SegLen, WallT, 40.f));
+    AddWall(FVector( DoorHW + SegLen, -HalfY + WallT, 0.f), FVector(SegLen, WallT, 40.f));
+  }
+  else
+  {
+    AddWall(FVector(0.f, -HalfY + WallT, 0.f), FVector(InnerHalfX, WallT, 40.f));
+  }
+
+  // ── Right wall (WorldY = +HalfY - WallT) ────────────────────────────────
+  if (bHasRight)
+  {
+    float SegLen = (InnerHalfX - DoorHW) * 0.5f;
+    AddWall(FVector(-DoorHW - SegLen, HalfY - WallT, 0.f), FVector(SegLen, WallT, 40.f));
+    AddWall(FVector( DoorHW + SegLen, HalfY - WallT, 0.f), FVector(SegLen, WallT, 40.f));
+  }
+  else
+  {
+    AddWall(FVector(0.f, HalfY - WallT, 0.f), FVector(InnerHalfX, WallT, 40.f));
+  }
 }
 
 void ARoomBase::TrySpawnChest() {
@@ -388,7 +568,7 @@ void ARoomBase::TrySpawnChest() {
     float OffsetX = FMath::RandRange(-1.0f, 1.0f) * TileSize;
     float OffsetY = FMath::RandRange(-1.0f, 1.0f) * TileSize;
     
-    FVector ChestLoc = GetActorLocation() + ResolveSpawnOffset(MyTemplate) + FVector(OffsetX, OffsetY, 0.f);
+    FVector ChestLoc = GetActorLocation() + FVector(OffsetX, OffsetY, 0.f);
     ChestLoc.Z = MyTemplate->PropsZ;
 
     FActorSpawnParameters SpawnParams;

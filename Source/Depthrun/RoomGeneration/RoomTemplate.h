@@ -102,13 +102,18 @@ public:
   UPROPERTY(EditAnywhere, Category = "Rotation")
   FRotator EnemyRotation = FRotator(-90.f, 0.f, 90.f);
 
-  /** Rotation for doors specifically, as they might need to face outward. */
-  UPROPERTY(EditAnywhere, Category = "Rotation")
+  /** [Deprecated] Doors now use PropRotation. Kept only for asset backwards compatibility. */
+  UPROPERTY()
   FRotator DoorRotation = FRotator(-90.f, 0.f, 90.f);
 
   /** Master offset for ALL procedurally spawned actors relative to the Room's zero point. Use this to center props/enemies within your TileMap. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
-  FVector SpawnOffset = FVector(-96.f, 144.f, 0.f);
+  FVector SpawnOffset = FVector::ZeroVector;
+
+  /** Fine-tune TileMap visual position relative to the geometric room center (World X / World Y).
+   *  Does NOT affect wall colliders or prop/enemy spawn positions — only the tilemap art. */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
+  FVector2D TileMapVisualOffset = FVector2D(-20.f, 15.f);
 
   /** Z-Height for the TileMap. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
@@ -129,6 +134,18 @@ public:
   /** Z-Height used when placing the player into the start room. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
   float PlayerSpawnZ = 1.0f;
+
+  /** If true, room generation creates extra procedural wall BoxComponents. */
+  UPROPERTY(EditAnywhere, Category = "Collision")
+  bool bUseProceduralWallColliders = false;
+
+  /** If true, doors use sprite collision geometry instead of generated box collision. */
+  UPROPERTY(EditAnywhere, Category = "Collision")
+  bool bUseDoorSpriteCollision = true;
+
+  /** If true, floor obstacles use each sprite's own collision geometry. */
+  UPROPERTY(EditAnywhere, Category = "Collision")
+  bool bUseObstacleSpriteCollision = true;
 
   UPROPERTY(EditAnywhere, Category = "Props|Spawning")
   int32 MinProps = 2;

@@ -188,7 +188,7 @@ void ABaseEnemy::OnKilled() {
     GetSprite()->SetHiddenInGame(true);
   }
 
-  SetLifeSpan(3.0f);
+  SetLifeSpan(1.0f);
 }
 
 void ABaseEnemy::OnDeath() { OnKilled(); }

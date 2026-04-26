@@ -6,12 +6,16 @@
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
+#include "PaperCharacter.h"
+#include "PaperFlipbookComponent.h"
+#include "Player/DepthrunCharacter.h"
 
-namespace {
-constexpr float BaseTileSize = 16.0f;
-const FVector LegacySpawnOffset = FVector(-96.f, 144.f, 0.f);
+namespace RoomGeneratorLocal
+{
+constexpr float RoomGenBaseTileSize = 16.0f;
+constexpr float MaxAllowedPlayerZOffset = 8.0f;
 
-float ResolveWorldScale(const URoomTemplate* Template)
+float ResolveRoomGenWorldScale(const URoomTemplate* Template)
 {
     if (!Template || Template->WorldScale <= 0.01f)
     {
@@ -20,21 +24,31 @@ float ResolveWorldScale(const URoomTemplate* Template)
     return Template->WorldScale;
 }
 
-FVector ResolveSpawnOffset(const URoomTemplate* Template)
+FVector ResolveRoomGenSpawnOffset(const URoomTemplate* Template)
 {
     if (!Template)
     {
         return FVector::ZeroVector;
     }
-
-    if (Template->SpawnOffset.IsNearlyZero(0.01f))
-    {
-        return LegacySpawnOffset;
-    }
-
     return Template->SpawnOffset;
 }
-} // namespace
+
+float ResolveSafePlayerSpawnZ(const URoomTemplate* Template)
+{
+    if (!Template)
+    {
+        return 1.0f;
+    }
+
+    // Keep player collision near tilemap collision plane.
+    // If DataAsset accidentally contains very high Z (e.g. 94), clamp it to a
+    // safe offset above floor so walls/obstacles still block correctly.
+    const float FloorZ = Template->TileMapZ;
+    const float MinZ = FloorZ - MaxAllowedPlayerZOffset;
+    const float MaxZ = FloorZ + MaxAllowedPlayerZOffset;
+    return FMath::Clamp(Template->PlayerSpawnZ, MinZ, MaxZ);
+}
+} // namespace RoomGeneratorLocal
 
 void URoomGeneratorSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -89,7 +103,8 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
     // Из-за поворота тайлмапа (-90, 0, 90):
     // Ось X в мире (Вверх/Вниз) соответствует высоте комнаты (6 тайлов).
     // Ось Y в мире (Влево/Вправо) соответствует ширине комнаты (8 тайлов).
-    const float TileSize = BaseTileSize * ResolveWorldScale(StartTemplate);
+    const float TileSize = RoomGeneratorLocal::RoomGenBaseTileSize *
+                           RoomGeneratorLocal::ResolveRoomGenWorldScale(StartTemplate);
     const float RoomSizeX = 6.0f * TileSize; // World X
     const float RoomSizeY = 8.0f * TileSize; // World Y
 
@@ -141,14 +156,32 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         if (ACharacter* Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
         {
             FVector SpawnPos = GeneratedRooms[0]->GetActorLocation();
-            if (StartTemplate) {
-                SpawnPos += ResolveSpawnOffset(StartTemplate);
-                SpawnPos.Z = StartTemplate->PlayerSpawnZ;
-            } else {
-                SpawnPos.Z = 1.0f;
-            }
+            SpawnPos.Z = RoomGeneratorLocal::ResolveSafePlayerSpawnZ(StartTemplate);
             Player->SetActorLocation(SpawnPos);
             Player->SetActorRotation(FRotator::ZeroRotator);
+            Player->SetActorHiddenInGame(false);
+            Player->SetActorEnableCollision(true);
+
+            // Pin Z permanently — prevents the character climbing on door/obstacle
+            // collision geometry due to Flying mode "step-up" behaviour.
+            if (ADepthrunCharacter* DepthrunPlayer = Cast<ADepthrunCharacter>(Player))
+            {
+                DepthrunPlayer->SetLockedZ(SpawnPos.Z);
+                UE_LOG(LogTemp, Log, TEXT("[RoomGen] Player Z locked to %.1f"), SpawnPos.Z);
+            }
+
+            // Force-refresh the PaperCharacter sprite so the player is visible
+            // immediately after teleport (without requiring a movement input).
+            if (APaperCharacter* PaperPlayer = Cast<APaperCharacter>(Player))
+            {
+                if (UPaperFlipbookComponent* Sprite = PaperPlayer->GetSprite())
+                {
+                    Sprite->SetHiddenInGame(false);
+                    Sprite->SetVisibility(true, true);
+                    Sprite->SetTranslucentSortPriority(100); // Render player on top
+                    Sprite->MarkRenderStateDirty();
+                }
+            }
         }
     }
 

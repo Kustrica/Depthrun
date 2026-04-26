@@ -63,7 +63,6 @@ void ABaseProjectile::Tick(float DeltaTime) {
   // If we hit something static (wall), destroy the projectile
   if (Hit.bBlockingHit)
   {
-      UE_LOG(LogCombat, Log, TEXT("[Projectile] %s destroyed by wall hit"), *GetName());
       Destroy();
   }
 }
@@ -120,7 +119,6 @@ void ABaseProjectile::OnOverlap(UPrimitiveComponent *OverlappedComp,
   HitActors.Add(OtherActor);
 
   if (!bPierceEnabled) {
-    UE_LOG(LogCombat, Log, TEXT("[Projectile] %s destroyed after hit (pierce disabled)"), *GetName());
     Destroy();
   }
 }

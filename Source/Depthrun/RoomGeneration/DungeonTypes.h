@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Enemy/BaseEnemy.h"
 #include "DungeonTypes.generated.h"
 
 UENUM(BlueprintType)
@@ -40,7 +41,7 @@ struct FEnemySpawnInfo
     GENERATED_BODY()
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TSubclassOf<class ABaseEnemy> EnemyClass;
+    TSubclassOf<ABaseEnemy> EnemyClass;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float Weight = 1.0f;

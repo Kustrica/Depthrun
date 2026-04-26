@@ -26,7 +26,7 @@ constexpr float DashStopDelay = 0.12f;
 } // namespace
 
 ADepthrunCharacter::ADepthrunCharacter() {
-  PrimaryActorTick.bCanEverTick = false;
+  PrimaryActorTick.bCanEverTick = true;
 
   // ─── Top-down camera ───────────────────────────────────────────────────
   SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -118,6 +118,21 @@ ADepthrunCharacter::ADepthrunCharacter() {
   bUseControllerRotationPitch = false;
   bUseControllerRotationYaw = false;
   bUseControllerRotationRoll = false;
+}
+
+void ADepthrunCharacter::Tick(float DeltaTime)
+{
+  Super::Tick(DeltaTime);
+
+  if (bZLocked)
+  {
+    FVector Loc = GetActorLocation();
+    if (!FMath::IsNearlyEqual(Loc.Z, LockedPlayerZ, 0.5f))
+    {
+      Loc.Z = LockedPlayerZ;
+      SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+    }
+  }
 }
 
 void ADepthrunCharacter::BeginPlay() {
@@ -214,6 +229,18 @@ void ADepthrunCharacter::BeginPlay() {
           HUD->UpdatePlayerHP(CurrentHP, MaxHP);
       }
   }
+
+  SetActorHiddenInGame(false);
+  if (UPaperFlipbookComponent* PlayerSprite = GetSprite()) {
+    PlayerSprite->SetHiddenInGame(false);
+    PlayerSprite->SetVisibility(true, true);
+    PlayerSprite->MarkRenderStateDirty();
+  }
+
+  // Make sure an idle flipbook is bound on spawn — without this the sprite
+  // stays on the (often empty) BP default until the first input tick, which
+  // looked like the character was invisible right after entering the level.
+  UpdateAnimation();
 }
 
 void ADepthrunCharacter::SetupPlayerInputComponent(
@@ -606,6 +633,21 @@ void ADepthrunCharacter::UpdateAnimation() {
       break;
     case EPlayerFacingDirection::Down:
       Desired = FB_IdleDown;
+      break;
+    }
+  }
+
+  if (!Desired) {
+    switch (FacingDirection) {
+    case EPlayerFacingDirection::Right:
+    case EPlayerFacingDirection::Left:
+      Desired = FB_WalkRight ? FB_WalkRight : FB_IdleRight;
+      break;
+    case EPlayerFacingDirection::Up:
+      Desired = FB_WalkUp ? FB_WalkUp : FB_IdleUp;
+      break;
+    case EPlayerFacingDirection::Down:
+      Desired = FB_WalkDown ? FB_WalkDown : FB_IdleDown;
       break;
     }
   }

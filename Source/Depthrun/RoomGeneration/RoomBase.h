@@ -73,11 +73,26 @@ private:
   FTimerHandle TimerHandle_CheckEnemies;
 
   bool bIsCleared = false;
+  bool bIsActive = false;
+  bool bHasSpawnedEnemies = false;
   bool bHasGeneratedChest = false;
+
+  // Door connectivity flags saved during SetupRoom, used in BeginPlay.
+  bool bPendingHasTop    = false;
+  bool bPendingHasBottom = false;
+  bool bPendingHasLeft   = false;
+  bool bPendingHasRight  = false;
+  bool bPendingSetup     = false;
 
   // Helper for tile placement
   void SetTileInLayer(int32 Layer, int32 X, int32 Y,
                       const FRoomTileInfo &TileInfo);
+
+  // Builds explicit BoxComponent wall colliders so walls block regardless of TileSet collision settings.
+  void BuildWallColliders(float TileSize, bool bHasTop, bool bHasBottom, bool bHasLeft, bool bHasRight);
+
+  UPROPERTY()
+  TArray<TObjectPtr<UBoxComponent>> WallColliders;
 
 protected:
   /** Tiles that already have props (like torches) to avoid overlapping. */

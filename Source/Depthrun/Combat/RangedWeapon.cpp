@@ -13,11 +13,6 @@ ARangedWeapon::ARangedWeapon() {
 }
 
 void ARangedWeapon::Fire() {
-  UE_LOG(LogCombat, Log,
-         TEXT("[RangedWeapon] Fire called on %s. ProjectileClass=%s"),
-         *GetNameSafe(GetOwner()),
-         ProjectileClass ? *ProjectileClass->GetName() : TEXT("NULL"));
-
   if (!bCanFire || !ProjectileClass)
     return;
 
@@ -34,6 +29,9 @@ void ARangedWeapon::Fire() {
 }
 
 void ARangedWeapon::ActuallyFire() {
+  const double RW_T0 = FPlatformTime::Seconds();
+  UE_LOG(LogCombat, Log, TEXT("[RangedWeapon] %s ActuallyFire START"), *GetName());
+
   UWorld *World = GetWorld();
   if (!World)
     return;
@@ -56,11 +54,14 @@ void ARangedWeapon::ActuallyFire() {
   const FTransform SpawnTransform(SpawnRotation, SpawnLocation);
 
   // === SpawnActorDeferred: configure BEFORE BeginPlay & first overlap ===
+  const double RW_T1 = FPlatformTime::Seconds();
   ABaseProjectile *Projectile = World->SpawnActorDeferred<ABaseProjectile>(
       ProjectileClass, SpawnTransform,
       this,                        // Owner = weapon
       Cast<APawn>(CharacterOwner), // Instigator = character
       ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+  const double RW_T2 = FPlatformTime::Seconds();
+  UE_LOG(LogCombat, Log, TEXT("[RangedWeapon] SpawnActorDeferred %.4f ms"), (RW_T2 - RW_T1) * 1000.0);
 
   if (!IsValid(Projectile))
     return;
@@ -84,6 +85,10 @@ void ARangedWeapon::ActuallyFire() {
   Projectile->InitProjectile(FireDirection, BaseDamage, CharacterOwner,
                              ProjectileSpeed, bPierceEnabled, RicochetCount);
   Projectile->FinishSpawning(SpawnTransform);
+
+  const double RW_T3 = FPlatformTime::Seconds();
+  UE_LOG(LogCombat, Log, TEXT("[RangedWeapon] FinishSpawning %.4f ms | total %.4f ms"),
+         (RW_T3 - RW_T2) * 1000.0, (RW_T3 - RW_T0) * 1000.0);
 }
 
 void ARangedWeapon::ResetEffects() {

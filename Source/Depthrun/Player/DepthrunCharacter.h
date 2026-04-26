@@ -48,6 +48,7 @@ public:
 
 protected:
   virtual void BeginPlay() override;
+  virtual void Tick(float DeltaTime) override;
   virtual void
   SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;
 
@@ -224,12 +225,19 @@ public:
   UFUNCTION(BlueprintPure, Category = "Player|Debug")
   FText GetSuperAttackStatusText() const;
 
+  /** Called by RoomGeneratorSubsystem after teleport to pin the player to the correct Z floor level. */
+  UFUNCTION(BlueprintCallable, Category = "Player|Spawn")
+  void SetLockedZ(float InZ) { LockedPlayerZ = InZ; bZLocked = true; }
+
 private:
   bool bCanDash = true;
   bool bIsMoving = false;
   bool bIsAttacking = false;
   bool bIsHitAnimationActive = false;
   bool bIsDead = false;
+
+  float LockedPlayerZ = 3.0f;
+  bool  bZLocked = false;
 
   FTimerHandle DashCooldownTimer;
   FTimerHandle DashStopTimer;

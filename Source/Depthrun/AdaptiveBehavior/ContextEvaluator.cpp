@@ -101,7 +101,7 @@ float UContextEvaluator::EvaluateRoomDensity(const ABaseEnemy* Owner, float MaxC
 	TArray<AActor*> OutActors;
 
 	UKismetSystemLibrary::SphereOverlapActors(
-		Owner, Owner->GetActorLocation(), 1500.f, ObjectTypes, APawn::StaticClass(), IgnoreActors, OutActors);
+		Owner, Owner->GetActorLocation(), 600.f, ObjectTypes, APawn::StaticClass(), IgnoreActors, OutActors);
 
 	return FMath::Clamp(OutActors.Num() / MaxCapacity, 0.f, 1.f);
 }

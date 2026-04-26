@@ -69,5 +69,5 @@ protected:
   virtual void UpdateAnimation();
 
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
-  float MuzzleOffset = 30.f;
+  float MuzzleOffset = 40.f;
 };

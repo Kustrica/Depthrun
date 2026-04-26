@@ -45,6 +45,9 @@ void ARangedEnemy::PerformMeleeAttack() {
 }
 
 void ARangedEnemy::ActuallyFire() {
+  const double T0 = FPlatformTime::Seconds();
+  UE_LOG(LogCombat, Log, TEXT("[RangedEnemy] %s ActuallyFire START (t=%.4f)"), *GetName(), T0);
+
   ACharacter *Player = UGameplayStatics::GetPlayerCharacter(this, 0);
   if (!IsValid(Player))
     return;
@@ -61,9 +64,12 @@ void ARangedEnemy::ActuallyFire() {
   if (!World)
     return;
 
+  const double T1 = FPlatformTime::Seconds();
   ABaseProjectile *Projectile = World->SpawnActorDeferred<ABaseProjectile>(
       ProjectileClass, SpawnTransform, this, Cast<APawn>(this),
       ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+  const double T2 = FPlatformTime::Seconds();
+  UE_LOG(LogCombat, Log, TEXT("[RangedEnemy] SpawnActorDeferred took %.4f ms"), (T2 - T1) * 1000.0);
 
   if (!IsValid(Projectile))
     return;
@@ -71,4 +77,8 @@ void ARangedEnemy::ActuallyFire() {
   Projectile->CollisionSphere->IgnoreActorWhenMoving(this, true);
   Projectile->InitProjectile(FireDir, AttackDamage, this, ProjectileSpeed);
   Projectile->FinishSpawning(SpawnTransform);
+
+  const double T3 = FPlatformTime::Seconds();
+  UE_LOG(LogCombat, Log, TEXT("[RangedEnemy] FinishSpawning took %.4f ms | total ActuallyFire %.4f ms"),
+         (T3 - T2) * 1000.0, (T3 - T0) * 1000.0);
 }
