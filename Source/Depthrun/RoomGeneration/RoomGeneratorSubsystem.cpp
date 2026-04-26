@@ -7,6 +7,35 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
 
+namespace {
+constexpr float BaseTileSize = 16.0f;
+const FVector LegacySpawnOffset = FVector(-96.f, 144.f, 0.f);
+
+float ResolveWorldScale(const URoomTemplate* Template)
+{
+    if (!Template || Template->WorldScale <= 0.01f)
+    {
+        return 2.6f;
+    }
+    return Template->WorldScale;
+}
+
+FVector ResolveSpawnOffset(const URoomTemplate* Template)
+{
+    if (!Template)
+    {
+        return FVector::ZeroVector;
+    }
+
+    if (Template->SpawnOffset.IsNearlyZero(0.01f))
+    {
+        return LegacySpawnOffset;
+    }
+
+    return Template->SpawnOffset;
+}
+} // namespace
+
 void URoomGeneratorSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
@@ -60,7 +89,7 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
     // Из-за поворота тайлмапа (-90, 0, 90):
     // Ось X в мире (Вверх/Вниз) соответствует высоте комнаты (6 тайлов).
     // Ось Y в мире (Влево/Вправо) соответствует ширине комнаты (8 тайлов).
-    const float TileSize = 16.0f * 2.6f;
+    const float TileSize = BaseTileSize * ResolveWorldScale(StartTemplate);
     const float RoomSizeX = 6.0f * TileSize; // World X
     const float RoomSizeY = 8.0f * TileSize; // World Y
 
@@ -113,12 +142,13 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         {
             FVector SpawnPos = GeneratedRooms[0]->GetActorLocation();
             if (StartTemplate) {
-                SpawnPos += StartTemplate->SpawnOffset;
-                SpawnPos.Z = StartTemplate->EnemyZ;
+                SpawnPos += ResolveSpawnOffset(StartTemplate);
+                SpawnPos.Z = StartTemplate->PlayerSpawnZ;
             } else {
-                SpawnPos.Z = 1.0f; 
+                SpawnPos.Z = 1.0f;
             }
             Player->SetActorLocation(SpawnPos);
+            Player->SetActorRotation(FRotator::ZeroRotator);
         }
     }
 

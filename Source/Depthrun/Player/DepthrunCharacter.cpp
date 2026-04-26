@@ -278,6 +278,8 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
   // --- Super Attack Debug Mode ---
   float OriginalDamage = 0.f;
   float OriginalRange = 1.0f;
+  float OriginalWidth = 1.0f;
+  bool bOriginalOmniSwing = false;
   AMeleeWeapon *MeleeW = Cast<AMeleeWeapon>(CombatComponent->CurrentWeapon);
 
   if (bSuperAttack && CombatComponent->CurrentWeapon) {
@@ -286,7 +288,11 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
 
     if (MeleeW) {
       OriginalRange = MeleeW->GetRangeMultiplier();
+      OriginalWidth = MeleeW->GetWidthMultiplier();
+      bOriginalOmniSwing = MeleeW->IsOmniSwing();
       MeleeW->SetRangeMultiplier(5.0f); // 5x range for melee
+      MeleeW->SetWidthMultiplier(4.0f); // wider hit zone for room control
+      MeleeW->SetOmniSwing(true); // cover front and back around the player
     }
   }
 
@@ -299,6 +305,8 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
     CombatComponent->CurrentWeapon->BaseDamage = OriginalDamage;
     if (MeleeW) {
       MeleeW->SetRangeMultiplier(OriginalRange);
+      MeleeW->SetWidthMultiplier(OriginalWidth);
+      MeleeW->SetOmniSwing(bOriginalOmniSwing);
     }
   }
 

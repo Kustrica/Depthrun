@@ -20,14 +20,18 @@ AMeleeWeapon::AMeleeWeapon() {
   AttackCooldown = 0.4f;
   BaseDamage = 35.f; // Increased default damage
   RangeMultiplier = 1.0f;
+  WidthMultiplier = 1.0f;
   bDoubleSwing = false;
   bIsSecondSwing = false;
+  bOmniSwing = false;
 }
 
 void AMeleeWeapon::ResetEffects() {
   RangeMultiplier = 1.0f;
+  WidthMultiplier = 1.0f;
   bDoubleSwing = false;
   bIsSecondSwing = false;
+  bOmniSwing = false;
 }
 
 void AMeleeWeapon::Fire() {
@@ -63,11 +67,15 @@ void AMeleeWeapon::PerformDoubleSwing() {
 
 void AMeleeWeapon::ActivateHitZone() {
   const float ScaledExtent = HitZoneHalfExtent * RangeMultiplier;
+  const float ScaledWidth = HitZoneWidth * WidthMultiplier;
+  const float OmniExtent = FMath::Max(ScaledExtent, ScaledWidth);
+  const FVector HitExtent = bOmniSwing
+                                ? FVector(OmniExtent, OmniExtent, HitZoneThickness)
+                                : FVector(ScaledExtent, ScaledWidth, HitZoneThickness);
 
   if (HitZone) {
     // 1. Set size first
-    HitZone->SetBoxExtent(
-        FVector(ScaledExtent, HitZoneWidth, HitZoneThickness));
+    HitZone->SetBoxExtent(HitExtent);
     // 2. Enable collision BEFORE moving so Sweep/UpdateOverlaps can work
     HitZone->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     // 3. Ensure we overlap Pawns specifically
@@ -76,11 +84,12 @@ void AMeleeWeapon::ActivateHitZone() {
 
   if (IsValid(GetOwner())) {
     const FVector OwnerLocation = GetOwner()->GetActorLocation();
-    const FRotator FireRot = FireDirection.Rotation();
+    const FRotator FireRot = bOmniSwing ? FRotator::ZeroRotator : FireDirection.Rotation();
 
     // 4. Move and Rotate with Sweep=true to force overlap checks along the path
     FHitResult SweepHit;
-    const FVector Offset = FireDirection.GetSafeNormal() * ScaledExtent;
+    const FVector Offset = bOmniSwing ? FVector::ZeroVector
+                                      : FireDirection.GetSafeNormal() * ScaledExtent;
     SetActorLocationAndRotation(OwnerLocation + Offset, FireRot, true,
                                 &SweepHit);
   }

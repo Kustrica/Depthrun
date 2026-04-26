@@ -17,6 +17,10 @@ public:
   UPROPERTY(EditAnywhere, Category = "Layout")
   ERoomType RoomType = ERoomType::Combat;
 
+  /** Uniform world scale used by procedural spawn math for this template. */
+  UPROPERTY(EditAnywhere, Category = "Layout")
+  float WorldScale = 2.6f;
+
   // ─── Тайлы ──────────────────────────────────────────────────────────────
 
   UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
@@ -104,7 +108,7 @@ public:
 
   /** Master offset for ALL procedurally spawned actors relative to the Room's zero point. Use this to center props/enemies within your TileMap. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
-  FVector SpawnOffset = FVector(0.f, 0.f, 0.f);
+  FVector SpawnOffset = FVector(-96.f, 144.f, 0.f);
 
   /** Z-Height for the TileMap. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
@@ -121,6 +125,10 @@ public:
   /** Z-Height for enemies. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
   float EnemyZ = 1.0f;
+
+  /** Z-Height used when placing the player into the start room. */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
+  float PlayerSpawnZ = 1.0f;
 
   UPROPERTY(EditAnywhere, Category = "Props|Spawning")
   int32 MinProps = 2;

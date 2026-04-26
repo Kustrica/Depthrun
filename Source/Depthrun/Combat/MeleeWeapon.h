@@ -32,6 +32,12 @@ public:
   }
   float GetRangeMultiplier() const { return RangeMultiplier; }
   void SetDoubleSwing(bool bEnabled) { bDoubleSwing = bEnabled; }
+  void SetWidthMultiplier(float NewMultiplier) {
+    WidthMultiplier = FMath::Max(NewMultiplier, 0.1f);
+  }
+  float GetWidthMultiplier() const { return WidthMultiplier; }
+  void SetOmniSwing(bool bEnabled) { bOmniSwing = bEnabled; }
+  bool IsOmniSwing() const { return bOmniSwing; }
 
   /** Reach of the weapon (distance forward). */
   UPROPERTY(EditAnywhere, Category = "Weapon|Melee")
@@ -65,6 +71,8 @@ private:
   FTimerHandle DoubleSwingTimer;
 
   float RangeMultiplier = 1.0f;
+  float WidthMultiplier = 1.0f;
   bool bDoubleSwing = false;
   bool bIsSecondSwing = false;
+  bool bOmniSwing = false;
 };

@@ -3,9 +3,10 @@
 #include "RoomBase.h"
 #include "Components/BoxComponent.h"
 #include "DoorActor.h"
-#include "Enemy/BaseEnemy.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
+#include "PaperCharacter.h"
+#include "PaperFlipbookComponent.h"
 #include "PaperTileLayer.h"
 #include "PaperTileMap.h"
 #include "PaperTileMapComponent.h"
@@ -14,6 +15,59 @@
 #include "RoomGeneratorSubsystem.h"
 #include "RoomTemplate.h"
 #include "TimerManager.h"
+
+namespace {
+constexpr float BaseTileSize = 16.0f;
+const FVector LegacySpawnOffset = FVector(-96.f, 144.f, 0.f);
+
+float ResolveWorldScale(const URoomTemplate* Template) {
+  if (!Template || Template->WorldScale <= 0.01f) {
+    return 2.6f;
+  }
+  return Template->WorldScale;
+}
+
+FVector ResolveSpawnOffset(const URoomTemplate* Template) {
+  if (!Template) {
+    return FVector::ZeroVector;
+  }
+
+  // Keep old assets (saved with zero offset) aligned with the current room grid.
+  if (Template->SpawnOffset.IsNearlyZero(0.01f)) {
+    return LegacySpawnOffset;
+  }
+
+  return Template->SpawnOffset;
+}
+
+float ResolveTileSize(const URoomTemplate* Template) {
+  return BaseTileSize * ResolveWorldScale(Template);
+}
+
+FVector MakeTileOffset(float TileSize, int32 TileX, int32 TileY, float Z) {
+  return FVector((2.5f - static_cast<float>(TileY)) * TileSize,
+                 (static_cast<float>(TileX) - 3.5f) * TileSize, Z);
+}
+
+FRotator MakeCollisionSafeRotation(const FRotator& SourceRotation) {
+  return FRotator(0.f, SourceRotation.Yaw, 0.f);
+}
+
+void ApplyVisualScale(AActor* SpawnedActor, float Scale) {
+  if (!IsValid(SpawnedActor)) {
+    return;
+  }
+
+  if (APaperCharacter* PaperCharacter = Cast<APaperCharacter>(SpawnedActor)) {
+    if (UPaperFlipbookComponent* Sprite = PaperCharacter->GetSprite()) {
+      Sprite->SetRelativeScale3D(FVector(Scale));
+    }
+    return;
+  }
+
+  SpawnedActor->SetActorScale3D(FVector(Scale));
+}
+} // namespace
 
 ARoomBase::ARoomBase() {
   PrimaryActorTick.bCanEverTick = false;
@@ -27,9 +81,7 @@ ARoomBase::ARoomBase() {
   TileMapComponent =
       CreateDefaultSubobject<UPaperTileMapComponent>(TEXT("TileMapComponent"));
   TileMapComponent->SetupAttachment(RootComponent);
-  // Initial rotation, will be overwritten by Template in SetupRoom
   TileMapComponent->SetRelativeRotation(FRotator(-90.f, 0.f, 90.f));
-  // Scale uniformly to prevent squashed rooms
   TileMapComponent->SetRelativeScale3D(FVector(2.6f, 2.6f, 2.6f));
 }
 
@@ -42,14 +94,15 @@ void ARoomBase::SetupRoom(URoomTemplate *Template, bool bHasTop, bool bHasBottom
   if (!Template || !TileMapComponent)
     return;
   MyTemplate = Template;
+  const float TileSize = ResolveTileSize(MyTemplate);
 
   TileMapComponent->SetTileMap(Template->TileMapAsset);
   TileMapComponent->MakeTileMapEditable();
   TileMapComponent->SetRelativeRotation(MyTemplate->TileMapRotation);
   TileMapComponent->SetRelativeLocation(FVector(0.f, 0.f, MyTemplate->TileMapZ));
+  TileMapComponent->SetRelativeScale3D(FVector(ResolveWorldScale(MyTemplate)));
 
-  // Door shadow logic moved to GenerateProps or handled here if needed
-  // For now, let's just make sure TileMap uses DefaultRoomRotation
+  RoomBounds->SetBoxExtent(FVector(3.0f * TileSize, 4.0f * TileSize, 120.f));
   GenerateProps(bHasTop, bHasBottom, bHasLeft, bHasRight);
 }
 
@@ -59,66 +112,79 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     return;
 
   OccupiedTiles.Empty();
-  const float TileSize = 16.0f * 2.6f;
+  SpawnedDoors.Empty();
+  const float TileSize = ResolveTileSize(MyTemplate);
+  const float VisualScale = ResolveWorldScale(MyTemplate);
   const FVector RoomOrigin = GetActorLocation();
+  const FVector SpawnOffset = ResolveSpawnOffset(MyTemplate);
+  const FActorSpawnParameters SpawnParams = [] {
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    return Params;
+  }();
 
-  auto HandleDoorSide = [&](bool bExists, FVector SpawnOffset,
-                             UPaperSprite *DoorSprite, FIntPoint T1, FIntPoint T2) {
-    if (bExists) {
-      if (MyTemplate->DoorClass) {
-        FVector SpawnLoc = RoomOrigin + MyTemplate->SpawnOffset + SpawnOffset;
-        SpawnLoc.Z = MyTemplate->DoorZ;
-        AActor *Door = GetWorld()->SpawnActor<AActor>(
-            MyTemplate->DoorClass, SpawnLoc, MyTemplate->DoorRotation);
-        if (Door) {
-          Door->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
-          Door->AttachToActor(this,
-                               FAttachmentTransformRules::KeepWorldTransform);
-          if (ADoorActor *DA = Cast<ADoorActor>(Door)) {
-            DA->InitializeDoor(DoorSprite);
-          }
-          SpawnedDoors.Add(Door);
-          OccupiedTiles.Add(T1);
-          OccupiedTiles.Add(T2);
-        }
-      }
+  auto HandleDoorSide = [&](bool bExists, const FVector& SideOffset,
+                             UPaperSprite *DoorSprite, const FIntPoint& T1,
+                             const FIntPoint& T2, bool bVerticalDoor) {
+    if (!bExists || !MyTemplate->DoorClass) {
+      return;
     }
+
+    FVector SpawnLoc = RoomOrigin + SpawnOffset + SideOffset;
+    SpawnLoc.Z = MyTemplate->DoorZ;
+    ADoorActor* Door = GetWorld()->SpawnActor<ADoorActor>(
+        MyTemplate->DoorClass, SpawnLoc,
+        MakeCollisionSafeRotation(MyTemplate->DoorRotation), SpawnParams);
+    if (!Door) {
+      return;
+    }
+
+    Door->InitializeDoor(DoorSprite, bVerticalDoor, MyTemplate->DoorRotation,
+                         VisualScale);
+    Door->OpenDoor();
+    Door->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+    SpawnedDoors.Add(Door);
+    OccupiedTiles.Add(T1);
+    OccupiedTiles.Add(T2);
   };
 
-  // Swapped sprites due to rotated TileMap
+  // Top/Bottom use horizontal doorway art, Left/Right use vertical doorway art.
   HandleDoorSide(bHasTop, FVector(TileSize * 3.f, 0.f, 0.f),
-                 MyTemplate->VerticalDoorSprite, FIntPoint(3, 0), FIntPoint(4, 0));
+                 MyTemplate->HorizontalDoorSprite, FIntPoint(3, 0),
+                 FIntPoint(4, 0), false);
   HandleDoorSide(bHasBottom, FVector(-TileSize * 3.f, 0.f, 0.f),
-                 MyTemplate->VerticalDoorSprite, FIntPoint(3, 5), FIntPoint(4, 5));
+                 MyTemplate->HorizontalDoorSprite, FIntPoint(3, 5),
+                 FIntPoint(4, 5), false);
   HandleDoorSide(bHasLeft, FVector(0.f, -TileSize * 4.f, 0.f),
-                 MyTemplate->HorizontalDoorSprite, FIntPoint(0, 2), FIntPoint(0, 3));
+                 MyTemplate->VerticalDoorSprite, FIntPoint(0, 2),
+                 FIntPoint(0, 3), true);
   HandleDoorSide(bHasRight, FVector(0.f, TileSize * 4.f, 0.f),
-                 MyTemplate->HorizontalDoorSprite, FIntPoint(7, 2), FIntPoint(7, 3));
+                 MyTemplate->VerticalDoorSprite, FIntPoint(7, 2),
+                 FIntPoint(7, 3), true);
 
-  // 1. Spawning torches
+  // 1. Spawning torches (always non-blocking to avoid path dead-ends)
   for (const FIntPoint &Spot : MyTemplate->TorchSpots) {
     if (FMath::FRandRange(0.f, 100.f) <= MyTemplate->TorchSpawnChance) {
       if (MyTemplate->TorchClass) {
-        FVector TorchLoc = RoomOrigin + MyTemplate->SpawnOffset + 
-                           FVector((2.5f - Spot.Y) * TileSize,
-                                   (Spot.X - 3.5f) * TileSize, MyTemplate->PropsZ);
+        const FVector TorchLoc = RoomOrigin + SpawnOffset +
+                                 MakeTileOffset(TileSize, Spot.X, Spot.Y,
+                                                MyTemplate->PropsZ);
         AActor *Torch = GetWorld()->SpawnActor<AActor>(
-            MyTemplate->TorchClass, TorchLoc, MyTemplate->PropRotation);
+            MyTemplate->TorchClass, TorchLoc, MyTemplate->PropRotation,
+            SpawnParams);
         if (Torch) {
-          Torch->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
+          ApplyVisualScale(Torch, VisualScale);
           Torch->AttachToActor(this,
                                FAttachmentTransformRules::KeepWorldTransform);
-          
-          // Commercial Fix: Torches should NOT have collision
           Torch->SetActorEnableCollision(false);
-          
           OccupiedTiles.Add(Spot);
         }
       }
     }
   }
 
-  // 2. Decorative elements (Bones, Skulls, etc)
+  // 2. Decorative elements (always non-blocking by request)
   int32 DecorCount = FMath::RandRange(MyTemplate->MinProps, MyTemplate->MaxProps);
   for (int32 i = 0; i < DecorCount; ++i) {
     int32 RX = FMath::RandRange(1, 6);
@@ -127,9 +193,8 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
       continue;
 
-    FVector DecorLoc = RoomOrigin + MyTemplate->SpawnOffset + 
-                       FVector((2.5f - RY) * TileSize,
-                               (RX - 3.5f) * TileSize, MyTemplate->PropsZ);
+    FVector DecorLoc = RoomOrigin + SpawnOffset +
+                       MakeTileOffset(TileSize, RX, RY, MyTemplate->PropsZ);
 
     TSubclassOf<AActor> SelectedClass = nullptr;
     float Rand = FMath::FRand();
@@ -142,20 +207,16 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
 
     if (SelectedClass) {
       AActor *Decor = GetWorld()->SpawnActor<AActor>(
-          SelectedClass, DecorLoc, MyTemplate->PropRotation);
+          SelectedClass, DecorLoc, MyTemplate->PropRotation, SpawnParams);
       if (Decor) {
-        Decor->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
+        ApplyVisualScale(Decor, VisualScale);
         Decor->AttachToActor(this,
                              FAttachmentTransformRules::KeepWorldTransform);
         OccupiedTiles.Add(FIntPoint(RX, RY));
 
-        // Commercial Fix: Only Obstacles (торшеры) have collision. Bones/Skulls do not.
         if (SelectedClass == MyTemplate->FloorObstacleClass) {
-          Decor->SetActorEnableCollision(true);
-          
+          Decor->SetActorEnableCollision(false);
           if (UPaperSpriteComponent* SpriteComp = Decor->FindComponentByClass<UPaperSpriteComponent>()) {
-              SpriteComp->SetCollisionProfileName(TEXT("BlockAll"));
-              
               if (MyTemplate->ObstacleVariants.Num() > 0) {
                   int32 VariantIdx = FMath::RandRange(0, MyTemplate->ObstacleVariants.Num() - 1);
                   SpriteComp->SetSprite(MyTemplate->ObstacleVariants[VariantIdx]);
@@ -229,13 +290,18 @@ void ARoomBase::DeactivateRoom() {
     UE_LOG(LogTemp, Warning,
            TEXT("[DungeonGen] BOSS CLEARED! EXIT HATCH OPEN."));
 
-    // Спавним люк (Hatch) в центре комнаты босса
     if (MyTemplate->TrapdoorClass) {
-      FVector HatchLoc = GetActorLocation() + MyTemplate->SpawnOffset;
+      FVector HatchLoc = GetActorLocation() + ResolveSpawnOffset(MyTemplate);
       HatchLoc.Z = MyTemplate->PropsZ;
-      AActor* Hatch = GetWorld()->SpawnActor<AActor>(MyTemplate->TrapdoorClass, HatchLoc,
-                                     MyTemplate->PropRotation);
-      if (Hatch) Hatch->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
+      FActorSpawnParameters SpawnParams;
+      SpawnParams.SpawnCollisionHandlingOverride =
+          ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+      AActor* Hatch = GetWorld()->SpawnActor<AActor>(
+          MyTemplate->TrapdoorClass, HatchLoc, MyTemplate->PropRotation,
+          SpawnParams);
+      if (Hatch) {
+        ApplyVisualScale(Hatch, ResolveWorldScale(MyTemplate));
+      }
       UE_LOG(LogTemp, Warning, TEXT("[DungeonGen] EXIT HATCH SPAWNED."));
     }
   }
@@ -249,7 +315,12 @@ void ARoomBase::SpawnEnemies() {
 
   int32 Count =
       FMath::RandRange(MyTemplate->MinEnemies, MyTemplate->MaxEnemies);
-  const float TileSize = 16.0f * 2.6f;
+  const float TileSize = ResolveTileSize(MyTemplate);
+  const float VisualScale = ResolveWorldScale(MyTemplate);
+  const FVector SpawnOffset = ResolveSpawnOffset(MyTemplate);
+  FActorSpawnParameters SpawnParams;
+  SpawnParams.SpawnCollisionHandlingOverride =
+      ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
   float TotalWeight = 0.0f;
   for (const FEnemySpawnInfo& Info : MyTemplate->PotentialEnemies) {
@@ -262,9 +333,8 @@ void ARoomBase::SpawnEnemies() {
 
     int32 RX = FMath::RandRange(1, 6);
     int32 RY = FMath::RandRange(1, 4);
-    FVector SpawnLoc =
-        GetActorLocation() + MyTemplate->SpawnOffset +
-        FVector((2.5f - RY) * TileSize, (RX - 3.5f) * TileSize, MyTemplate->EnemyZ);
+    FVector SpawnLoc = GetActorLocation() + SpawnOffset +
+                       MakeTileOffset(TileSize, RX, RY, MyTemplate->EnemyZ);
 
     TSubclassOf<AActor> EnemyClass = nullptr;
     float Rand = FMath::FRand() * TotalWeight;
@@ -280,9 +350,9 @@ void ARoomBase::SpawnEnemies() {
 
     if (EnemyClass) {
         AActor *Enemy = GetWorld()->SpawnActor<AActor>(EnemyClass, SpawnLoc,
-                                                       MyTemplate->EnemyRotation);
+                                                       MakeCollisionSafeRotation(MyTemplate->EnemyRotation), SpawnParams);
         if (Enemy) {
-          Enemy->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
+          ApplyVisualScale(Enemy, VisualScale);
           SpawnedEnemies.Add(Enemy);
         }
     }
@@ -308,25 +378,27 @@ void ARoomBase::TrySpawnChest() {
   if (bHasGeneratedChest || !MyTemplate || !MyTemplate->ChestClass)
     return;
     
-  // Не спавним сундук в стартовой комнате, чтобы он не появлялся в игроке
   if (MyTemplate->RoomType == ERoomType::Start)
     return;
 
   if (FMath::FRandRange(0.f, 100.f) <= MyTemplate->ChestSpawnChance) {
     bHasGeneratedChest = true;
     
-    // Слегка смещаем сундук от идеального центра
-    const float TileSize = 16.0f * 2.6f;
+    const float TileSize = ResolveTileSize(MyTemplate);
     float OffsetX = FMath::RandRange(-1.0f, 1.0f) * TileSize;
     float OffsetY = FMath::RandRange(-1.0f, 1.0f) * TileSize;
     
-    FVector ChestLoc = GetActorLocation() + MyTemplate->SpawnOffset + FVector(OffsetX, OffsetY, 0.f);
+    FVector ChestLoc = GetActorLocation() + ResolveSpawnOffset(MyTemplate) + FVector(OffsetX, OffsetY, 0.f);
     ChestLoc.Z = MyTemplate->PropsZ;
-    
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
     AActor* Chest = GetWorld()->SpawnActor<AActor>(MyTemplate->ChestClass, ChestLoc,
-                                   MyTemplate->PropRotation);
+                                   MyTemplate->PropRotation, SpawnParams);
     if (Chest) {
-        Chest->SetActorScale3D(FVector(2.6f, 2.6f, 2.6f));
+        ApplyVisualScale(Chest, ResolveWorldScale(MyTemplate));
+        Chest->SetActorEnableCollision(false);
     }
   }
 }

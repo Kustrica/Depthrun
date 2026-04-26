@@ -189,7 +189,8 @@ void AAdaptiveEnemy::UpdateAnimation() {
     const FVector V = GetVelocity();
     if (FMath::Abs(V.Y) > 0.1f) {
       FVector Scale = GetSprite()->GetRelativeScale3D();
-      Scale.X = (V.Y < 0.f) ? -1.f : 1.f;
+      const float XAbs = FMath::Max(FMath::Abs(Scale.X), 1.0f);
+      Scale.X = (V.Y < 0.f) ? -XAbs : XAbs;
       GetSprite()->SetRelativeScale3D(Scale);
     }
   }

@@ -19,8 +19,8 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<class UPaperSpriteComponent> SpriteComponent;
 
-    /** Настройка спрайта при спавне. */
-    void InitializeDoor(class UPaperSprite* DoorSprite);
+    /** Initializes sprite and collision shape for the spawned door. */
+    void InitializeDoor(class UPaperSprite* DoorSprite, bool bVerticalDoor, const FRotator& SpriteRotation, float VisualScale);
 
     UFUNCTION(BlueprintCallable, Category = "Door")
     void OpenDoor();
