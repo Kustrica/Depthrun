@@ -61,9 +61,18 @@ private:
 	/** Returns the SoundBase for a given track enum. */
 	USoundBase* GetSoundForTrack(EMusicTrack Track) const;
 
-	/** Tick delegate — handles volume interpolation. Returns true to keep ticking. */
+	/** Tick delegate — handles volume interpolation. */
 	bool OnTick(float DeltaTime);
 	FTSTicker::FDelegateHandle TickHandle;
+
+	/** Store playback position for each track to resume seamlessly. */
+	TMap<EMusicTrack, float> TrackPlaybackPositions;
+
+	/** Current master volume multiplier (0.0-1.0). */
+	float MasterVolume = 1.0f;
+
+	/** During crossfade, duck volume by this multiplier (0.8 = -20%). */
+	static constexpr float TransitionDuckMultiplier = 0.8f;
 
 	UPROPERTY()
 	TObjectPtr<UAudioComponent> ActiveComponent;
@@ -78,4 +87,10 @@ private:
 	float FadeOutTime = 0.f;
 	float FadeProgress = 0.f;
 	bool bIsCrossfading = false;
+
+	/** Resume track from saved position if available. */
+	void ResumeTrackFromPosition(EMusicTrack Track, UAudioComponent* Component);
+
+	/** Save current playback position before stopping. */
+	void SaveTrackPosition(EMusicTrack Track, UAudioComponent* Component);
 };

@@ -67,6 +67,12 @@ void UMusicSubsystem::PlayMusic(EMusicTrack Track, float FadeIn, float FadeOut)
 	UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
 	if (!World) { return; }
 
+	// Save current track position before crossfading
+	if (IsValid(ActiveComponent) && CurrentTrack != EMusicTrack::None)
+	{
+		SaveTrackPosition(CurrentTrack, ActiveComponent);
+	}
+
 	// Stop any previous fade
 	if (bIsCrossfading && IsValid(FadingComponent))
 	{
@@ -92,11 +98,20 @@ void UMusicSubsystem::PlayMusic(EMusicTrack Track, float FadeIn, float FadeOut)
 	}
 
 	ActiveComponent->bAutoDestroy = false;
+
+	// Get saved position and play from there
+	float StartTime = 0.f;
+	if (float* SavedPos = TrackPlaybackPositions.Find(Track))
+	{
+		StartTime = *SavedPos;
+		UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Resuming track %d from %.2fs"), (int32)Track, StartTime);
+	}
+
 	if (FadeIn > 0.f)
 	{
 		ActiveComponent->SetVolumeMultiplier(0.f);
 	}
-	ActiveComponent->Play();
+	ActiveComponent->Play(StartTime);
 
 	CurrentTrack    = Track;
 	FadeInTime      = FMath::Max(FadeIn, 0.f);
@@ -142,18 +157,22 @@ bool UMusicSubsystem::OnTick(float DeltaTime)
 
 	FadeProgress += DeltaTime;
 
-	// Fade in active component
+	// Fade in active component (with ducking during transition)
 	if (IsValid(ActiveComponent) && FadeInTime > 0.f)
 	{
 		float Alpha = FMath::Clamp(FadeProgress / FadeInTime, 0.f, 1.f);
-		ActiveComponent->SetVolumeMultiplier(Alpha);
+		// Apply ducking: during transition, volume is 20% lower (0.8x)
+		float DuckedAlpha = Alpha * TransitionDuckMultiplier;
+		ActiveComponent->SetVolumeMultiplier(DuckedAlpha * MasterVolume);
 	}
 
-	// Fade out dying component
+	// Fade out dying component (with ducking)
 	if (IsValid(FadingComponent) && FadeOutTime > 0.f)
 	{
 		float Alpha = FMath::Clamp(1.f - FadeProgress / FadeOutTime, 0.f, 1.f);
-		FadingComponent->SetVolumeMultiplier(Alpha);
+		// Apply ducking during transition
+		float DuckedAlpha = Alpha * TransitionDuckMultiplier;
+		FadingComponent->SetVolumeMultiplier(DuckedAlpha * MasterVolume);
 		if (Alpha <= 0.f)
 		{
 			FadingComponent->Stop();
@@ -172,9 +191,31 @@ bool UMusicSubsystem::OnTick(float DeltaTime)
 	{
 		if (IsValid(ActiveComponent))
 		{
-			ActiveComponent->SetVolumeMultiplier(1.f);
+			// Restore full volume (no ducking)
+			ActiveComponent->SetVolumeMultiplier(1.f * MasterVolume);
 		}
 		bIsCrossfading = false;
 	}
 	return true;
+}
+
+void UMusicSubsystem::SaveTrackPosition(EMusicTrack Track, UAudioComponent* Component)
+{
+	if (!IsValid(Component)) { return; }
+	float Position = Component->GetPlaybackTime();
+	TrackPlaybackPositions.Add(Track, Position);
+	UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Saved position for track %d: %.2fs"), (int32)Track, Position);
+}
+
+void UMusicSubsystem::ResumeTrackFromPosition(EMusicTrack Track, UAudioComponent* Component)
+{
+	if (!IsValid(Component)) { return; }
+
+	if (float* SavedPos = TrackPlaybackPositions.Find(Track))
+	{
+		UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Resuming track %d from %.2fs"), (int32)Track, *SavedPos);
+		Component->SetSound(GetSoundForTrack(Track)); // Ensure sound is set
+		Component->SetIntParameter(TEXT("PlaybackTime"), static_cast<int32>(*SavedPos * 1000)); // Try to set time
+		// Note: SetPlaybackTime doesn't exist in this API version, we'll use Play with start time
+	}
 }

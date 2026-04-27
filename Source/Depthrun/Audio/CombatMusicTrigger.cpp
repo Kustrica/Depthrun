@@ -56,7 +56,7 @@ void UCombatMusicTrigger::EvaluateCombatState()
 		{
 			bWasInCombat = true;
 			UE_LOG(LogDepthrunMusic, Log, TEXT("[CombatTrigger] Combat started — switching to Combat track"));
-			Music->PlayMusic(EMusicTrack::Combat, 0.3f, 0.3f);
+			Music->PlayMusic(EMusicTrack::Combat, 0.8f, 0.8f);
 		}
 	}
 	else

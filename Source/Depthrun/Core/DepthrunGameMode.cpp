@@ -21,7 +21,7 @@ void ADepthrunGameMode::BeginPlay()
 	if (UMusicSubsystem* Music = UGameplayStatics::GetGameInstance(GetWorld())
 		->GetSubsystem<UMusicSubsystem>())
 	{
-		Music->PlayMusic(EMusicTrack::Explore, 1.5f, 1.5f);
+		Music->PlayMusic(EMusicTrack::Explore, 2.0f, 2.0f);
 		UE_LOG(LogDepthrunMusic, Log, TEXT("[GameMode] Playing Explore music"));
 	}
 	if (ACharacter* Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
