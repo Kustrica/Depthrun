@@ -57,4 +57,9 @@ struct FRoomTileInfo
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     int32 PackedTileIndex = -1;
+
+    /** Rotation in degrees (0, 90, 180, 270) for tile orientation.
+     *  Used for door shadow tiles to face shadows toward walls. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 Rotation = 0;
 };

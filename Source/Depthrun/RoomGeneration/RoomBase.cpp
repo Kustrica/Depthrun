@@ -123,8 +123,10 @@ void ARoomBase::SetupRoom(URoomTemplate *Template, bool bHasTop, bool bHasBottom
 
   const int32 FloorLayer = 0;
   const int32 WallLayer = 2;
+  // Lambda to apply door opening with shadow tile rotation
+  // Rotation makes shadow face the wall (not into the passage)
   auto ApplyDoorOpening = [&](bool bConnected, int32 X1, int32 Y1, int32 X2,
-                              int32 Y2, const FRoomTileInfo& ShadowTile) {
+                              int32 Y2, const FRoomTileInfo& ShadowTile, int32 RotationDegrees) {
     if (!bConnected) {
       return;
     }
@@ -139,15 +141,27 @@ void ARoomBase::SetupRoom(URoomTemplate *Template, bool bHasTop, bool bHasBottom
     }
 
     if (ShadowTile.TileSet && ShadowTile.PackedTileIndex >= 0) {
-      SetTileInLayer(FloorLayer, X1, Y1, ShadowTile);
-      SetTileInLayer(FloorLayer, X2, Y2, ShadowTile);
+      FRoomTileInfo RotatedTile = ShadowTile;
+      // If DataAsset has specific rotation, use it; otherwise use auto-rotation
+      if (RotatedTile.Rotation == 0) {
+        RotatedTile.Rotation = RotationDegrees;
+      }
+      SetTileInLayer(FloorLayer, X1, Y1, RotatedTile);
+      SetTileInLayer(FloorLayer, X2, Y2, RotatedTile);
     }
   };
 
-  ApplyDoorOpening(bHasTop, 3, 0, 4, 0, MyTemplate->DoorFloorShadowTop);
-  ApplyDoorOpening(bHasBottom, 3, 5, 4, 5, MyTemplate->DoorFloorShadowBottom);
-  ApplyDoorOpening(bHasLeft, 0, 2, 0, 3, MyTemplate->DoorFloorShadowLeft);
-  ApplyDoorOpening(bHasRight, 7, 2, 7, 3, MyTemplate->DoorFloorShadowRight);
+  // Shadow rotations: make shadow face the wall (away from passage)
+  // Top door (Y=0): shadow faces UP (toward wall at top)    → 0° (if tile shadow is at top by default) or 180°
+  // Bottom door (Y=5): shadow faces DOWN (toward wall at bottom) → 180° or 0°
+  // Left door (X=0): shadow faces LEFT (toward wall at left)  → 90° or 270°
+  // Right door (X=7): shadow faces RIGHT (toward wall at right) → 270° or 90°
+  // Adjust these values based on your tile art! If tile shadow is at bottom by default:
+  // Top=180, Bottom=0, Left=90, Right=270
+  ApplyDoorOpening(bHasTop, 3, 0, 4, 0, MyTemplate->DoorFloorShadowTop, 180);
+  ApplyDoorOpening(bHasBottom, 3, 5, 4, 5, MyTemplate->DoorFloorShadowBottom, 0);
+  ApplyDoorOpening(bHasLeft, 0, 2, 0, 3, MyTemplate->DoorFloorShadowLeft, 90);
+  ApplyDoorOpening(bHasRight, 7, 2, 7, 3, MyTemplate->DoorFloorShadowRight, 270);
 
   // Rebuild tilemap collision (works if TileSet has tile-level collision shapes).
   if (TileMapComponent)
@@ -383,8 +397,28 @@ void ARoomBase::DeactivateRoom() {
            TEXT("[DungeonGen] BOSS CLEARED! EXIT HATCH OPEN."));
 
     if (MyTemplate->TrapdoorClass) {
+      // Find a spawn location not occupied by torches - center of room, tile (3,2) or (4,2)
       FVector HatchLoc = GetActorLocation();
+      const float TileSize = ResolveTileSize(MyTemplate);
+      
+      // Try center tiles: (3,2), (4,2), (3,3), (4,3) - avoid torch spots
+      TArray<FIntPoint> CenterTiles;
+      CenterTiles.Add(FIntPoint(3, 2));
+      CenterTiles.Add(FIntPoint(4, 2));
+      CenterTiles.Add(FIntPoint(3, 3));
+      CenterTiles.Add(FIntPoint(4, 3));
+      
+      FIntPoint SelectedTile = FIntPoint(3, 2); // default center
+      for (const FIntPoint& Candidate : CenterTiles) {
+        if (!OccupiedTiles.Contains(Candidate)) {
+          SelectedTile = Candidate;
+          break;
+        }
+      }
+      
+      HatchLoc += MakeTileOffset(TileSize, SelectedTile.X, SelectedTile.Y, 0.f);
       HatchLoc.Z = MyTemplate->PropsZ;
+      
       FActorSpawnParameters SpawnParams;
       SpawnParams.SpawnCollisionHandlingOverride =
           ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -393,8 +427,9 @@ void ARoomBase::DeactivateRoom() {
           SpawnParams);
       if (Hatch) {
         ApplyVisualScale(Hatch, ResolveWorldScale(MyTemplate));
+        UE_LOG(LogTemp, Warning, TEXT("[DungeonGen] EXIT HATCH SPAWNED at tile (%d,%d)."), 
+               SelectedTile.X, SelectedTile.Y);
       }
-      UE_LOG(LogTemp, Warning, TEXT("[DungeonGen] EXIT HATCH SPAWNED."));
     }
   }
 
@@ -474,6 +509,8 @@ void ARoomBase::SetTileInLayer(int32 Layer, int32 X, int32 Y,
   if (TileInfo.TileSet && TileInfo.PackedTileIndex >= 0) {
     PaperTile.TileSet = TileInfo.TileSet;
     PaperTile.PackedTileIndex = TileInfo.PackedTileIndex;
+    // Apply rotation for tile orientation (used for door shadow tiles)
+    PaperTile.SetRotationAsDegrees(TileInfo.Rotation);
   } else {
     PaperTile = FPaperTileInfo();
   }
@@ -574,13 +611,32 @@ void ARoomBase::TrySpawnChest() {
     return;
 
   if (FMath::FRandRange(0.f, 100.f) <= MyTemplate->ChestSpawnChance) {
+    const float TileSize = ResolveTileSize(MyTemplate);
+    
+    // Try to find a tile position not occupied by torches/obstacles
+    // Valid tiles: center area (2..5, 2..3) avoiding OccupiedTiles
+    TArray<FIntPoint> ValidTiles;
+    for (int32 X = 2; X <= 5; ++X) {
+      for (int32 Y = 2; Y <= 3; ++Y) {
+        FIntPoint Tile(X, Y);
+        if (!OccupiedTiles.Contains(Tile)) {
+          ValidTiles.Add(Tile);
+        }
+      }
+    }
+    
+    // If no valid tiles, skip chest spawn this time
+    if (ValidTiles.Num() == 0) {
+      UE_LOG(LogTemp, Warning, TEXT("[RoomGen] No valid tile for chest spawn - all center tiles occupied."));
+      return;
+    }
+    
     bHasGeneratedChest = true;
     
-    const float TileSize = ResolveTileSize(MyTemplate);
-    float OffsetX = FMath::RandRange(-1.0f, 1.0f) * TileSize;
-    float OffsetY = FMath::RandRange(-1.0f, 1.0f) * TileSize;
-    
-    FVector ChestLoc = GetActorLocation() + FVector(OffsetX, OffsetY, 0.f);
+    // Pick random valid tile
+    FIntPoint SelectedTile = ValidTiles[FMath::RandRange(0, ValidTiles.Num() - 1)];
+    FVector ChestLoc = GetActorLocation() + 
+                       MakeTileOffset(TileSize, SelectedTile.X, SelectedTile.Y, 0.f);
     ChestLoc.Z = MyTemplate->PropsZ;
 
     FActorSpawnParameters SpawnParams;
@@ -591,6 +647,7 @@ void ARoomBase::TrySpawnChest() {
     if (Chest) {
         ApplyVisualScale(Chest, ResolveWorldScale(MyTemplate));
         Chest->SetActorEnableCollision(false);
+        UE_LOG(LogTemp, Log, TEXT("[RoomGen] Chest spawned at tile (%d,%d)."), SelectedTile.X, SelectedTile.Y);
     }
   }
 }
