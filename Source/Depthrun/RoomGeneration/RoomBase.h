@@ -38,6 +38,10 @@ public:
   UFUNCTION(BlueprintPure, Category = "Room")
   bool IsCleared() const { return bIsCleared; }
 
+  /** Returns true if room is active and has at least one living enemy. Used by CombatMusicTrigger. */
+  UFUNCTION(BlueprintPure, Category = "Room")
+  bool IsCombatActive() const;
+
   // ─── Components ──────────────────────────────────────────────────────────
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Room")

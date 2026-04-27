@@ -4,6 +4,7 @@
 #include "Combat/BaseWeapon.h"
 #include "Combat/MeleeWeapon.h"
 #include "Core/DepthrunLogChannels.h"
+#include "Audio/CombatMusicTrigger.h"
 #include "Items/RunItemInventory.h"
 #include "PlayerActionTracker.h"
 #include "PlayerCombatComponent.h"
@@ -78,6 +79,8 @@ ADepthrunCharacter::ADepthrunCharacter() {
       CreateDefaultSubobject<UPlayerActionTracker>(TEXT("ActionTracker"));
   ItemInventory =
       CreateDefaultSubobject<URunItemInventory>(TEXT("ItemInventory"));
+  CombatMusicTrigger =
+      CreateDefaultSubobject<UCombatMusicTrigger>(TEXT("CombatMusicTrigger"));
 
   // ─── Movement (top-down, sharp 2D feel) ───────────────────────────────
   GetCharacterMovement()->bOrientRotationToMovement = false;

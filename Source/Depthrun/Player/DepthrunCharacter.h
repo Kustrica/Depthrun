@@ -17,6 +17,7 @@ class UPlayerCombatComponent;
 class UPlayerActionTracker;
 class URunItemInventory;
 class UPlayerMovementConfig;
+class UCombatMusicTrigger;
 
 /** Which direction the character sprite faces. */
 UENUM(BlueprintType)
@@ -85,6 +86,9 @@ public:
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Items")
   TObjectPtr<URunItemInventory> ItemInventory;
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Audio")
+  TObjectPtr<UCombatMusicTrigger> CombatMusicTrigger;
 
   // ────────────────────── Stats ────────────────────────────
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player|Stats")

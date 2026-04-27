@@ -38,6 +38,11 @@ public:
 
 	const TArray<ARoomBase*>& GetRooms() const { return GeneratedRooms; }
 	int32 GetCurrentRoomIndex() const { return CurrentRoomIndex; }
+	int32 GetTotalRooms() const { return GeneratedRooms.Num(); }
+
+	/** Returns the currently active room actor, or nullptr. */
+	UFUNCTION(BlueprintPure, Category = "RoomGen")
+	ARoomBase* GetCurrentActiveRoom() const;
 
 protected:
 	UPROPERTY()

@@ -235,6 +235,15 @@ void URoomGeneratorSubsystem::SetTemplates(URoomTemplate* Start, URoomTemplate* 
     RestPool = Rest;
 }
 
+ARoomBase* URoomGeneratorSubsystem::GetCurrentActiveRoom() const
+{
+	if (GeneratedRooms.IsValidIndex(CurrentRoomIndex))
+	{
+		return GeneratedRooms[CurrentRoomIndex].Get();
+	}
+	return nullptr;
+}
+
 void URoomGeneratorSubsystem::OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex)
 {
     UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Player entered transition from room %s"), FromRoom ? *FromRoom->GetName() : TEXT("NULL"));

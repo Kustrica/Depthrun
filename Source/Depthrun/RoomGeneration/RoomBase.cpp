@@ -65,6 +65,16 @@ void ApplyVisualScale(AActor* SpawnedActor, float Scale) {
 }
 } // namespace
 
+bool ARoomBase::IsCombatActive() const
+{
+	if (!bIsActive || bIsCleared) { return false; }
+	for (const TWeakObjectPtr<AActor>& Enemy : SpawnedEnemies)
+	{
+		if (Enemy.IsValid()) { return true; }
+	}
+	return false;
+}
+
 ARoomBase::ARoomBase() {
   PrimaryActorTick.bCanEverTick = false;
 
