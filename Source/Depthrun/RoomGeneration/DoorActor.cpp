@@ -13,7 +13,7 @@ ADoorActor::ADoorActor()
     // CollisionBox as root — simplest, most reliable setup.
     CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
     RootComponent = CollisionBox;
-    CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 40.f));
+    CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 8.f));
     CollisionBox->SetCollisionProfileName(TEXT("BlockAll"));
     CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -55,12 +55,12 @@ void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite, bool bVerticalDoor, co
         if (bVerticalDoor)
         {
             // Left/Right passage: span along X, thin along Y
-            CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 40.f));
+            CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 8.f));
         }
         else
         {
             // Top/Bottom passage: span along Y, thin along X
-            CollisionBox->SetBoxExtent(FVector(12.f, 34.f, 40.f));
+            CollisionBox->SetBoxExtent(FVector(12.f, 34.f, 8.f));
         }
 
         if (bUseSpriteCollision)

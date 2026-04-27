@@ -116,12 +116,14 @@ void AAdaptiveEnemy::ActuallyFire() {
   const FVector FireDir = (PlayerLoc - EnemyLoc).GetSafeNormal2D();
 
   const FVector SpawnLoc =
-      EnemyLoc + (FireDir * MuzzleOffset) + FVector(0.f, 0.f, 10.0f);
+      EnemyLoc + (FireDir * MuzzleOffset) + FVector(0.f, 0.f, 0.f);
   const FTransform SpawnTransform = FTransform(FireDir.Rotation(), SpawnLoc);
 
   UWorld *World = GetWorld();
   if (!World)
     return;
+
+  const double FireStart = FPlatformTime::Seconds();
 
   ABaseProjectile *Projectile = World->SpawnActorDeferred<ABaseProjectile>(
       ProjectileClass, SpawnTransform, this, Cast<APawn>(this),
@@ -133,6 +135,13 @@ void AAdaptiveEnemy::ActuallyFire() {
   Projectile->CollisionSphere->IgnoreActorWhenMoving(this, true);
   Projectile->InitProjectile(FireDir, AttackDamage, this, ProjectileSpeed);
   Projectile->FinishSpawning(SpawnTransform);
+
+  const double FireMs = (FPlatformTime::Seconds() - FireStart) * 1000.0;
+  if (FireMs > 5.0)
+  {
+    UE_LOG(LogAdaptiveBehavior, Warning,
+           TEXT("[AdaptiveEnemy] ActuallyFire took %.2f ms — potential hitch!"), FireMs);
+  }
 }
 
 void AAdaptiveEnemy::OnKilled() {

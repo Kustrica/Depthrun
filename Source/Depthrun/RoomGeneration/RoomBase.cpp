@@ -3,6 +3,7 @@
 #include "RoomBase.h"
 #include "Components/BoxComponent.h"
 #include "DoorActor.h"
+#include "Enemy/BaseEnemy.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "PaperCharacter.h"
@@ -185,16 +186,20 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     return Params;
   }();
 
+  // Do not spawn door actors in the Start room — the passages must always
+  // be open and unblocked. Doors would block the player even when "open"
+  // due to their BoxComponent Z-extent overlapping the player collision.
+  const bool bIsStartRoom = (MyTemplate->RoomType == ERoomType::Start);
+
   auto HandleDoorSide = [&](bool bExists, const FVector& SideOffset,
                              UPaperSprite *DoorSprite, const FIntPoint& T1,
                              const FIntPoint& T2, bool bVerticalDoor) {
-    if (!bExists || !MyTemplate->DoorClass) {
+    if (!bExists || !MyTemplate->DoorClass || bIsStartRoom) {
       return;
     }
 
     FVector SpawnLoc = RoomOrigin + SideOffset;
-    // Lift slightly above floor to prevent z-fighting (10 units is enough)
-    SpawnLoc.Z = MyTemplate->DoorZ + 10.f;
+    SpawnLoc.Z = MyTemplate->DoorLockedZ;
     // Spawn with ZeroRotator so CollisionBox extents map directly to world axes.
     // SpriteComponent receives PropRotation inside InitializeDoor.
     ADoorActor* Door = GetWorld()->SpawnActor<ADoorActor>(
@@ -326,8 +331,12 @@ void ARoomBase::ActivateRoom() {
   bIsActive = true;
 
   if (!bHasSpawnedEnemies) {
+    const double SpawnStart = FPlatformTime::Seconds();
     SpawnEnemies();
     bHasSpawnedEnemies = true;
+    const double SpawnMs = (FPlatformTime::Seconds() - SpawnStart) * 1000.0;
+    UE_LOG(LogTemp, Log, TEXT("[RoomGen] SpawnEnemies took %.2f ms (%d enemies)"),
+           SpawnMs, SpawnedEnemies.Num());
   }
 
   if (SpawnedEnemies.Num() == 0) {
@@ -427,9 +436,9 @@ void ARoomBase::SpawnEnemies() {
     if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
       continue;
 
-    // Lift enemy slightly above floor to prevent z-fighting.
+    // Use EnemyLockedZ directly from DataAsset (no clamping applied here).
     FVector SpawnLoc = GetActorLocation() +
-                       MakeTileOffset(TileSize, RX, RY, MyTemplate->EnemyZ + 10.f);
+                       MakeTileOffset(TileSize, RX, RY, MyTemplate->EnemyLockedZ);
 
     TSubclassOf<AActor> EnemyClass = nullptr;
     float Rand = FMath::FRand() * TotalWeight;
@@ -447,6 +456,13 @@ void ARoomBase::SpawnEnemies() {
         AActor *Enemy = GetWorld()->SpawnActor<AActor>(EnemyClass, SpawnLoc,
                                                        MakeCollisionSafeRotation(MyTemplate->EnemyRotation), SpawnParams);
         if (Enemy) {
+          // Lock the enemy to the correct Z plane from DataAsset.
+          // This MUST be called after SpawnActor because bSnapToPlaneAtStart=false,
+          // and the CharacterMovement plane origin defaults to Z=0.
+          if (ABaseEnemy* BaseEnemy = Cast<ABaseEnemy>(Enemy))
+          {
+            BaseEnemy->SetLockedZ(MyTemplate->EnemyLockedZ);
+          }
           // Enemies stay at scale 1.0 — do not apply the tilemap visual scale.
           SpawnedEnemies.Add(Enemy);
         }

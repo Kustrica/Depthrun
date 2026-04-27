@@ -30,9 +30,9 @@ ABaseEnemy::ABaseEnemy() {
   if (GetCapsuleComponent()) {
     GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
     GetCapsuleComponent()->SetGenerateOverlapEvents(true);
-    // Commercial Fix: 2.0 is too flat for reliable overlap in 2D.
-    // Increased to 22.0 to be more forgiving with Z-offsets.
-    GetCapsuleComponent()->SetCapsuleHalfHeight(22.f);
+    // Reduced to 8.f to prevent penetration issues and floor clipping
+    // Similar to player capsule for consistent 2D collision behavior
+    GetCapsuleComponent()->SetCapsuleHalfHeight(8.f);
     GetCapsuleComponent()->SetCapsuleRadius(14.f);
   }
 
@@ -50,6 +50,13 @@ ABaseEnemy::ABaseEnemy() {
   GetCharacterMovement()->SetMovementMode(MOVE_Flying);
   GetCharacterMovement()->MaxFlySpeed = 300.f;
   GetCharacterMovement()->BrakingDecelerationFlying = 8192.f;
+  GetCharacterMovement()->bConstrainToPlane   = true;
+  // NOTE: bSnapToPlaneAtStart intentionally left false here.
+  // The plane constraint origin (Z) is set per-instance by RoomBase::SpawnEnemies
+  // via SetLockedZ(), which teleports the enemy to the correct DataAsset Z value
+  // AFTER spawn. Enabling bSnapToPlaneAtStart would override that Z with 0.
+  GetCharacterMovement()->bSnapToPlaneAtStart = false;
+  GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.f, 0.f, 1.f));
 }
 
 void ABaseEnemy::BeginPlay() {
@@ -115,6 +122,19 @@ void ABaseEnemy::BeginPlay() {
     // Start in Idle.
     FSMComponent->TransitionTo(EFSMStateType::Idle);
   }
+
+  // Force an initial flipbook so the sprite is never blank on first frame.
+  // Blueprint CDO sets FB_Idle etc., but the first Tick runs before any
+  // engine-side BP default propagation completes in some edge cases.
+  if (GetSprite() && !GetSprite()->GetFlipbook())
+  {
+    UPaperFlipbook* Fallback = FB_Idle ? FB_Idle : (FB_Walk ? FB_Walk : FB_Attack);
+    if (Fallback)
+    {
+      GetSprite()->SetFlipbook(Fallback);
+    }
+  }
+  GetSprite()->SetVisibility(true, true);
 
   OnSpawned();
 }

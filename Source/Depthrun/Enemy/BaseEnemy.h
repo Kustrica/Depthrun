@@ -138,6 +138,20 @@ public:
   UFUNCTION(BlueprintPure, Category = "Enemy|Movement")
   FVector GetSeparationSteering() const;
 
+  /** Called by RoomBase after spawn to fix the enemy on the correct Z plane.
+   *  Sets actor Z and updates the CharacterMovement plane constraint origin. */
+  UFUNCTION(BlueprintCallable, Category = "Enemy|Spawn")
+  void SetLockedZ(float InZ)
+  {
+    FVector Loc = GetActorLocation();
+    Loc.Z = InZ;
+    SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+    if (GetCharacterMovement())
+    {
+      GetCharacterMovement()->SetPlaneConstraintOrigin(FVector(0.f, 0.f, InZ));
+    }
+  }
+
 protected:
   bool bIsHitAnimationActive = false;
   bool bIsDead = false;

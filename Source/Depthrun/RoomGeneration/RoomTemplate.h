@@ -123,17 +123,18 @@ public:
   UPROPERTY(EditAnywhere, Category = "Offsets")
   float PropsZ = 1.0f;
 
-  /** Z-Height for doors. */
+  /** Z-Height for doors (spawn + collision plane). */
   UPROPERTY(EditAnywhere, Category = "Offsets")
-  float DoorZ = 1.0f;
+  float DoorLockedZ = 1.0f;
 
-  /** Z-Height for enemies. */
+  /** Z-Height for enemies (spawn + plane constraint). */
   UPROPERTY(EditAnywhere, Category = "Offsets")
-  float EnemyZ = 1.0f;
+  float EnemyLockedZ = 1.0f;
 
-  /** Z-Height used when placing the player into the start room. */
+  /** Z-Height to spawn AND lock the player at during gameplay (prevents Z drift).
+   *  This is the single source of truth for player height — no clamping applied. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
-  float PlayerSpawnZ = 1.0f;
+  float PlayerLockedZ = 1.0f;
 
   /** If true, room generation creates extra procedural wall BoxComponents. */
   UPROPERTY(EditAnywhere, Category = "Collision")

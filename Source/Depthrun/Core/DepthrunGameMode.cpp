@@ -2,6 +2,8 @@
 #include "DepthrunGameMode.h"
 #include "DepthrunLogChannels.h"
 #include "RoomGeneration/RoomGeneratorSubsystem.h"
+#include "Engine/StreamableManager.h"
+#include "Engine/AssetManager.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
 #include "PaperCharacter.h"
@@ -23,6 +25,16 @@ void ADepthrunGameMode::BeginPlay()
 				Sprite->SetHiddenInGame(true);
 				Sprite->SetVisibility(false, true);
 			}
+		}
+	}
+
+	// Preload Blueprint classes (projectiles, VFX) to eliminate first-shot hitches.
+	for (const TSoftClassPtr<AActor>& SoftClass : PreloadClasses)
+	{
+		if (!SoftClass.IsNull())
+		{
+			SoftClass.LoadSynchronous();
+			UE_LOG(LogDepthrun, Log, TEXT("[GameMode] Preloaded class: %s"), *SoftClass.ToString());
 		}
 	}
 

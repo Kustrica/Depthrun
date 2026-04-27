@@ -40,4 +40,9 @@ public:
 	/** Number of rooms to generate in the dungeon. */
 	UPROPERTY(EditAnywhere, Category = "RoomGeneration")
 	int32 RoomsToGenerate = 8;
+
+	/** Classes to warm-up at BeginPlay so first-use hitches don't happen
+	 *  in gameplay (e.g. projectile Blueprint, VFX, font assets). */
+	UPROPERTY(EditAnywhere, Category = "Performance|Preload")
+	TArray<TSoftClassPtr<AActor>> PreloadClasses;
 };

@@ -13,7 +13,6 @@
 namespace RoomGeneratorLocal
 {
 constexpr float RoomGenBaseTileSize = 16.0f;
-constexpr float MaxAllowedPlayerZOffset = 8.0f;
 
 float ResolveRoomGenWorldScale(const URoomTemplate* Template)
 {
@@ -31,22 +30,6 @@ FVector ResolveRoomGenSpawnOffset(const URoomTemplate* Template)
         return FVector::ZeroVector;
     }
     return Template->SpawnOffset;
-}
-
-float ResolveSafePlayerSpawnZ(const URoomTemplate* Template)
-{
-    if (!Template)
-    {
-        return 1.0f;
-    }
-
-    // Keep player collision near tilemap collision plane.
-    // If DataAsset accidentally contains very high Z (e.g. 94), clamp it to a
-    // safe offset above floor so walls/obstacles still block correctly.
-    const float FloorZ = Template->TileMapZ;
-    const float MinZ = FloorZ - MaxAllowedPlayerZOffset;
-    const float MaxZ = FloorZ + MaxAllowedPlayerZOffset;
-    return FMath::Clamp(Template->PlayerSpawnZ, MinZ, MaxZ);
 }
 } // namespace RoomGeneratorLocal
 
@@ -156,7 +139,8 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         if (ACharacter* Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
         {
             FVector SpawnPos = GeneratedRooms[0]->GetActorLocation();
-            SpawnPos.Z = RoomGeneratorLocal::ResolveSafePlayerSpawnZ(StartTemplate);
+            // Use PlayerLockedZ directly — no clamping, full DataAsset control.
+            SpawnPos.Z = StartTemplate ? StartTemplate->PlayerLockedZ : 1.0f;
             Player->SetActorLocation(SpawnPos);
             Player->SetActorRotation(FRotator::ZeroRotator);
             Player->SetActorHiddenInGame(false);
@@ -166,8 +150,9 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
             // collision geometry due to Flying mode "step-up" behaviour.
             if (ADepthrunCharacter* DepthrunPlayer = Cast<ADepthrunCharacter>(Player))
             {
-                DepthrunPlayer->SetLockedZ(SpawnPos.Z);
-                UE_LOG(LogTemp, Log, TEXT("[RoomGen] Player Z locked to %.1f"), SpawnPos.Z);
+                const float LockedZ = StartTemplate ? StartTemplate->PlayerLockedZ : 4.0f;
+                DepthrunPlayer->SetLockedZ(LockedZ);
+                UE_LOG(LogTemp, Log, TEXT("[RoomGen] Player Z locked to %.1f (from template)"), LockedZ);
             }
 
             // Force-refresh the PaperCharacter sprite so the player is visible
@@ -193,8 +178,18 @@ void URoomGeneratorSubsystem::ActivateRoom(int32 Index)
     if (!GeneratedRooms.IsValidIndex(Index)) return;
     
     CurrentRoomIndex = Index;
-    GeneratedRooms[Index]->ActivateRoom();
-    UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Activating Room %d"), Index);
+    
+    // Start room (index 0) should not close doors - player needs to exit
+    if (Index == 0)
+    {
+        GeneratedRooms[Index]->SetIsActive(true);
+        UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Activating Start Room %d (doors stay open)"), Index);
+    }
+    else
+    {
+        GeneratedRooms[Index]->ActivateRoom();
+        UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Activating Combat Room %d"), Index);
+    }
 }
 
 void URoomGeneratorSubsystem::OnPlayerEnteredRoom(ARoomBase* Room)
@@ -218,6 +213,14 @@ void URoomGeneratorSubsystem::SetTemplates(URoomTemplate* Start, URoomTemplate* 
 
 void URoomGeneratorSubsystem::OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex)
 {
-    // Logic to be implemented if needed for complex transitions
     UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Player entered transition from room %s"), FromRoom ? *FromRoom->GetName() : TEXT("NULL"));
+    
+    // Open doors in the room the player is leaving
+    if (FromRoom && !FromRoom->IsCleared())
+    {
+        // Only open doors if the room was cleared (enemies defeated)
+        // Otherwise keep them closed to prevent backtracking during combat
+        UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Opening doors in room %s (player leaving)"), *FromRoom->GetName());
+        FromRoom->DeactivateRoom();
+    }
 }

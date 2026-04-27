@@ -73,7 +73,6 @@ private:
   FTimerHandle TimerHandle_CheckEnemies;
 
   bool bIsCleared = false;
-  bool bIsActive = false;
   bool bHasSpawnedEnemies = false;
   bool bHasGeneratedChest = false;
 
@@ -82,7 +81,16 @@ private:
   bool bPendingHasBottom = false;
   bool bPendingHasLeft   = false;
   bool bPendingHasRight  = false;
-  bool bPendingSetup     = false;
+
+protected:
+  /** Room activation state - accessible by RoomGeneratorSubsystem */
+  bool bIsActive = false;
+
+  /** Flag indicating that SetupRoom has been called and room is ready for BeginPlay */
+  bool bPendingSetup = false;
+
+  /** Tiles that already have props (like torches) to avoid overlapping. */
+  TSet<FIntPoint> OccupiedTiles;
 
   // Helper for tile placement
   void SetTileInLayer(int32 Layer, int32 X, int32 Y,
@@ -91,10 +99,10 @@ private:
   // Builds explicit BoxComponent wall colliders so walls block regardless of TileSet collision settings.
   void BuildWallColliders(float TileSize, bool bHasTop, bool bHasBottom, bool bHasLeft, bool bHasRight);
 
+public:
+  /** Sets the active state of the room - used by RoomGeneratorSubsystem */
+  void SetIsActive(bool bActive) { bIsActive = bActive; }
+
   UPROPERTY()
   TArray<TObjectPtr<UBoxComponent>> WallColliders;
-
-protected:
-  /** Tiles that already have props (like torches) to avoid overlapping. */
-  TSet<FIntPoint> OccupiedTiles;
 };
