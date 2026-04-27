@@ -2,6 +2,7 @@
 #include "Audio/MusicSubsystem.h"
 #include "Audio/MusicTypes.h"
 #include "Components/AudioComponent.h"
+#include "Core/DepthrunGameInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "DepthrunLogChannels.h"
@@ -10,7 +11,22 @@ void UMusicSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
-	UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Subsystem initialized"));
+	// Pull track references from the GameInstance (assignable in BP_DepthrunGameInstance).
+	if (UDepthrunGameInstance* GI = Cast<UDepthrunGameInstance>(GetGameInstance()))
+	{
+		HubMusic     = GI->HubMusic;
+		ExploreMusic = GI->ExploreMusic;
+		CombatMusic  = GI->CombatMusic;
+		UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Loaded tracks from GameInstance — Hub=%s Explore=%s Combat=%s"),
+			HubMusic ? *HubMusic->GetName() : TEXT("NONE"),
+			ExploreMusic ? *ExploreMusic->GetName() : TEXT("NONE"),
+			CombatMusic ? *CombatMusic->GetName() : TEXT("NONE"));
+	}
+	else
+	{
+		UE_LOG(LogDepthrunMusic, Warning,
+			TEXT("[Music] GameInstance is not UDepthrunGameInstance — tracks not loaded. Set Game Instance Class in Project Settings."));
+	}
 
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(
 		FTickerDelegate::CreateUObject(this, &UMusicSubsystem::OnTick));

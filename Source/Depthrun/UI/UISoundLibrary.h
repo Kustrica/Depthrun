@@ -23,6 +23,8 @@ class DEPTHRUN_API UUISoundLibrary : public UGameInstanceSubsystem
 	GENERATED_BODY()
 
 public:
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+
 	/** Play button-click sound at 2D (no attenuation). */
 	UFUNCTION(BlueprintCallable, Category = "UI|SFX")
 	void PlayButtonClick();

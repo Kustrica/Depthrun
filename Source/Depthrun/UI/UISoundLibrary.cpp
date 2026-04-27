@@ -1,7 +1,20 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "UI/UISoundLibrary.h"
+#include "Core/DepthrunGameInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
+
+void UUISoundLibrary::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+
+	if (UDepthrunGameInstance* GI = Cast<UDepthrunGameInstance>(GetGameInstance()))
+	{
+		ButtonClickSound = GI->ButtonClickSound;
+		ButtonHoverSound = GI->ButtonHoverSound;
+		ChestOpenSound   = GI->ChestOpenSound;
+	}
+}
 
 void UUISoundLibrary::PlayButtonClick()
 {
