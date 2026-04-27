@@ -4,6 +4,7 @@
 #include "Components/BoxComponent.h"
 #include "DoorActor.h"
 #include "Enemy/BaseEnemy.h"
+#include "TrapdoorActor.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "PaperCharacter.h"
@@ -422,7 +423,7 @@ void ARoomBase::DeactivateRoom() {
       FActorSpawnParameters SpawnParams;
       SpawnParams.SpawnCollisionHandlingOverride =
           ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-      AActor* Hatch = GetWorld()->SpawnActor<AActor>(
+      ATrapdoorActor* Hatch = GetWorld()->SpawnActor<ATrapdoorActor>(
           MyTemplate->TrapdoorClass, HatchLoc, MyTemplate->PropRotation,
           SpawnParams);
       if (Hatch) {

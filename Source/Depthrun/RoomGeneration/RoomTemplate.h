@@ -40,8 +40,9 @@ public:
   UPROPERTY(EditAnywhere, Category = "Props|Classes")
   TSubclassOf<class ADoorActor> DoorClass;
 
+  /** Exit trapdoor class - spawned when boss room is cleared. Must derive from ATrapdoorActor for overlap events. */
   UPROPERTY(EditAnywhere, Category = "Props|Classes")
-  TSubclassOf<class AActor> TrapdoorClass;
+  TSubclassOf<ATrapdoorActor> TrapdoorClass;
 
   UPROPERTY(EditAnywhere, Category = "Props|Classes")
   TSubclassOf<class AActor> TorchClass;
