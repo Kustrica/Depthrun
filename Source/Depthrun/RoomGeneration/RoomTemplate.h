@@ -124,9 +124,9 @@ public:
   float PropsZ = 1.0f;
 
   /** Z-Height for doors (spawn + collision plane).
-   *  Default 2.0 places the door sprite slightly above floor tiles (TileMapZ=0, PropsZ=1) for visibility. */
+   *  Default 3.0 places the door above floor tiles and props to avoid Z-fighting. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
-  float DoorLockedZ = 2.0f;
+  float DoorLockedZ = 3.0f;
 
   /** Z-Height for enemies (spawn + plane constraint). */
   UPROPERTY(EditAnywhere, Category = "Offsets")

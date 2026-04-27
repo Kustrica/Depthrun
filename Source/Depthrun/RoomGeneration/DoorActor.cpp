@@ -13,13 +13,15 @@ ADoorActor::ADoorActor()
     // CollisionBox as root — simplest, most reliable setup.
     CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
     RootComponent = CollisionBox;
-    CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 8.f));
+    // Z-extent 20 ensures projectiles at Z=15 are blocked (door Z ~3 + 20 covers up to 23).
+    CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 20.f));
     CollisionBox->SetCollisionProfileName(TEXT("BlockAll"));
     CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
     SpriteComponent = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComponent"));
     SpriteComponent->SetupAttachment(RootComponent);
     SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    SpriteComponent->SetCollisionProfileName(TEXT("NoCollision"));
     SpriteComponent->SetTranslucentSortPriority(20);
 
     // Start open: hidden + no collision (managed via CollisionBox only).
@@ -47,15 +49,16 @@ void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite, bool bVerticalDoor, co
         //   Left/Right doors  → 2-tile gap along world X axis
         // The box must SPAN the gap (≈34 = 2 tiles half-extent) and be
         // THIN across the wall thickness (≈12) and THIN in Z (8) for 2D gameplay.
+        // Z-extent 20 covers projectile height (enemy Z=15), XY stay thin for doorway fit.
         if (bVerticalDoor)
         {
             // Left/Right passage: span along X, thin along Y
-            CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 8.f));
+            CollisionBox->SetBoxExtent(FVector(34.f, 12.f, 20.f));
         }
         else
         {
             // Top/Bottom passage: span along Y, thin along X
-            CollisionBox->SetBoxExtent(FVector(12.f, 34.f, 8.f));
+            CollisionBox->SetBoxExtent(FVector(12.f, 34.f, 20.f));
         }
     }
 }
@@ -63,7 +66,7 @@ void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite, bool bVerticalDoor, co
 void ADoorActor::SetDoorCollisionEnabled(bool bEnabled)
 {
     // Only CollisionBox handles collision; sprite is visual-only.
-    // Z-extent is kept thin (8 units) so actors at different Z heights aren't blocked.
+    // Z-extent 20 covers enemy projectile height while staying tight to gameplay plane.
     const ECollisionEnabled::Type Mode = bEnabled
                                              ? ECollisionEnabled::QueryAndPhysics
                                              : ECollisionEnabled::NoCollision;
