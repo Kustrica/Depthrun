@@ -20,7 +20,6 @@ ADoorActor::ADoorActor()
     SpriteComponent = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComponent"));
     SpriteComponent->SetupAttachment(RootComponent);
     SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    SpriteComponent->SetCollisionProfileName(TEXT("BlockAll"));
     SpriteComponent->SetTranslucentSortPriority(20);
 
     // Start open: hidden + no collision (managed via CollisionBox only).
@@ -28,13 +27,11 @@ ADoorActor::ADoorActor()
     SpriteComponent->SetHiddenInGame(true);
 }
 
-void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite, bool bVerticalDoor, const FRotator& SpriteRotation, float VisualScale,
-                                bool bInUseSpriteCollision)
+void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite, bool bVerticalDoor, const FRotator& SpriteRotation, float VisualScale)
 {
-    bUseSpriteCollision = bInUseSpriteCollision;
-
     // No actor rotation — keep world axes aligned.
     // CollisionBox extents are set per-orientation to match doorway.
+    // Sprite is visual-only; collision is ALWAYS handled by thin CollisionBox (Z-extent=8).
 
     if (SpriteComponent && DoorSprite)
     {
@@ -49,9 +46,7 @@ void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite, bool bVerticalDoor, co
         //   Top/Bottom doors  → 2-tile gap along world Y axis
         //   Left/Right doors  → 2-tile gap along world X axis
         // The box must SPAN the gap (≈34 = 2 tiles half-extent) and be
-        // THIN across the wall thickness (≈12). The previous values were
-        // swapped, which caused the player to pass through one side and be
-        // blocked from the other (asymmetric overlap with adjacent walls).
+        // THIN across the wall thickness (≈12) and THIN in Z (8) for 2D gameplay.
         if (bVerticalDoor)
         {
             // Left/Right passage: span along X, thin along Y
@@ -62,46 +57,22 @@ void ADoorActor::InitializeDoor(UPaperSprite* DoorSprite, bool bVerticalDoor, co
             // Top/Bottom passage: span along Y, thin along X
             CollisionBox->SetBoxExtent(FVector(12.f, 34.f, 8.f));
         }
-
-        if (bUseSpriteCollision)
-        {
-            CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        }
     }
 }
 
 void ADoorActor::SetDoorCollisionEnabled(bool bEnabled)
 {
+    // Only CollisionBox handles collision; sprite is visual-only.
+    // Z-extent is kept thin (8 units) so actors at different Z heights aren't blocked.
     const ECollisionEnabled::Type Mode = bEnabled
                                              ? ECollisionEnabled::QueryAndPhysics
                                              : ECollisionEnabled::NoCollision;
-
-    if (bUseSpriteCollision)
-    {
-        if (SpriteComponent)
-        {
-            SpriteComponent->SetCollisionProfileName(TEXT("BlockAll"));
-            SpriteComponent->SetCollisionEnabled(Mode);
-            SpriteComponent->SetGenerateOverlapEvents(false);
-        }
-
-        if (CollisionBox)
-        {
-            CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        }
-        return;
-    }
 
     if (CollisionBox)
     {
         CollisionBox->SetCollisionProfileName(TEXT("BlockAll"));
         CollisionBox->SetCollisionEnabled(Mode);
         CollisionBox->SetGenerateOverlapEvents(false);
-    }
-
-    if (SpriteComponent)
-    {
-        SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     }
 }
 

@@ -210,7 +210,7 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
     }
 
     Door->InitializeDoor(DoorSprite, bVerticalDoor, MyTemplate->PropRotation,
-                         VisualScale, MyTemplate->bUseDoorSpriteCollision);
+                         VisualScale);
     // Door starts open (hidden, no collision) from the constructor.
     // ActivateRoom() will call CloseDoor() to block the player.
     Door->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
@@ -274,7 +274,7 @@ void ARoomBase::GenerateProps(bool bHasTop, bool bHasBottom, bool bHasLeft,
       SelectedClass = MyTemplate->SkullDecorClass;
     else if (Rand < 0.66f)
       SelectedClass = MyTemplate->BonesDecorClass;
-    else
+    else if (MyTemplate->FloorObstacleClass)
       SelectedClass = MyTemplate->FloorObstacleClass;
 
     if (SelectedClass) {
@@ -331,12 +331,8 @@ void ARoomBase::ActivateRoom() {
   bIsActive = true;
 
   if (!bHasSpawnedEnemies) {
-    const double SpawnStart = FPlatformTime::Seconds();
     SpawnEnemies();
     bHasSpawnedEnemies = true;
-    const double SpawnMs = (FPlatformTime::Seconds() - SpawnStart) * 1000.0;
-    UE_LOG(LogTemp, Log, TEXT("[RoomGen] SpawnEnemies took %.2f ms (%d enemies)"),
-           SpawnMs, SpawnedEnemies.Num());
   }
 
   if (SpawnedEnemies.Num() == 0) {

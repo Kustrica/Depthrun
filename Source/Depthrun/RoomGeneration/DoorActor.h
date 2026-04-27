@@ -19,9 +19,9 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<class UPaperSpriteComponent> SpriteComponent;
 
-    /** Initializes sprite and collision shape for the spawned door. */
-    void InitializeDoor(class UPaperSprite* DoorSprite, bool bVerticalDoor, const FRotator& SpriteRotation, float VisualScale,
-                        bool bInUseSpriteCollision);
+    /** Initializes sprite and collision shape for the spawned door.
+     *  Collision is ALWAYS handled by CollisionBox (thin Z-extent); sprite is visual-only. */
+    void InitializeDoor(class UPaperSprite* DoorSprite, bool bVerticalDoor, const FRotator& SpriteRotation, float VisualScale);
 
     UFUNCTION(BlueprintCallable, Category = "Door")
     void OpenDoor();
@@ -34,7 +34,4 @@ protected:
 
     UPROPERTY(BlueprintReadOnly, Category = "Door")
     bool bIsOpen = false;
-
-    UPROPERTY(BlueprintReadOnly, Category = "Door")
-    bool bUseSpriteCollision = true;
 };

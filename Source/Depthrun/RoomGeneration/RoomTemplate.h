@@ -123,9 +123,10 @@ public:
   UPROPERTY(EditAnywhere, Category = "Offsets")
   float PropsZ = 1.0f;
 
-  /** Z-Height for doors (spawn + collision plane). */
+  /** Z-Height for doors (spawn + collision plane).
+   *  Default 2.0 places the door sprite slightly above floor tiles (TileMapZ=0, PropsZ=1) for visibility. */
   UPROPERTY(EditAnywhere, Category = "Offsets")
-  float DoorLockedZ = 1.0f;
+  float DoorLockedZ = 2.0f;
 
   /** Z-Height for enemies (spawn + plane constraint). */
   UPROPERTY(EditAnywhere, Category = "Offsets")
@@ -139,10 +140,6 @@ public:
   /** If true, room generation creates extra procedural wall BoxComponents. */
   UPROPERTY(EditAnywhere, Category = "Collision")
   bool bUseProceduralWallColliders = false;
-
-  /** If true, doors use sprite collision geometry instead of generated box collision. */
-  UPROPERTY(EditAnywhere, Category = "Collision")
-  bool bUseDoorSpriteCollision = true;
 
   /** If true, floor obstacles use each sprite's own collision geometry. */
   UPROPERTY(EditAnywhere, Category = "Collision")
