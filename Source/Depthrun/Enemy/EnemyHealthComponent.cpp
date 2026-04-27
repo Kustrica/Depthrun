@@ -47,3 +47,18 @@ void UEnemyHealthComponent::ApplyDamage(float Amount)
 		OnDeath.Broadcast();
 	}
 }
+
+float UEnemyHealthComponent::Heal(float Amount)
+{
+	if (Amount <= 0.0f || IsDead())
+	{
+		return 0.0f;
+	}
+
+	float OldHP = CurrentHP;
+	CurrentHP = FMath::Clamp(CurrentHP + Amount, 0.0f, MaxHP);
+	float ActualHealed = CurrentHP - OldHP;
+
+	OnHealthChanged.Broadcast(OldHP, CurrentHP, MaxHP);
+	return ActualHealed;
+}

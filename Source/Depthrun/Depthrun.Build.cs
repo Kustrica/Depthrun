@@ -15,6 +15,7 @@ public class Depthrun : ModuleRules
 			ModuleDirectory,
 			System.IO.Path.Combine(ModuleDirectory, "Audio"),
 			System.IO.Path.Combine(ModuleDirectory, "Core"),
+			System.IO.Path.Combine(ModuleDirectory, "Player"),
 			System.IO.Path.Combine(ModuleDirectory, "RoomGeneration")
 		});
 

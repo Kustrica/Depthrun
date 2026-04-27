@@ -37,6 +37,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void ApplyDamage(float Amount);
 
+	/** Heal the actor, clamped to MaxHP. Returns actual amount healed. */
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	float Heal(float Amount);
+
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	float GetCurrentHP() const { return CurrentHP; }
 	

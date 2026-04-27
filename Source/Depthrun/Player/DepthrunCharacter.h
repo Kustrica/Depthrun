@@ -18,6 +18,7 @@ class UPlayerActionTracker;
 class URunItemInventory;
 class UPlayerMovementConfig;
 class UCombatMusicTrigger;
+class UPlayerEconomy;
 
 /** Which direction the character sprite faces. */
 UENUM(BlueprintType)
@@ -59,6 +60,7 @@ protected:
   void HandleDash(const FInputActionValue &Value);
   void HandleSwitchSlot1(const FInputActionValue &Value);
   void HandleSwitchSlot2(const FInputActionValue &Value);
+  void HandleUsePotion(const FInputActionValue &Value);
 
   // --- Internal ---
   void Dash();
@@ -89,6 +91,9 @@ public:
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Audio")
   TObjectPtr<UCombatMusicTrigger> CombatMusicTrigger;
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Economy")
+  TObjectPtr<UPlayerEconomy> PlayerEconomy;
 
   // ────────────────────── Stats ────────────────────────────
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player|Stats")
@@ -121,6 +126,10 @@ public:
   /** Key 2 — switch to Bow (Slot 2). Assign in Blueprint / IMC. */
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
   TObjectPtr<UInputAction> IA_SwitchSlot2;
+
+  /** Key E — use health potion. Assign in Blueprint / IMC. */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+  TObjectPtr<UInputAction> IA_UsePotion;
 
   /** Manual rotation offset for the sprite component to match top-down view. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation|Rotation")

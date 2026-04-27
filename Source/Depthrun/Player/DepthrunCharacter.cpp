@@ -8,6 +8,7 @@
 #include "Items/RunItemInventory.h"
 #include "PlayerActionTracker.h"
 #include "PlayerCombatComponent.h"
+#include "PlayerEconomy.h"
 #include "PlayerMovementConfig.h"
 
 #include "Camera/CameraComponent.h"
@@ -81,6 +82,8 @@ ADepthrunCharacter::ADepthrunCharacter() {
       CreateDefaultSubobject<URunItemInventory>(TEXT("ItemInventory"));
   CombatMusicTrigger =
       CreateDefaultSubobject<UCombatMusicTrigger>(TEXT("CombatMusicTrigger"));
+  PlayerEconomy =
+      CreateDefaultSubobject<UPlayerEconomy>(TEXT("PlayerEconomy"));
 
   // ─── Movement (top-down, sharp 2D feel) ───────────────────────────────
   GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -263,6 +266,9 @@ void ADepthrunCharacter::SetupPlayerInputComponent(
     if (IA_SwitchSlot2)
       EIC->BindAction(IA_SwitchSlot2, ETriggerEvent::Started, this,
                       &ADepthrunCharacter::HandleSwitchSlot2);
+    if (IA_UsePotion)
+      EIC->BindAction(IA_UsePotion, ETriggerEvent::Started, this,
+                      &ADepthrunCharacter::HandleUsePotion);
   }
 
   // --- Debug Bindings ---
@@ -367,6 +373,12 @@ void ADepthrunCharacter::HandleSwitchSlot1(const FInputActionValue &) {
 }
 void ADepthrunCharacter::HandleSwitchSlot2(const FInputActionValue &) {
   SwitchToWeaponSlot(2);
+}
+
+void ADepthrunCharacter::HandleUsePotion(const FInputActionValue &) {
+  if (PlayerEconomy) {
+    PlayerEconomy->UsePotion();
+  }
 }
 
 // ─────────────────────────── Weapon Slot Switch ────────────────────────────
