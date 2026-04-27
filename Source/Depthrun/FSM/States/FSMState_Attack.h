@@ -32,4 +32,11 @@ public:
 private:
 	float TimeSinceLastAttack = 0.f;
 	bool  bAttackCoolingDown  = false;
+
+	/** How long we have been in Attack state this entry. */
+	float TimeInAttackState = 0.f;
+
+	/** Minimum seconds in Attack before we can exit by distance check.
+	 *  Prevents the Chase<->Attack oscillation when enemy is exactly at AttackRange. */
+	static constexpr float MinTimeBeforeDistanceExit = 0.4f;
 };

@@ -66,7 +66,7 @@ protected:
   TObjectPtr<class UPaperFlipbook> FB_Death_Ranged;
 
 
-  virtual void UpdateAnimation();
+  virtual void UpdateAnimation() override;
 
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
   float MuzzleOffset = 40.f;

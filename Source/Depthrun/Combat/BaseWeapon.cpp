@@ -1,11 +1,17 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 
 #include "BaseWeapon.h"
+#include "Components/SceneComponent.h"
 #include "Core/DepthrunLogChannels.h"
 
 ABaseWeapon::ABaseWeapon()
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	// Weapons need an explicit RootComponent so child components
+	// (HitZone, Sprite) have a valid attachment target.
+	USceneComponent* Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+	RootComponent = Root;
 }
 
 void ABaseWeapon::BeginPlay()

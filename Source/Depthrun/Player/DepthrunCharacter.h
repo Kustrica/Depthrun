@@ -3,6 +3,7 @@
 
 #include "Combat/BaseWeapon.h" // EWeaponType (needed for attack tracking)
 #include "CoreMinimal.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "InputActionValue.h"
 #include "PaperCharacter.h"
 #include "DepthrunCharacter.generated.h"
@@ -48,7 +49,6 @@ public:
 
 protected:
   virtual void BeginPlay() override;
-  virtual void Tick(float DeltaTime) override;
   virtual void
   SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;
 
@@ -225,9 +225,21 @@ public:
   UFUNCTION(BlueprintPure, Category = "Player|Debug")
   FText GetSuperAttackStatusText() const;
 
-  /** Called by RoomGeneratorSubsystem after teleport to pin the player to the correct Z floor level. */
+  /** Called by RoomGeneratorSubsystem after teleport to set the Z floor plane for this character.
+   *  The plane constraint in CharacterMovement prevents further Z changes automatically. */
   UFUNCTION(BlueprintCallable, Category = "Player|Spawn")
-  void SetLockedZ(float InZ) { LockedPlayerZ = InZ; bZLocked = true; }
+  void SetLockedZ(float InZ)
+  {
+    LockedPlayerZ = InZ;
+    FVector Loc = GetActorLocation();
+    Loc.Z = InZ;
+    SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+    // Update the plane constraint origin so the CMC snaps to the correct height
+    if (GetCharacterMovement())
+    {
+      GetCharacterMovement()->SetPlaneConstraintOrigin(FVector(0.f, 0.f, InZ));
+    }
+  }
 
 private:
   bool bCanDash = true;
@@ -236,7 +248,7 @@ private:
   bool bIsHitAnimationActive = false;
   bool bIsDead = false;
 
-  float LockedPlayerZ = 3.0f;
+  float LockedPlayerZ = 4.0f;
   bool  bZLocked = false;
 
   FTimerHandle DashCooldownTimer;

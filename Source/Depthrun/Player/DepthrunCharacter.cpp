@@ -26,7 +26,7 @@ constexpr float DashStopDelay = 0.12f;
 } // namespace
 
 ADepthrunCharacter::ADepthrunCharacter() {
-  PrimaryActorTick.bCanEverTick = true;
+  PrimaryActorTick.bCanEverTick = false;
 
   // ─── Top-down camera ───────────────────────────────────────────────────
   SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -103,8 +103,16 @@ ADepthrunCharacter::ADepthrunCharacter() {
 
   GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 
+  // ─── Hard XY plane constraint — prevents Z drift in Flying mode ───────
+  // Flying mode has no floor, so sweep collisions with doors/obstacles can
+  // push the capsule upward. bConstrainToPlane locks all movement to the XY
+  // plane at the engine level, so no per-frame Tick correction is needed.
+  GetCharacterMovement()->bConstrainToPlane   = true;
+  GetCharacterMovement()->bSnapToPlaneAtStart = true;
+  GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.f, 0.f, 1.f));
+
   // ─── Capsule: small for 2D top-down ───────────────────────────────────
-  GetCapsuleComponent()->SetCapsuleHalfHeight(16.f);
+  GetCapsuleComponent()->SetCapsuleHalfHeight(4.f);
   GetCapsuleComponent()->SetCapsuleRadius(12.f);
 
   // Commercial Fix: Rotate sprite to lie flat on XY plane for top-down view
@@ -118,21 +126,6 @@ ADepthrunCharacter::ADepthrunCharacter() {
   bUseControllerRotationPitch = false;
   bUseControllerRotationYaw = false;
   bUseControllerRotationRoll = false;
-}
-
-void ADepthrunCharacter::Tick(float DeltaTime)
-{
-  Super::Tick(DeltaTime);
-
-  if (bZLocked)
-  {
-    FVector Loc = GetActorLocation();
-    if (!FMath::IsNearlyEqual(Loc.Z, LockedPlayerZ, 0.5f))
-    {
-      Loc.Z = LockedPlayerZ;
-      SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
-    }
-  }
 }
 
 void ADepthrunCharacter::BeginPlay() {

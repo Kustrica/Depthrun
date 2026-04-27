@@ -12,6 +12,7 @@ void UFSMState_Attack::EnterState(ABaseEnemy* Owner)
 	Super::EnterState(Owner);
 	TimeSinceLastAttack = AttackCooldown; // Allow first attack immediately
 	bAttackCoolingDown  = false;
+	TimeInAttackState   = 0.f;
 
 	// Stop moving during attack.
 	if (Owner && Owner->GetCharacterMovement())
@@ -48,8 +49,13 @@ void UFSMState_Attack::TickState(ABaseEnemy* Owner, float DeltaTime)
 	UFSMComponent* FSM = Owner->GetComponentByClass<UFSMComponent>();
 	if (!FSM) return;
 
+	TimeSinceLastAttack += DeltaTime;
+	TimeInAttackState   += DeltaTime;
+
 	// ── Exit condition: player moved out of attack range ───────────────────
-	if (Dist > Owner->AttackRange * 1.2f) // 20% grace buffer
+	// Only allow exit after MinTimeBeforeDistanceExit to prevent frame-level
+	// Chase<->Attack oscillation when the enemy sits exactly at AttackRange.
+	if (TimeInAttackState >= MinTimeBeforeDistanceExit && Dist > Owner->AttackRange * 1.2f)
 	{
 		FSM->TransitionTo(EFSMStateType::Chase);
 		return;
@@ -63,7 +69,6 @@ void UFSMState_Attack::TickState(ABaseEnemy* Owner, float DeltaTime)
 	}
 
 	// ── Attack cooldown ────────────────────────────────────────────────────
-	TimeSinceLastAttack += DeltaTime;
 	if (TimeSinceLastAttack >= AttackCooldown)
 	{
 		TimeSinceLastAttack = 0.f;
