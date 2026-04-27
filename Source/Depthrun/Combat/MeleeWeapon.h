@@ -38,6 +38,8 @@ public:
   float GetWidthMultiplier() const { return WidthMultiplier; }
   void SetOmniSwing(bool bEnabled) { bOmniSwing = bEnabled; }
   bool IsOmniSwing() const { return bOmniSwing; }
+  void SetThicknessMultiplier(float NewMultiplier) { ThicknessMultiplier = FMath::Max(NewMultiplier, 0.1f); }
+  float GetThicknessMultiplier() const { return ThicknessMultiplier; }
 
   /** Reach of the weapon (distance forward). */
   UPROPERTY(EditAnywhere, Category = "Weapon|Melee")
@@ -72,6 +74,7 @@ private:
 
   float RangeMultiplier = 1.0f;
   float WidthMultiplier = 1.0f;
+  float ThicknessMultiplier = 1.0f;
   bool bDoubleSwing = false;
   bool bIsSecondSwing = false;
   bool bOmniSwing = false;

@@ -299,6 +299,7 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
   float OriginalDamage = 0.f;
   float OriginalRange = 1.0f;
   float OriginalWidth = 1.0f;
+  float OriginalThickness = 1.0f;
   bool bOriginalOmniSwing = false;
   AMeleeWeapon *MeleeW = Cast<AMeleeWeapon>(CombatComponent->CurrentWeapon);
 
@@ -309,10 +310,12 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
     if (MeleeW) {
       OriginalRange = MeleeW->GetRangeMultiplier();
       OriginalWidth = MeleeW->GetWidthMultiplier();
+      OriginalThickness = MeleeW->GetThicknessMultiplier();
       bOriginalOmniSwing = MeleeW->IsOmniSwing();
-      MeleeW->SetRangeMultiplier(5.0f); // 5x range for melee
-      MeleeW->SetWidthMultiplier(4.0f); // wider hit zone for room control
-      MeleeW->SetOmniSwing(true); // cover front and back around the player
+      MeleeW->SetRangeMultiplier(5.0f);
+      MeleeW->SetWidthMultiplier(4.0f);
+      MeleeW->SetThicknessMultiplier(5.0f); // cube-shaped zone: tall enough to hit all Z planes
+      MeleeW->SetOmniSwing(true);
     }
   }
 
@@ -326,6 +329,7 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
     if (MeleeW) {
       MeleeW->SetRangeMultiplier(OriginalRange);
       MeleeW->SetWidthMultiplier(OriginalWidth);
+      MeleeW->SetThicknessMultiplier(OriginalThickness);
       MeleeW->SetOmniSwing(bOriginalOmniSwing);
     }
   }

@@ -5,6 +5,7 @@
 #include "PaperSpriteComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h"
+#include "TimerManager.h"
 
 ATrapdoorActor::ATrapdoorActor()
 {
@@ -28,8 +29,17 @@ void ATrapdoorActor::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Bind overlap event for player detection
+    // Disable overlap for 3 seconds so player can't accidentally trigger immediately
+    CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    GetWorldTimerManager().SetTimer(ActivationTimer, this, &ATrapdoorActor::EnableOverlap, 3.0f, false);
+}
+
+void ATrapdoorActor::EnableOverlap()
+{
+    CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     CollisionBox->OnComponentBeginOverlap.AddDynamic(this, &ATrapdoorActor::OnTrapdoorOverlap);
+    UE_LOG(LogTemp, Log, TEXT("[Trapdoor] Hatch activated - player can now use it."));
 }
 
 void ATrapdoorActor::OnTrapdoorOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,

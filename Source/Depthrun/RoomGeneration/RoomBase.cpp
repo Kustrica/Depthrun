@@ -5,6 +5,7 @@
 #include "DoorActor.h"
 #include "Enemy/BaseEnemy.h"
 #include "TrapdoorActor.h"
+#include "ChestActor.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "PaperCharacter.h"
@@ -123,46 +124,35 @@ void ARoomBase::SetupRoom(URoomTemplate *Template, bool bHasTop, bool bHasBottom
   RoomBounds->SetBoxExtent(FVector(FMath::Max(HalfX - TriggerInset, TileSize), FMath::Max(HalfY - TriggerInset, TileSize), 120.f));
 
   const int32 FloorLayer = 0;
-  const int32 WallLayer = 2;
-  // Lambda to apply door opening with shadow tile rotation
-  // Rotation makes shadow face the wall (not into the passage)
-  auto ApplyDoorOpening = [&](bool bConnected, int32 X1, int32 Y1, int32 X2,
-                              int32 Y2, const FRoomTileInfo& ShadowTile, int32 RotationDegrees) {
-    if (!bConnected) {
-      return;
-    }
 
-    const FRoomTileInfo EmptyTile;
-    // Clear all known layers (Floor, Middle, Wall) so neighbour tilemaps don't
-    // produce z-fighting flicker in the doorway.
-    for (int32 L = 0; L < 3; ++L)
-    {
-      SetTileInLayer(L, X1, Y1, EmptyTile);
-      SetTileInLayer(L, X2, Y2, EmptyTile);
-    }
-
-    if (ShadowTile.TileSet && ShadowTile.PackedTileIndex >= 0) {
-      FRoomTileInfo RotatedTile = ShadowTile;
-      // If DataAsset has specific rotation, use it; otherwise use auto-rotation
-      if (RotatedTile.Rotation == 0) {
-        RotatedTile.Rotation = RotationDegrees;
-      }
-      SetTileInLayer(FloorLayer, X1, Y1, RotatedTile);
-      SetTileInLayer(FloorLayer, X2, Y2, RotatedTile);
-    }
-  };
-
-  // Shadow rotations: make shadow face the wall (away from passage)
-  // Top door (Y=0): shadow faces UP (toward wall at top)    → 0° (if tile shadow is at top by default) or 180°
-  // Bottom door (Y=5): shadow faces DOWN (toward wall at bottom) → 180° or 0°
-  // Left door (X=0): shadow faces LEFT (toward wall at left)  → 90° or 270°
-  // Right door (X=7): shadow faces RIGHT (toward wall at right) → 270° or 90°
-  // Adjust these values based on your tile art! If tile shadow is at bottom by default:
-  // Top=180, Bottom=0, Left=90, Right=270
-  ApplyDoorOpening(bHasTop, 3, 0, 4, 0, MyTemplate->DoorFloorShadowTop, 180);
-  ApplyDoorOpening(bHasBottom, 3, 5, 4, 5, MyTemplate->DoorFloorShadowBottom, 0);
-  ApplyDoorOpening(bHasLeft, 0, 2, 0, 3, MyTemplate->DoorFloorShadowLeft, 90);
-  ApplyDoorOpening(bHasRight, 7, 2, 7, 3, MyTemplate->DoorFloorShadowRight, 270);
+  // Top door: clear tiles, then place A at (3,0) and B at (4,0)
+  if (bHasTop) {
+    const FRoomTileInfo Empty;
+    for (int32 L = 0; L < 3; ++L) { SetTileInLayer(L, 3, 0, Empty); SetTileInLayer(L, 4, 0, Empty); }
+    SetTileInLayer(FloorLayer, 3, 0, MyTemplate->DoorShadowTop_A);
+    SetTileInLayer(FloorLayer, 4, 0, MyTemplate->DoorShadowTop_B);
+  }
+  // Bottom door
+  if (bHasBottom) {
+    const FRoomTileInfo Empty;
+    for (int32 L = 0; L < 3; ++L) { SetTileInLayer(L, 3, 5, Empty); SetTileInLayer(L, 4, 5, Empty); }
+    SetTileInLayer(FloorLayer, 3, 5, MyTemplate->DoorShadowBottom_A);
+    SetTileInLayer(FloorLayer, 4, 5, MyTemplate->DoorShadowBottom_B);
+  }
+  // Left door
+  if (bHasLeft) {
+    const FRoomTileInfo Empty;
+    for (int32 L = 0; L < 3; ++L) { SetTileInLayer(L, 0, 2, Empty); SetTileInLayer(L, 0, 3, Empty); }
+    SetTileInLayer(FloorLayer, 0, 2, MyTemplate->DoorShadowLeft_A);
+    SetTileInLayer(FloorLayer, 0, 3, MyTemplate->DoorShadowLeft_B);
+  }
+  // Right door
+  if (bHasRight) {
+    const FRoomTileInfo Empty;
+    for (int32 L = 0; L < 3; ++L) { SetTileInLayer(L, 7, 2, Empty); SetTileInLayer(L, 7, 3, Empty); }
+    SetTileInLayer(FloorLayer, 7, 2, MyTemplate->DoorShadowRight_A);
+    SetTileInLayer(FloorLayer, 7, 3, MyTemplate->DoorShadowRight_B);
+  }
 
   // Rebuild tilemap collision (works if TileSet has tile-level collision shapes).
   if (TileMapComponent)
@@ -397,39 +387,32 @@ void ARoomBase::DeactivateRoom() {
     UE_LOG(LogTemp, Warning,
            TEXT("[DungeonGen] BOSS CLEARED! EXIT HATCH OPEN."));
 
-    if (MyTemplate->TrapdoorClass) {
-      // Find a spawn location not occupied by torches - center of room, tile (3,2) or (4,2)
-      FVector HatchLoc = GetActorLocation();
+    if (!MyTemplate->TrapdoorClass) {
+      UE_LOG(LogTemp, Error, TEXT("[DungeonGen] TrapdoorClass is NULL - assign BP_Trapdoor in Boss Room DataAsset!"));
+    } else {
       const float TileSize = ResolveTileSize(MyTemplate);
-      
-      // Try center tiles: (3,2), (4,2), (3,3), (4,3) - avoid torch spots
-      TArray<FIntPoint> CenterTiles;
-      CenterTiles.Add(FIntPoint(3, 2));
-      CenterTiles.Add(FIntPoint(4, 2));
-      CenterTiles.Add(FIntPoint(3, 3));
-      CenterTiles.Add(FIntPoint(4, 3));
-      
-      FIntPoint SelectedTile = FIntPoint(3, 2); // default center
+      // Try center tiles: avoid OccupiedTiles
+      TArray<FIntPoint> CenterTiles = { {3,2}, {4,2}, {3,3}, {4,3}, {2,2}, {5,2} };
+      FIntPoint SelectedTile = FIntPoint(3, 2);
       for (const FIntPoint& Candidate : CenterTiles) {
         if (!OccupiedTiles.Contains(Candidate)) {
           SelectedTile = Candidate;
           break;
         }
       }
-      
-      HatchLoc += MakeTileOffset(TileSize, SelectedTile.X, SelectedTile.Y, 0.f);
-      HatchLoc.Z = MyTemplate->PropsZ;
-      
+      FVector HatchLoc = GetActorLocation() + MakeTileOffset(TileSize, SelectedTile.X, SelectedTile.Y, 0.f);
+      HatchLoc.Z = MyTemplate->TrapdoorZ;
       FActorSpawnParameters SpawnParams;
-      SpawnParams.SpawnCollisionHandlingOverride =
-          ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+      SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
       ATrapdoorActor* Hatch = GetWorld()->SpawnActor<ATrapdoorActor>(
-          MyTemplate->TrapdoorClass, HatchLoc, MyTemplate->PropRotation,
-          SpawnParams);
-      if (Hatch) {
+          MyTemplate->TrapdoorClass, HatchLoc, MyTemplate->PropRotation, SpawnParams);
+      if (!Hatch) {
+        UE_LOG(LogTemp, Error, TEXT("[DungeonGen] SpawnActor FAILED for TrapdoorClass at %s"), *HatchLoc.ToString());
+      } else {
         ApplyVisualScale(Hatch, ResolveWorldScale(MyTemplate));
-        UE_LOG(LogTemp, Warning, TEXT("[DungeonGen] EXIT HATCH SPAWNED at tile (%d,%d)."), 
-               SelectedTile.X, SelectedTile.Y);
+        OccupiedTiles.Add(SelectedTile); // prevent chest from spawning on top of hatch
+        UE_LOG(LogTemp, Warning, TEXT("[DungeonGen] EXIT HATCH SPAWNED: class=%s tile=(%d,%d) loc=%s"),
+               *MyTemplate->TrapdoorClass->GetName(), SelectedTile.X, SelectedTile.Y, *HatchLoc.ToString());
       }
     }
   }
@@ -510,8 +493,6 @@ void ARoomBase::SetTileInLayer(int32 Layer, int32 X, int32 Y,
   if (TileInfo.TileSet && TileInfo.PackedTileIndex >= 0) {
     PaperTile.TileSet = TileInfo.TileSet;
     PaperTile.PackedTileIndex = TileInfo.PackedTileIndex;
-    // Apply rotation for tile orientation (used for door shadow tiles)
-    PaperTile.SetRotationAsDegrees(TileInfo.Rotation);
   } else {
     PaperTile = FPaperTileInfo();
   }
@@ -643,11 +624,10 @@ void ARoomBase::TrySpawnChest() {
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride =
         ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-    AActor* Chest = GetWorld()->SpawnActor<AActor>(MyTemplate->ChestClass, ChestLoc,
-                                   MyTemplate->PropRotation, SpawnParams);
+    AChestActor* Chest = GetWorld()->SpawnActor<AChestActor>(MyTemplate->ChestClass, ChestLoc,
+                                       MyTemplate->PropRotation, SpawnParams);
     if (Chest) {
         ApplyVisualScale(Chest, ResolveWorldScale(MyTemplate));
-        Chest->SetActorEnableCollision(false);
         UE_LOG(LogTemp, Log, TEXT("[RoomGen] Chest spawned at tile (%d,%d)."), SelectedTile.X, SelectedTile.Y);
     }
   }

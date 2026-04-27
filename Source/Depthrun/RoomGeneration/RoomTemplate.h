@@ -6,6 +6,9 @@
 #include "Engine/DataAsset.h"
 #include "RoomTemplate.generated.h"
 
+class ATrapdoorActor;
+class AChestActor;
+
 UCLASS(BlueprintType)
 class DEPTHRUN_API URoomTemplate : public UDataAsset {
   GENERATED_BODY()
@@ -22,18 +25,32 @@ public:
   float WorldScale = 2.6f;
 
   // ─── Тайлы ──────────────────────────────────────────────────────────────
+  // Each doorway has 2 tile slots (A = first cell, B = second cell).
+  // Assign the correct PackedTileIndex from your tileset for each slot.
 
   UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
-  FRoomTileInfo DoorFloorShadowTop;
+  FRoomTileInfo DoorShadowTop_A;    // tile position (3, 0)
 
   UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
-  FRoomTileInfo DoorFloorShadowBottom;
+  FRoomTileInfo DoorShadowTop_B;    // tile position (4, 0)
 
   UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
-  FRoomTileInfo DoorFloorShadowLeft;
+  FRoomTileInfo DoorShadowBottom_A; // tile position (3, 5)
 
   UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
-  FRoomTileInfo DoorFloorShadowRight;
+  FRoomTileInfo DoorShadowBottom_B; // tile position (4, 5)
+
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorShadowLeft_A;   // tile position (0, 2)
+
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorShadowLeft_B;   // tile position (0, 3)
+
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorShadowRight_A;  // tile position (7, 2)
+
+  UPROPERTY(EditAnywhere, Category = "Tiles|DoorShadows")
+  FRoomTileInfo DoorShadowRight_B;  // tile position (7, 3)
 
   // ─── Основные классы ───────────────────────────────────────────────────
 
@@ -48,7 +65,7 @@ public:
   TSubclassOf<class AActor> TorchClass;
 
   UPROPERTY(EditAnywhere, Category = "Props|Classes")
-  TSubclassOf<class AActor> ChestClass;
+  TSubclassOf<AChestActor> ChestClass;
 
   UPROPERTY(EditAnywhere, Category = "Props|Classes")
   TSubclassOf<class AActor> SkullDecorClass;
@@ -123,6 +140,10 @@ public:
   /** Z-Height for all props (Decor, Torches, Chests). */
   UPROPERTY(EditAnywhere, Category = "Offsets")
   float PropsZ = 1.0f;
+
+  /** Z-Height for the exit trapdoor. Higher than PropsZ to avoid sinking below tilemap. */
+  UPROPERTY(EditAnywhere, Category = "Offsets")
+  float TrapdoorZ = 4.0f;
 
   /** Z-Height for doors (spawn + collision plane).
    *  Default 3.0 places the door above floor tiles and props to avoid Z-fighting. */

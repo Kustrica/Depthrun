@@ -73,9 +73,13 @@ void ADoorActor::SetDoorCollisionEnabled(bool bEnabled)
 
     if (CollisionBox)
     {
-        CollisionBox->SetCollisionProfileName(TEXT("BlockAll"));
         CollisionBox->SetCollisionEnabled(Mode);
-        CollisionBox->SetGenerateOverlapEvents(false);
+        if (bEnabled)
+        {
+            CollisionBox->SetCollisionObjectType(ECC_WorldStatic);
+            CollisionBox->SetCollisionResponseToAllChannels(ECR_Block);
+            CollisionBox->SetGenerateOverlapEvents(false);
+        }
     }
 }
 

@@ -3,15 +3,15 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "TrapdoorActor.generated.h"
+#include "ChestActor.generated.h"
 
 UCLASS()
-class DEPTHRUN_API ATrapdoorActor : public AActor
+class DEPTHRUN_API AChestActor : public AActor
 {
     GENERATED_BODY()
 
 public:
-    ATrapdoorActor();
+    AChestActor();
 
 protected:
     virtual void BeginPlay() override;
@@ -23,11 +23,10 @@ protected:
     TObjectPtr<class UPaperSpriteComponent> SpriteComponent;
 
     UFUNCTION()
-    void OnTrapdoorOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-                           UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-                           bool bFromSweep, const FHitResult& SweepResult);
+    void OnChestOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+                        UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+                        bool bFromSweep, const FHitResult& SweepResult);
 
 private:
-    void EnableOverlap();
-    FTimerHandle ActivationTimer;
+    bool bOpened = false;
 };

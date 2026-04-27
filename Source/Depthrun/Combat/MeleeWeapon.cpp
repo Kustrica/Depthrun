@@ -29,6 +29,7 @@ AMeleeWeapon::AMeleeWeapon() {
 void AMeleeWeapon::ResetEffects() {
   RangeMultiplier = 1.0f;
   WidthMultiplier = 1.0f;
+  ThicknessMultiplier = 1.0f;
   bDoubleSwing = false;
   bIsSecondSwing = false;
   bOmniSwing = false;
@@ -68,10 +69,11 @@ void AMeleeWeapon::PerformDoubleSwing() {
 void AMeleeWeapon::ActivateHitZone() {
   const float ScaledExtent = HitZoneHalfExtent * RangeMultiplier;
   const float ScaledWidth = HitZoneWidth * WidthMultiplier;
+  const float ScaledThickness = HitZoneThickness * ThicknessMultiplier;
   const float OmniExtent = FMath::Max(ScaledExtent, ScaledWidth);
   const FVector HitExtent = bOmniSwing
-                                ? FVector(OmniExtent, OmniExtent, HitZoneThickness)
-                                : FVector(ScaledExtent, ScaledWidth, HitZoneThickness);
+                                ? FVector(OmniExtent, OmniExtent, ScaledThickness)
+                                : FVector(ScaledExtent, ScaledWidth, ScaledThickness);
 
   if (HitZone) {
     // 1. Set size first

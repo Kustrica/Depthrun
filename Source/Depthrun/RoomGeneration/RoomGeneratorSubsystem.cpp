@@ -82,6 +82,30 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         if (!bFound) break;
     }
 
+    // 2b. Переставить самую дальнюю от старта комнату на последнее место (→ Boss Room)
+    // Используем манхэттенское расстояние от (0,0). Комната [0] = Start, не трогаем.
+    if (Coords.Num() > 2)
+    {
+        int32 FarthestIdx = 1;
+        int32 MaxDist = 0;
+        for (int32 k = 1; k < Coords.Num(); ++k)
+        {
+            int32 Dist = FMath::Abs(Coords[k].X) + FMath::Abs(Coords[k].Y);
+            if (Dist > MaxDist)
+            {
+                MaxDist = Dist;
+                FarthestIdx = k;
+            }
+        }
+        // Swap farthest with last slot (Boss will be placed at last index)
+        if (FarthestIdx != Coords.Num() - 1)
+        {
+            Coords.Swap(FarthestIdx, Coords.Num() - 1);
+        }
+        UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Boss Room at grid (%d,%d), dist=%d from start"),
+               Coords.Last().X, Coords.Last().Y, MaxDist);
+    }
+
     // 3. Расчет размеров (БЕЗ нахлеста)
     // Из-за поворота тайлмапа (-90, 0, 90):
     // Ось X в мире (Вверх/Вниз) соответствует высоте комнаты (6 тайлов).
