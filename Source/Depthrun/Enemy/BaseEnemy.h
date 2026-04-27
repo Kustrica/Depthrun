@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "PaperCharacter.h"
 #include "BaseEnemy.generated.h"
 
