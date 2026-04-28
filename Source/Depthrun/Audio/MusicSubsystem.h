@@ -61,22 +61,30 @@ private:
 	/** Returns the SoundBase for a given track enum. */
 	USoundBase* GetSoundForTrack(EMusicTrack Track) const;
 
+	/** Get or create an AudioComponent for a track. */
+	UAudioComponent* GetOrCreateComponent(EMusicTrack Track);
+
 	/** Tick delegate — handles volume interpolation. */
 	bool OnTick(float DeltaTime);
 	FTSTicker::FDelegateHandle TickHandle;
 
-	/** Store playback position for each track to resume seamlessly. */
-	TMap<EMusicTrack, float> TrackPlaybackPositions;
+	/** Master volume multiplier (0.0-1.0). Used by settings. */
+	UPROPERTY()
+	float MasterVolume = 1.f;
 
-	/** Current master volume multiplier (0.0-1.0). */
-	float MasterVolume = 1.0f;
+	/** Volume reduction during crossfade transitions. */
+	UPROPERTY()
+	float TransitionDuckMultiplier = 0.8f;
 
-	/** During crossfade, duck volume by this multiplier (0.8 = -20%). */
-	static constexpr float TransitionDuckMultiplier = 0.8f;
+	/** Audio components for each track (persist across switches, paused when inactive). */
+	UPROPERTY()
+	TMap<EMusicTrack, TObjectPtr<UAudioComponent>> TrackComponents;
 
+	/** Currently playing/active component. */
 	UPROPERTY()
 	TObjectPtr<UAudioComponent> ActiveComponent;
 
+	/** Component that is fading out to pause. */
 	UPROPERTY()
 	TObjectPtr<UAudioComponent> FadingComponent;
 
@@ -87,10 +95,4 @@ private:
 	float FadeOutTime = 0.f;
 	float FadeProgress = 0.f;
 	bool bIsCrossfading = false;
-
-	/** Resume track from saved position if available. */
-	void ResumeTrackFromPosition(EMusicTrack Track, UAudioComponent* Component);
-
-	/** Save current playback position before stopping. */
-	void SaveTrackPosition(EMusicTrack Track, UAudioComponent* Component);
 };

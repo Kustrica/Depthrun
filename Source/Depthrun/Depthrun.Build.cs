@@ -15,6 +15,7 @@ public class Depthrun : ModuleRules
 			ModuleDirectory,
 			System.IO.Path.Combine(ModuleDirectory, "Audio"),
 			System.IO.Path.Combine(ModuleDirectory, "Core"),
+			System.IO.Path.Combine(ModuleDirectory, "Data"),
 			System.IO.Path.Combine(ModuleDirectory, "Player"),
 			System.IO.Path.Combine(ModuleDirectory, "RoomGeneration")
 		});
@@ -28,14 +29,19 @@ public class Depthrun : ModuleRules
 			"EnhancedInput",
 			"Paper2D",
 			"Niagara",
-			"SQLiteCore",        // built-in UE5 SQLite wrapper
 			"UMG"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"Slate",
-			"SlateCore"
+			"SlateCore",
+			// SQLiteCore: low-level sqlite3 C API + Epic's FSQLiteDatabase wrapper
+			//             (PublicIncludePaths -> ThirdParty/, so use "sqlite/sqlite3.h")
+			// SQLiteSupport: optional Blueprint-exposed nodes (USQLiteDatabase asset).
+			// NOTE: there is NO module called "SQLite" in UE 5.7 — adding it breaks the build.
+			"SQLiteCore",
+			"SQLiteSupport"
 		});
 	}
 }

@@ -11,7 +11,7 @@ AChestActor::AChestActor()
 
     CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
     RootComponent = CollisionBox;
-    CollisionBox->SetBoxExtent(FVector(14.f, 14.f, 20.f));
+    CollisionBox->SetBoxExtent(FVector(8.f, 8.f, 20.f));
     CollisionBox->SetCollisionProfileName(TEXT("OverlapAll"));
     CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     CollisionBox->SetGenerateOverlapEvents(true);

@@ -73,6 +73,36 @@ protected:
   void Die();
 
 public:
+  /** Heal the player, clamped to MaxHP. Returns actual amount healed. */
+  UFUNCTION(BlueprintCallable, Category = "Player|Stats")
+  float Heal(float Amount);
+
+  /** Load profile upgrades from SaveSubsystem and apply to character stats. */
+  UFUNCTION(BlueprintCallable, Category = "Player|Meta")
+  void ApplyProfileUpgrades();
+
+  // ─── Console Commands (Debug) ────────────────────────────────────────────
+
+  /** Console: Add diamonds to run (not profile). Usage: AddRunDiamonds 100 */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void AddRunDiamonds(int32 Amount);
+
+  /** Console: Add diamonds to profile. Usage: AddProfileDiamonds 1000 */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void AddProfileDiamonds(int32 Amount);
+
+  /** Console: Buy upgrade. Usage: BuyUpgrade Damage */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void BuyUpgradeCmd(const FString& UpgradeType);
+
+  /** Console: Show current profile. Usage: ShowProfile */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void ShowProfile();
+
+  /** Console: Reset profile. Usage: ResetProfile */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void ResetProfileCmd();
+
   // ────────────────────── Components ──────────────────────
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
   TObjectPtr<USpringArmComponent> SpringArm;
@@ -95,6 +125,7 @@ public:
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Economy")
   TObjectPtr<UPlayerEconomy> PlayerEconomy;
 
+public:
   // ────────────────────── Stats ────────────────────────────
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player|Stats")
   float MaxHP = 500.f;
@@ -211,6 +242,16 @@ public:
   /** Config data asset for movement tuning. Assign in BP_DepthrunCharacter. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player|Config")
   TObjectPtr<UPlayerMovementConfig> MovementConfig;
+
+  /** Multipliers from meta-upgrades. Applied in ApplyProfileUpgrades(). */
+  UPROPERTY(BlueprintReadOnly, Category = "Player|Meta")
+  float DamageMultiplier = 1.0f;
+
+  UPROPERTY(BlueprintReadOnly, Category = "Player|Meta")
+  float MeleeRangeMultiplier = 1.0f;
+
+  UPROPERTY(BlueprintReadOnly, Category = "Player|Meta")
+  int32 BaseProjectileCount = 3;
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation|Combat")
   TObjectPtr<UPaperFlipbook> FB_Hit;

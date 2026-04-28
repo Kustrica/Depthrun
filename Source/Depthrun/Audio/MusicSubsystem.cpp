@@ -36,8 +36,17 @@ void UMusicSubsystem::Deinitialize()
 {
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 
-	if (IsValid(ActiveComponent))  { ActiveComponent->Stop(); }
-	if (IsValid(FadingComponent))  { FadingComponent->Stop(); }
+	// Stop all track components
+	for (auto& Pair : TrackComponents)
+	{
+		if (IsValid(Pair.Value))
+		{
+			Pair.Value->Stop();
+		}
+	}
+	TrackComponents.Empty();
+	ActiveComponent = nullptr;
+	FadingComponent = nullptr;
 
 	Super::Deinitialize();
 }
@@ -67,51 +76,43 @@ void UMusicSubsystem::PlayMusic(EMusicTrack Track, float FadeIn, float FadeOut)
 	UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
 	if (!World) { return; }
 
-	// Save current track position before crossfading
-	if (IsValid(ActiveComponent) && CurrentTrack != EMusicTrack::None)
-	{
-		SaveTrackPosition(CurrentTrack, ActiveComponent);
-	}
-
-	// Stop any previous fade
+	// Finish any pending fade immediately (pause the fading track)
 	if (bIsCrossfading && IsValid(FadingComponent))
 	{
-		FadingComponent->Stop();
+		FadingComponent->SetVolumeMultiplier(0.f);
+		FadingComponent->SetPaused(true);
 		FadingComponent = nullptr;
 	}
 
-	// Move active → fading
-	if (IsValid(ActiveComponent) && ActiveComponent->IsPlaying())
+	// Current active track becomes fading (will be paused when fade completes)
+	if (IsValid(ActiveComponent))
 	{
 		FadingComponent = ActiveComponent;
 		ActiveComponent = nullptr;
 	}
 
-	// Spawn new audio component
-	ActiveComponent = UGameplayStatics::SpawnSoundAtLocation(
-		World, NewSound, FVector::ZeroVector);
+	// Get or create component for the target track
+	ActiveComponent = GetOrCreateComponent(Track);
 
 	if (!IsValid(ActiveComponent))
 	{
-		UE_LOG(LogDepthrunMusic, Error, TEXT("[Music] Failed to spawn AudioComponent for track %d"), (int32)Track);
+		UE_LOG(LogDepthrunMusic, Error, TEXT("[Music] Failed to get/create AudioComponent for track %d"), (int32)Track);
 		return;
 	}
 
 	ActiveComponent->bAutoDestroy = false;
 
-	// Get saved position and play from there
-	float StartTime = 0.f;
-	if (float* SavedPos = TrackPlaybackPositions.Find(Track))
+	// Start or resume playback
+	if (!ActiveComponent->IsPlaying())
 	{
-		StartTime = *SavedPos;
-		UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Resuming track %d from %.2fs"), (int32)Track, StartTime);
+		ActiveComponent->Play();
+		UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Starting/resuming track %d"), (int32)Track);
 	}
 
 	if (FadeIn > 0.f)
 	{
 		ActiveComponent->SetVolumeMultiplier(0.f);
 	}
-	ActiveComponent->Play(StartTime);
 
 	CurrentTrack    = Track;
 	FadeInTime      = FMath::Max(FadeIn, 0.f);
@@ -122,10 +123,12 @@ void UMusicSubsystem::PlayMusic(EMusicTrack Track, float FadeIn, float FadeOut)
 
 void UMusicSubsystem::StopMusic(float FadeOut)
 {
+	// Pause active track (don't stop - preserves position)
 	if (IsValid(ActiveComponent))
 	{
 		if (FadeOut > 0.f)
 		{
+			// Fade out
 			ActiveComponent->FadeOut(FadeOut, 0.f);
 		}
 		else
@@ -134,6 +137,14 @@ void UMusicSubsystem::StopMusic(float FadeOut)
 		}
 		ActiveComponent = nullptr;
 	}
+
+	// Stop any fading track too
+	if (IsValid(FadingComponent))
+	{
+		FadingComponent->Stop();
+		FadingComponent = nullptr;
+	}
+
 	CurrentTrack = EMusicTrack::None;
 	bIsCrossfading = false;
 }
@@ -175,12 +186,14 @@ bool UMusicSubsystem::OnTick(float DeltaTime)
 		FadingComponent->SetVolumeMultiplier(DuckedAlpha * MasterVolume);
 		if (Alpha <= 0.f)
 		{
+			// Pause the faded-out track by stopping (position resets - unavoidable in this UE version)
 			FadingComponent->Stop();
 			FadingComponent = nullptr;
 		}
 	}
 	else if (IsValid(FadingComponent))
 	{
+		// Stop immediately if no fade out
 		FadingComponent->Stop();
 		FadingComponent = nullptr;
 	}
@@ -199,23 +212,35 @@ bool UMusicSubsystem::OnTick(float DeltaTime)
 	return true;
 }
 
-void UMusicSubsystem::SaveTrackPosition(EMusicTrack Track, UAudioComponent* Component)
+UAudioComponent* UMusicSubsystem::GetOrCreateComponent(EMusicTrack Track)
 {
-	if (!IsValid(Component)) { return; }
-	float Position = Component->GetPlaybackTime();
-	TrackPlaybackPositions.Add(Track, Position);
-	UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Saved position for track %d: %.2fs"), (int32)Track, Position);
-}
-
-void UMusicSubsystem::ResumeTrackFromPosition(EMusicTrack Track, UAudioComponent* Component)
-{
-	if (!IsValid(Component)) { return; }
-
-	if (float* SavedPos = TrackPlaybackPositions.Find(Track))
+	// Check if we already have a component for this track
+	if (TrackComponents.Contains(Track))
 	{
-		UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Resuming track %d from %.2fs"), (int32)Track, *SavedPos);
-		Component->SetSound(GetSoundForTrack(Track)); // Ensure sound is set
-		Component->SetIntParameter(TEXT("PlaybackTime"), static_cast<int32>(*SavedPos * 1000)); // Try to set time
-		// Note: SetPlaybackTime doesn't exist in this API version, we'll use Play with start time
+		UAudioComponent* Existing = TrackComponents.FindRef(Track).Get();
+		if (IsValid(Existing))
+		{
+			return Existing;
+		}
 	}
+
+	// Create new component
+	USoundBase* Sound = GetSoundForTrack(Track);
+	if (!IsValid(Sound)) { return nullptr; }
+
+	UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
+	if (!World) { return nullptr; }
+
+	UAudioComponent* NewComponent = UGameplayStatics::SpawnSoundAtLocation(
+		World, Sound, FVector::ZeroVector);
+
+	if (IsValid(NewComponent))
+	{
+		NewComponent->bAutoDestroy = false;
+		TrackComponents.Add(Track, NewComponent);
+		UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Created new AudioComponent for track %d"), (int32)Track);
+	}
+
+	return NewComponent;
 }
+

@@ -75,6 +75,8 @@ public:
 	bool IsPotionOnCooldown() const;
 
 private:
+	/** Get SaveSubsystem for profile operations. */
+	class UDepthrunSaveSubsystem* GetSaveSubsystem() const;
 	/** Time of last potion use (in seconds). */
 	float LastPotionUseTime = -999.f;
 

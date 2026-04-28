@@ -1,8 +1,8 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "Player/PlayerEconomy.h"
 #include "Core/DepthrunLogChannels.h"
-#include "Enemy/EnemyHealthComponent.h"
-#include "GameFramework/Character.h"
+#include "Data/DepthrunSaveSubsystem.h"
+#include "DepthrunCharacter.h"
 
 UPlayerEconomy::UPlayerEconomy()
 {
@@ -50,19 +50,16 @@ bool UPlayerEconomy::UsePotion()
 	}
 
 	// Apply healing
-	ACharacter* Owner = Cast<ACharacter>(GetOwner());
-	if (!Owner) { return false; }
-
-	UEnemyHealthComponent* HealthComp = Owner->FindComponentByClass<UEnemyHealthComponent>();
-	if (!HealthComp)
+	ADepthrunCharacter* Player = Cast<ADepthrunCharacter>(GetOwner());
+	if (!Player)
 	{
-		UE_LOG(LogDepthrunEconomy, Warning, TEXT("[Economy] UsePotion: no UEnemyHealthComponent on owner"));
+		UE_LOG(LogDepthrunEconomy, Warning, TEXT("[Economy] UsePotion: owner is not ADepthrunCharacter"));
 		return false;
 	}
 
-	float HPBefore = HealthComp->GetCurrentHealth();
-	HealthComp->Heal(PotionHealAmount);
-	float HPAfter = HealthComp->GetCurrentHealth();
+	float HPBefore = Player->CurrentHP;
+	Player->Heal(PotionHealAmount);
+	float HPAfter = Player->CurrentHP;
 
 	// Consume potion
 	int32 OldPotions = HealthPotions;
@@ -83,7 +80,12 @@ void UPlayerEconomy::OnPlayerDeath()
 	UE_LOG(LogDepthrunEconomy, Log, TEXT("[Economy] Player death: RunDiamonds=%d, converting 50%%=%d to profile"),
 		RunDiamonds, ConvertedDiamonds);
 
-	// Note: actual profile save happens in GameInstance/SaveSubsystem
+	// Save to profile via SaveSubsystem
+	if (UDepthrunSaveSubsystem* Save = GetSaveSubsystem())
+	{
+		Save->AddDiamondsToProfile(ConvertedDiamonds);
+	}
+
 	ClearRunEconomy();
 }
 
@@ -92,8 +94,25 @@ void UPlayerEconomy::OnRunExitToHub()
 	UE_LOG(LogDepthrunEconomy, Log, TEXT("[Economy] Run exit to Hub: converting %d diamonds (100%%) to profile"),
 		RunDiamonds);
 
-	// Note: actual profile save happens in GameInstance/SaveSubsystem
+	// Save to profile via SaveSubsystem
+	if (UDepthrunSaveSubsystem* Save = GetSaveSubsystem())
+	{
+		Save->AddDiamondsToProfile(RunDiamonds);
+	}
+
 	ClearRunEconomy();
+}
+
+UDepthrunSaveSubsystem* UPlayerEconomy::GetSaveSubsystem() const
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UGameInstance* GI = World->GetGameInstance())
+		{
+			return GI->GetSubsystem<UDepthrunSaveSubsystem>();
+		}
+	}
+	return nullptr;
 }
 
 void UPlayerEconomy::ClearRunEconomy()

@@ -4,7 +4,9 @@
 #include "Combat/BaseWeapon.h"
 #include "Combat/MeleeWeapon.h"
 #include "Core/DepthrunLogChannels.h"
+#include "Data/DepthrunSaveSubsystem.h"
 #include "Audio/CombatMusicTrigger.h"
+#include "Data/HubUpgradeTypes.h"
 #include "Items/RunItemInventory.h"
 #include "PlayerActionTracker.h"
 #include "PlayerCombatComponent.h"
@@ -556,6 +558,142 @@ void ADepthrunCharacter::Die() {
     GetSprite()->SetLooping(false);
     GetSprite()->Play();
   }
+}
+
+float ADepthrunCharacter::Heal(float Amount) {
+  if (Amount <= 0.0f || bIsDead || CurrentHP >= MaxHP) {
+    return 0.0f;
+  }
+  float OldHP = CurrentHP;
+  CurrentHP = FMath::Clamp(CurrentHP + Amount, 0.0f, MaxHP);
+  float ActualHealed = CurrentHP - OldHP;
+  UE_LOG(LogDepthrun, Log, TEXT("[Player] Healed: %.0f → %.0f (+%.0f)"), OldHP, CurrentHP, ActualHealed);
+  return ActualHealed;
+}
+
+void ADepthrunCharacter::ApplyProfileUpgrades()
+{
+	UDepthrunSaveSubsystem* Save = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>()
+		: nullptr;
+
+	if (!Save)
+	{
+		UE_LOG(LogDepthrun, Warning, TEXT("[Player] ApplyProfileUpgrades: no SaveSubsystem"));
+		return;
+	}
+
+	// Load upgrade levels
+	int32 DamageLvl     = Save->GetUpgradeLevel(EHubUpgrade::Damage);
+	int32 RangeLvl      = Save->GetUpgradeLevel(EHubUpgrade::Range);
+	int32 ArrowCountLvl = Save->GetUpgradeLevel(EHubUpgrade::ArrowCount);
+	int32 MaxHPLvl      = Save->GetUpgradeLevel(EHubUpgrade::MaxHP);
+
+	// Apply multipliers
+	DamageMultiplier       = HubUpgradeConfig::GetDamageMultiplier(DamageLvl);
+	MeleeRangeMultiplier   = HubUpgradeConfig::GetMeleeRangeMultiplier(RangeLvl);
+	BaseProjectileCount    = HubUpgradeConfig::GetBaseProjectileCount(ArrowCountLvl);
+
+	// Apply MaxHP bonus (base 500 + bonus)
+	float HPBonus = HubUpgradeConfig::GetMaxHPBonus(MaxHPLvl);
+	MaxHP = 500.f + HPBonus;
+	CurrentHP = FMath::Min(CurrentHP, MaxHP); // Clamp current HP to new max
+
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Player] Profile upgrades applied: Damage x%.2f, Range x%.2f, Arrows %d, MaxHP %.0f"),
+		DamageMultiplier, MeleeRangeMultiplier, BaseProjectileCount, MaxHP);
+}
+
+// ─── Console Commands Implementation ──────────────────────────────────────────
+
+void ADepthrunCharacter::AddRunDiamonds(int32 Amount)
+{
+	if (PlayerEconomy && Amount > 0)
+	{
+		PlayerEconomy->AddDiamonds(Amount);
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Added %d run diamonds"), Amount);
+	}
+}
+
+void ADepthrunCharacter::AddProfileDiamonds(int32 Amount)
+{
+	if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)
+	{
+		Save->AddDiamondsToProfile(Amount);
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Added %d profile diamonds"), Amount);
+	}
+	else
+	{
+		UE_LOG(LogDepthrunEconomy, Error, TEXT("[Console] SaveSubsystem not available"));
+	}
+}
+
+void ADepthrunCharacter::BuyUpgradeCmd(const FString& UpgradeType)
+{
+	if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)
+	{
+		EHubUpgrade Type = EHubUpgrade::Damage;
+		if (UpgradeType.Equals(TEXT("Damage"), ESearchCase::IgnoreCase)) Type = EHubUpgrade::Damage;
+		else if (UpgradeType.Equals(TEXT("Range"), ESearchCase::IgnoreCase)) Type = EHubUpgrade::Range;
+		else if (UpgradeType.Equals(TEXT("ArrowCount"), ESearchCase::IgnoreCase) || UpgradeType.Equals(TEXT("Arrows"), ESearchCase::IgnoreCase)) Type = EHubUpgrade::ArrowCount;
+		else if (UpgradeType.Equals(TEXT("MaxHP"), ESearchCase::IgnoreCase) || UpgradeType.Equals(TEXT("HP"), ESearchCase::IgnoreCase)) Type = EHubUpgrade::MaxHP;
+		else
+		{
+			UE_LOG(LogDepthrunEconomy, Error, TEXT("[Console] Unknown upgrade type: %s. Use: Damage, Range, ArrowCount, MaxHP"), *UpgradeType);
+			return;
+		}
+
+		if (Save->BuyUpgrade(Type))
+		{
+			UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Successfully bought %s upgrade"), *UpgradeType);
+			ApplyProfileUpgrades(); // Re-apply immediately
+		}
+		else
+		{
+			UE_LOG(LogDepthrunEconomy, Warning, TEXT("[Console] Failed to buy %s upgrade (max level or insufficient diamonds)"), *UpgradeType);
+		}
+	}
+	else
+	{
+		UE_LOG(LogDepthrunEconomy, Error, TEXT("[Console] SaveSubsystem not available"));
+	}
+}
+
+void ADepthrunCharacter::ShowProfile()
+{
+	if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)
+	{
+		int32 Diamonds = Save->GetTotalDiamonds();
+		int32 DmgLvl = Save->GetUpgradeLevel(EHubUpgrade::Damage);
+		int32 RangeLvl = Save->GetUpgradeLevel(EHubUpgrade::Range);
+		int32 ArrowLvl = Save->GetUpgradeLevel(EHubUpgrade::ArrowCount);
+		int32 MaxHPLvl = Save->GetUpgradeLevel(EHubUpgrade::MaxHP);
+
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] ===== PROFILE ====="));
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Total Diamonds: %d"), Diamonds);
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Damage Lvl: %d (Cost: %d)"), DmgLvl, Save->GetUpgradeCost(EHubUpgrade::Damage));
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Range Lvl: %d (Cost: %d)"), RangeLvl, Save->GetUpgradeCost(EHubUpgrade::Range));
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] ArrowCount Lvl: %d (Cost: %d)"), ArrowLvl, Save->GetUpgradeCost(EHubUpgrade::ArrowCount));
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] MaxHP Lvl: %d (Cost: %d)"), MaxHPLvl, Save->GetUpgradeCost(EHubUpgrade::MaxHP));
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] ==================="));
+	}
+	else
+	{
+		UE_LOG(LogDepthrunEconomy, Error, TEXT("[Console] SaveSubsystem not available"));
+	}
+}
+
+void ADepthrunCharacter::ResetProfileCmd()
+{
+	if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)
+	{
+		Save->ResetProfile();
+		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Profile reset to defaults"));
+		ApplyProfileUpgrades(); // Re-apply (will reset to base values)
+	}
+	else
+	{
+		UE_LOG(LogDepthrunEconomy, Error, TEXT("[Console] SaveSubsystem not available"));
+	}
 }
 
 // ─────────────────────────── Helpers ──────────────────────────────────────

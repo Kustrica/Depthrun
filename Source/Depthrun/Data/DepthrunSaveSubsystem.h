@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "HubUpgradeTypes.h"
 #include "DepthrunSaveSubsystem.generated.h"
 
 class USQLiteManager;
@@ -39,6 +40,32 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Save|Diploma")
 	void SaveAdaptiveWeights(const TArray<float>& Weights, int32 RunNumber);
+
+	// ─── Player Profile (Meta-Progression) ───────────────────────────────────
+
+	/** Get total persistent diamonds. */
+	UFUNCTION(BlueprintPure, Category = "Save|Profile")
+	int32 GetTotalDiamonds() const;
+
+	/** Add diamonds to profile (e.g., 50% on death, 100% on Hub exit). */
+	UFUNCTION(BlueprintCallable, Category = "Save|Profile")
+	void AddDiamondsToProfile(int32 Amount);
+
+	/** Get current upgrade level (0-5). */
+	UFUNCTION(BlueprintPure, Category = "Save|Profile")
+	int32 GetUpgradeLevel(EHubUpgrade Type) const;
+
+	/** Get cost to upgrade to next level. Returns -1 if maxed. */
+	UFUNCTION(BlueprintPure, Category = "Save|Profile")
+	int32 GetUpgradeCost(EHubUpgrade Type) const;
+
+	/** Try to buy upgrade. Returns true if successful. */
+	UFUNCTION(BlueprintCallable, Category = "Save|Profile")
+	bool BuyUpgrade(EHubUpgrade Type);
+
+	/** Reset all profile data (for debug). */
+	UFUNCTION(BlueprintCallable, Category = "Save|Debug")
+	void ResetProfile();
 
 private:
 	void InitializeSchema();

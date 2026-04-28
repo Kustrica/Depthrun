@@ -5,12 +5,13 @@
 #include "UObject/NoExportTypes.h"
 #include "SQLiteManager.generated.h"
 
+// Forward declaration - sqlite3 from SQLiteCore module
+struct sqlite3;
+
 /**
  * USQLiteManager
- * Thin wrapper around FSQLiteDatabase (UE5 built-in SQLiteCore plugin).
- * Used by UDepthrunSaveSubsystem to persist run history and adaptive weights.
- *
- * Implementation: Stage 10.
+ * Thin wrapper around sqlite3 (UE5 built-in SQLiteCore plugin).
+ * Used by UDepthrunSaveSubsystem to persist player profile data.
  */
 UCLASS()
 class DEPTHRUN_API USQLiteManager : public UObject
@@ -43,5 +44,5 @@ public:
 
 private:
 	bool bIsOpen = false;
-	// FSQLiteDatabase DbHandle; // TODO (Stage 10): use actual FSQLiteDatabase
+	sqlite3* SQLiteDB = nullptr;
 };
