@@ -2,6 +2,7 @@
 #include "HubWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "Items/RunItemCollection.h"
+#include "Data/DepthrunSaveSubsystem.h"
 
 void UHubWidget::RefreshUI()
 {
@@ -24,4 +25,45 @@ void UHubWidget::OnStartRunPressed()
 void UHubWidget::OnBackToMenuPressed()
 {
 	UGameplayStatics::OpenLevel(this, MainMenuLevelName);
+}
+
+// ─── 9G: Metaprogression ────────────────────────────────────────────────
+
+static UDepthrunSaveSubsystem* GetSave(const UObject* Ctx)
+{
+	if (UGameInstance* GI = UGameplayStatics::GetGameInstance(Ctx))
+		return GI->GetSubsystem<UDepthrunSaveSubsystem>();
+	return nullptr;
+}
+
+int32 UHubWidget::GetTotalDiamonds() const
+{
+	if (UDepthrunSaveSubsystem* Save = GetSave(this))
+		return Save->GetTotalDiamonds();
+	return 0;
+}
+
+int32 UHubWidget::GetUpgradeLevel(EHubUpgrade Type) const
+{
+	if (UDepthrunSaveSubsystem* Save = GetSave(this))
+		return Save->GetUpgradeLevel(Type);
+	return 0;
+}
+
+int32 UHubWidget::GetUpgradeCost(EHubUpgrade Type) const
+{
+	if (UDepthrunSaveSubsystem* Save = GetSave(this))
+		return Save->GetUpgradeCost(Type);
+	return -1;
+}
+
+void UHubWidget::OnUpgradePressed(EHubUpgrade Type)
+{
+	if (UDepthrunSaveSubsystem* Save = GetSave(this))
+	{
+		if (Save->BuyUpgrade(Type))
+		{
+			RefreshUI();
+		}
+	}
 }

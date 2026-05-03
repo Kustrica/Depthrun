@@ -3,10 +3,12 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Data/HubUpgradeTypes.h"
 #include "HubWidget.generated.h"
 
 class URunItemInventory;
 class URunItemCollection;
+class UDepthrunSaveSubsystem;
 
 /**
  * UHubWidget
@@ -41,6 +43,24 @@ public:
 	/** Return to Main Menu. */
 	UFUNCTION(BlueprintCallable, Category = "Hub")
 	void OnBackToMenuPressed();
+
+	// ─── 9G: Metaprogression API (callable from Blueprint) ───────────────────
+
+	/** Returns total diamonds in player profile. */
+	UFUNCTION(BlueprintPure, Category = "Hub|Upgrades")
+	int32 GetTotalDiamonds() const;
+
+	/** Returns current level (0-5) for a given upgrade type. */
+	UFUNCTION(BlueprintPure, Category = "Hub|Upgrades")
+	int32 GetUpgradeLevel(EHubUpgrade Type) const;
+
+	/** Returns cost of next level for upgrade. -1 if maxed. */
+	UFUNCTION(BlueprintPure, Category = "Hub|Upgrades")
+	int32 GetUpgradeCost(EHubUpgrade Type) const;
+
+	/** Try to buy upgrade. Calls RefreshUI on success. */
+	UFUNCTION(BlueprintCallable, Category = "Hub|Upgrades")
+	void OnUpgradePressed(EHubUpgrade Type);
 
 	// ─── Config ──────────────────────────────────────────────────────────────
 
