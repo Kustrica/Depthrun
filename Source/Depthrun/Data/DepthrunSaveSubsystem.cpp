@@ -104,8 +104,8 @@ void UDepthrunSaveSubsystem::InitializeSchema()
 	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] InitializeSchema: step 3 — CREATE TABLE run_history"));
 	const FString CreateRunHistory = TEXT(
 		"CREATE TABLE IF NOT EXISTS run_history ("
-		"id INTEGER PRIMARY KEY AUTOINCREMENT,"
-		"Floor INTEGER DEFAULT 0,"
+		"id INTEGER PRIMARY KEY,"
+		"Rooms INTEGER DEFAULT 0,"
 		"Won INTEGER DEFAULT 0,"
 		"RunDuration REAL DEFAULT 0.0,"
 		"Timestamp TEXT DEFAULT (datetime('now'))"
@@ -116,17 +116,17 @@ void UDepthrunSaveSubsystem::InitializeSchema()
 		bRunHistoryCreated ? TEXT("OK") : TEXT("FAILED"));
 }
 
-void UDepthrunSaveSubsystem::SaveRunResult(int32 Floor, int32 Score, bool bWon)
+void UDepthrunSaveSubsystem::SaveRunResult(int32 Rooms, int32 DurationSeconds, bool bWon)
 {
 	if (!DB) { return; }
 
 	const FString Query = FString::Printf(
-		TEXT("INSERT INTO run_history (Floor, Won, RunDuration) VALUES (%d, %d, %.2f);"),
-		Floor, bWon ? 1 : 0, (float)Score
+		TEXT("INSERT INTO run_history (Rooms, Won, RunDuration) VALUES (%d, %d, %.2f);"),
+		Rooms, bWon ? 1 : 0, (float)DurationSeconds
 	);
 	const bool bOk = DB->ExecuteQuery(Query);
-	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] SaveRunResult: Floor=%d Won=%s Duration=%.1fs — %s"),
-		Floor, bWon ? TEXT("YES") : TEXT("NO"), (float)Score, bOk ? TEXT("OK") : TEXT("FAILED"));
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] SaveRunResult: Rooms=%d Won=%s Duration=%ds — %s"),
+		Rooms, bWon ? TEXT("YES") : TEXT("NO"), DurationSeconds, bOk ? TEXT("OK") : TEXT("FAILED"));
 }
 
 bool UDepthrunSaveSubsystem::LoadProgress(int32& OutBestFloor, int32& OutTotalRuns)

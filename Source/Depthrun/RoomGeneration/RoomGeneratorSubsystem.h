@@ -40,6 +40,9 @@ public:
 	int32 GetCurrentRoomIndex() const { return CurrentRoomIndex; }
 	int32 GetTotalRooms() const { return GeneratedRooms.Num(); }
 
+	/** Returns how many rooms have been cleared (IsCleared == true). */
+	int32 GetClearedRoomsCount() const;
+
 	/** Returns the currently active room actor, or nullptr. */
 	UFUNCTION(BlueprintPure, Category = "RoomGen")
 	ARoomBase* GetCurrentActiveRoom() const;

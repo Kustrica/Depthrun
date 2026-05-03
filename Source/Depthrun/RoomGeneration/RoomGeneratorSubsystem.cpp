@@ -244,6 +244,16 @@ ARoomBase* URoomGeneratorSubsystem::GetCurrentActiveRoom() const
 	return nullptr;
 }
 
+int32 URoomGeneratorSubsystem::GetClearedRoomsCount() const
+{
+    int32 Count = 0;
+    for (const TObjectPtr<ARoomBase>& Room : GeneratedRooms)
+    {
+        if (Room && Room->IsCleared()) ++Count;
+    }
+    return Count;
+}
+
 void URoomGeneratorSubsystem::OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex)
 {
     UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Player entered transition from room %s"), FromRoom ? *FromRoom->GetName() : TEXT("NULL"));

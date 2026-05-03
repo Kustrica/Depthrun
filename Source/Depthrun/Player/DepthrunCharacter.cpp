@@ -562,12 +562,18 @@ void ADepthrunCharacter::Die() {
   if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)
   {
     const float Duration = GetWorld() ? (GetWorld()->GetTimeSeconds() - RunStartTime) : 0.f;
-    int32 Floor = 0;
+    int32 ClearedRooms = 0;
     if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
     {
-      Floor = RoomGen->GetCurrentRoomIndex();
+      ClearedRooms = RoomGen->GetClearedRoomsCount();
     }
-    Save->SaveRunResult(Floor, FMath::RoundToInt(Duration), false);
+    Save->SaveRunResult(ClearedRooms, FMath::RoundToInt(Duration), false);
+  }
+
+  // Commit 50% run diamonds to profile
+  if (PlayerEconomy)
+  {
+    PlayerEconomy->OnPlayerDeath();
   }
 
   if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -833,9 +839,9 @@ void ADepthrunCharacter::DBCheck()
 	UE_LOG(LogDepthrunSave, Log, TEXT("[DBCheck] run_history: %d rows"), Runs.Num());
 	for (const TMap<FString,FString>& Row : Runs)
 	{
-		UE_LOG(LogDepthrunSave, Log, TEXT("[DBCheck]  id=%s Floor=%s Won=%s Duration=%ss Timestamp=%s"),
+		UE_LOG(LogDepthrunSave, Log, TEXT("[DBCheck]  id=%s Rooms=%s Won=%s Duration=%ss Timestamp=%s"),
 			Row.Contains(TEXT("id"))          ? *Row[TEXT("id")]          : TEXT("?"),
-			Row.Contains(TEXT("Floor"))       ? *Row[TEXT("Floor")]       : TEXT("?"),
+			Row.Contains(TEXT("Rooms"))       ? *Row[TEXT("Rooms")]       : TEXT("?"),
 			Row.Contains(TEXT("Won"))         ? *Row[TEXT("Won")]         : TEXT("?"),
 			Row.Contains(TEXT("RunDuration")) ? *Row[TEXT("RunDuration")] : TEXT("?"),
 			Row.Contains(TEXT("Timestamp"))   ? *Row[TEXT("Timestamp")]   : TEXT("?"));

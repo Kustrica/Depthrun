@@ -340,4 +340,12 @@ private:
   TObjectPtr<ABaseWeapon> SpawnedWeapon1; // Sword
   UPROPERTY()
   TObjectPtr<ABaseWeapon> SpawnedWeapon2; // Bow
+
+  /** Returns weapon in slot 1 or 2, nullptr if invalid. */
+  ABaseWeapon* GetWeaponSlot(int32 Slot) const
+  {
+    if (Slot == 1) return SpawnedWeapon1;
+    if (Slot == 2) return SpawnedWeapon2;
+    return nullptr;
+  }
 };
