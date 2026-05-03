@@ -16,6 +16,7 @@ class UInputAction;
 class UPlayerCombatComponent;
 class UPlayerActionTracker;
 class URunItemInventory;
+class URunItemCollection;
 class UPlayerMovementConfig;
 class UCombatMusicTrigger;
 class UPlayerEconomy;
@@ -103,6 +104,18 @@ public:
   UFUNCTION(Exec, Category = "Player|Debug")
   void ResetProfileCmd();
 
+  /** Console: Give item by name from ItemCollection. Usage: GiveItem ArrowRicochet */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void GiveItem(const FString& ItemName);
+
+  /** Console: List all available items in ItemCollection. Usage: ListItems */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void ListItems();
+
+  /** Console: Clear all run items. Usage: ClearRunItems */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void ClearRunItems();
+
   // ────────────────────── Components ──────────────────────
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
   TObjectPtr<USpringArmComponent> SpringArm;
@@ -118,6 +131,10 @@ public:
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Items")
   TObjectPtr<URunItemInventory> ItemInventory;
+
+  /** Single DataAsset with all available run items. Assign DA_RunItemCollection in BP. */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Items")
+  TObjectPtr<URunItemCollection> ItemCollection;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Audio")
   TObjectPtr<UCombatMusicTrigger> CombatMusicTrigger;

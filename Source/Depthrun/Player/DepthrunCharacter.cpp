@@ -8,6 +8,8 @@
 #include "Audio/CombatMusicTrigger.h"
 #include "Data/HubUpgradeTypes.h"
 #include "Items/RunItemInventory.h"
+#include "Items/RunItemCollection.h"
+#include "Items/RunItemConfig.h"
 #include "PlayerActionTracker.h"
 #include "PlayerCombatComponent.h"
 #include "PlayerEconomy.h"
@@ -711,12 +713,84 @@ void ADepthrunCharacter::ResetProfileCmd()
 	{
 		Save->ResetProfile();
 		UE_LOG(LogDepthrunEconomy, Log, TEXT("[Console] Profile reset to defaults"));
-		ApplyProfileUpgrades(); // Re-apply (will reset to base values)
+		ApplyProfileUpgrades();
 	}
 	else
 	{
 		UE_LOG(LogDepthrunEconomy, Error, TEXT("[Console] SaveSubsystem not available"));
 	}
+}
+
+void ADepthrunCharacter::GiveItem(const FString& ItemName)
+{
+	if (!ItemCollection)
+	{
+		UE_LOG(LogDepthrun, Error, TEXT("[Console] GiveItem: ItemCollection not assigned in BP_DepthrunCharacter!"));
+		return;
+	}
+	if (!ItemInventory)
+	{
+		UE_LOG(LogDepthrun, Error, TEXT("[Console] GiveItem: ItemInventory component missing"));
+		return;
+	}
+
+	URunItemConfig* Found = ItemCollection->FindByName(ItemName);
+	if (!Found)
+	{
+		UE_LOG(LogDepthrun, Warning, TEXT("[Console] GiveItem: '%s' not found. Use ListItems to see available items."), *ItemName);
+		return;
+	}
+
+	const bool bAdded = ItemInventory->AddItem(Found);
+	if (bAdded)
+	{
+		// Apply weapon effects to both weapon slots
+		if (SpawnedWeapon1) ItemInventory->ApplyToWeapon(SpawnedWeapon1);
+		if (SpawnedWeapon2) ItemInventory->ApplyToWeapon(SpawnedWeapon2);
+		// Apply stat effects
+		ItemInventory->ApplyToCharacter(this);
+		UE_LOG(LogDepthrun, Log, TEXT("[Console] GiveItem: gave '%s', applied to weapons and character"), *Found->ItemName.ToString());
+	}
+	else
+	{
+		UE_LOG(LogDepthrun, Warning, TEXT("[Console] GiveItem: could not add '%s' (inventory full or duplicate)"), *Found->ItemName.ToString());
+	}
+}
+
+void ADepthrunCharacter::ListItems()
+{
+	if (!ItemCollection)
+	{
+		UE_LOG(LogDepthrun, Error, TEXT("[Console] ListItems: ItemCollection not assigned in BP_DepthrunCharacter!"));
+		return;
+	}
+	UE_LOG(LogDepthrun, Log, TEXT("[Console] === Available Items (%d) ==="), ItemCollection->Items.Num());
+	for (int32 i = 0; i < ItemCollection->Items.Num(); ++i)
+	{
+		if (const URunItemConfig* Item = ItemCollection->Items[i])
+		{
+			UE_LOG(LogDepthrun, Log, TEXT("[Console]  [%d] %s — Effect: %s"),
+				i,
+				*Item->ItemName.ToString(),
+				*UEnum::GetValueAsString(Item->Effect));
+		}
+	}
+	UE_LOG(LogDepthrun, Log, TEXT("[Console] Usage: GiveItem <name>"));
+}
+
+void ADepthrunCharacter::ClearRunItems()
+{
+	if (!ItemInventory)
+	{
+		UE_LOG(LogDepthrun, Error, TEXT("[Console] ClearRunItems: ItemInventory missing"));
+		return;
+	}
+	ItemInventory->ClearItems();
+	// Re-apply profile upgrades so base stats are restored
+	ApplyProfileUpgrades();
+	if (SpawnedWeapon1) ItemInventory->ApplyToWeapon(SpawnedWeapon1);
+	if (SpawnedWeapon2) ItemInventory->ApplyToWeapon(SpawnedWeapon2);
+	UE_LOG(LogDepthrun, Log, TEXT("[Console] ClearRunItems: all items cleared, base stats restored"));
 }
 
 // ─────────────────────────── Helpers ──────────────────────────────────────
