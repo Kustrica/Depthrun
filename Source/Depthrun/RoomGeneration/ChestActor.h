@@ -5,6 +5,12 @@
 #include "GameFramework/Actor.h"
 #include "ChestActor.generated.h"
 
+class UBoxComponent;
+class UPaperSpriteComponent;
+class UChestLootConfig;
+class URunItemCollection;
+class ADepthrunCharacter;
+
 UCLASS()
 class DEPTHRUN_API AChestActor : public AActor
 {
@@ -13,14 +19,22 @@ class DEPTHRUN_API AChestActor : public AActor
 public:
     AChestActor();
 
+    /** Loot config asset. Assign DA_ChestLootConfig in Blueprint defaults. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chest|Loot")
+    TObjectPtr<UChestLootConfig> LootConfig;
+
+    /** Item pool. Assign DA_RunItemCollection in Blueprint defaults. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chest|Loot")
+    TObjectPtr<URunItemCollection> ItemCollection;
+
 protected:
     virtual void BeginPlay() override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<class UBoxComponent> CollisionBox;
+    TObjectPtr<UBoxComponent> CollisionBox;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<class UPaperSpriteComponent> SpriteComponent;
+    TObjectPtr<UPaperSpriteComponent> SpriteComponent;
 
     UFUNCTION()
     void OnChestOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
@@ -29,4 +43,6 @@ protected:
 
 private:
     bool bOpened = false;
+
+    void DistributeLoot(ADepthrunCharacter* Player);
 };
