@@ -8,6 +8,8 @@
 
 class ATrapdoorActor;
 class AChestActor;
+class UChestLootConfig;
+class URunItemCollection;
 
 UCLASS(BlueprintType)
 class DEPTHRUN_API URoomTemplate : public UDataAsset {
@@ -66,6 +68,14 @@ public:
 
   UPROPERTY(EditAnywhere, Category = "Props|Classes")
   TSubclassOf<AChestActor> ChestClass;
+
+  /** Loot ranges for chests spawned in this room. Assign DA_ChestLootConfig. */
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TObjectPtr<UChestLootConfig> ChestLootConfig;
+
+  /** Item pool for chest rewards. Assign DA_RunItemCollection. */
+  UPROPERTY(EditAnywhere, Category = "Props|Classes")
+  TObjectPtr<URunItemCollection> ChestItemCollection;
 
   UPROPERTY(EditAnywhere, Category = "Props|Classes")
   TSubclassOf<class AActor> SkullDecorClass;

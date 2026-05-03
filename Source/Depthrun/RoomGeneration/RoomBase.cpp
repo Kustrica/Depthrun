@@ -638,7 +638,12 @@ void ARoomBase::TrySpawnChest() {
                                        MyTemplate->PropRotation, SpawnParams);
     if (Chest) {
         ApplyVisualScale(Chest, ResolveWorldScale(MyTemplate));
-        UE_LOG(LogTemp, Log, TEXT("[RoomGen] Chest spawned at tile (%d,%d)."), SelectedTile.X, SelectedTile.Y);
+        Chest->LootConfig      = MyTemplate->ChestLootConfig;
+        Chest->ItemCollection  = MyTemplate->ChestItemCollection;
+        UE_LOG(LogTemp, Log, TEXT("[RoomGen] Chest spawned at tile (%d,%d). LootConfig=%s ItemCollection=%s"),
+            SelectedTile.X, SelectedTile.Y,
+            Chest->LootConfig     ? TEXT("OK") : TEXT("none — using code defaults"),
+            Chest->ItemCollection ? TEXT("OK") : TEXT("none — no items will drop"));
     }
   }
 }
