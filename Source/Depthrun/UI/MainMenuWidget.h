@@ -23,6 +23,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void OnPlayPressed();
 
+	/** Called by Settings button click. */
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	void OnSettingsPressed();
+
 	/** Called by Quit button click. */
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void OnQuitPressed();
