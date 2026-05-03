@@ -12,3 +12,8 @@ int32 UChestLootConfig::RollDiamonds() const
 {
 	return FMath::RandRange(DiamondMin, DiamondMax);
 }
+
+int32 UChestLootConfig::RollPotions() const
+{
+	return FMath::RandRange(PotionMin, PotionMax);
+}

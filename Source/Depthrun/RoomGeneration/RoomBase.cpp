@@ -459,7 +459,10 @@ void ARoomBase::SpawnEnemies() {
     int32 RX = FMath::RandRange(2, 5);
     int32 RY = FMath::RandRange(2, 3);
     if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
+    {
+      --i; // tile occupied — retry, don't waste this spawn slot
       continue;
+    }
 
     // Use EnemyLockedZ directly from DataAsset (no clamping applied here).
     FVector SpawnLoc = GetActorLocation() +

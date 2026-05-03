@@ -60,10 +60,11 @@ void AMeleeWeapon::PerformDoubleSwing() {
   bIsSecondSwing = true;
   ActivateHitZone();
 
-  // Set a timer to deactivate the second swing's zone
+  // Deactivate hit zone after 0.2s, then start full cooldown
   GetWorldTimerManager().SetTimer(
       HitZoneTimer, this, &AMeleeWeapon::DeactivateHitZone, 0.2f, false);
   bIsSecondSwing = false;
+  StartCooldown(); // CRITICAL: must reset bCanFire after second swing
 }
 
 void AMeleeWeapon::ActivateHitZone() {

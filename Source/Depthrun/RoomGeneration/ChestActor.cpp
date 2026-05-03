@@ -64,7 +64,7 @@ void AChestActor::DistributeLoot(ADepthrunCharacter* Player)
     UE_LOG(LogDepthrunLoot, Log, TEXT("[Chest] Opened — Diamonds: +%d"), Diamonds);
 
     // ── 2. Potions ───────────────────────────────────────────────────────────
-    const int32 Potions = LootConfig ? LootConfig->PotionCount : 1;
+    const int32 Potions = LootConfig ? LootConfig->RollPotions() : 1;
     if (Economy && Potions > 0)
     {
         Economy->AddPotions(Potions);

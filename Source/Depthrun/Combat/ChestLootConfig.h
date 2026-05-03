@@ -33,10 +33,15 @@ public:
 
 	// ─── Potions ─────────────────────────────────────────────────────────────
 
-	/** How many potions per chest. */
+	/** Minimum potions per chest. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Loot|Potions",
-		meta = (ClampMin = "0", ClampMax = "3"))
-	int32 PotionCount = 1;
+		meta = (ClampMin = "0"))
+	int32 PotionMin = 1;
+
+	/** Maximum potions per chest. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Loot|Potions",
+		meta = (ClampMin = "0"))
+	int32 PotionMax = 3;
 
 	// ─── Run Item ─────────────────────────────────────────────────────────────
 
@@ -50,4 +55,7 @@ public:
 
 	/** Roll a random diamond amount in [DiamondMin, DiamondMax]. */
 	int32 RollDiamonds() const;
+
+	/** Roll a random potion amount in [PotionMin, PotionMax]. */
+	int32 RollPotions() const;
 };
