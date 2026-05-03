@@ -56,7 +56,7 @@ void ABaseProjectile::Tick(float DeltaTime) {
   if (LaunchDirection.IsNearlyZero()) return;
 
   const FVector DeltaLocation = LaunchDirection * ProjectileSpeed * DeltaTime;
-  
+
   FHitResult Hit;
   AddActorWorldOffset(DeltaLocation, true, &Hit);
 

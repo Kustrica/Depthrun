@@ -39,8 +39,13 @@ void UDepthrunSaveSubsystem::Deinitialize()
 
 void UDepthrunSaveSubsystem::InitializeSchema()
 {
-	if (!DB) { return; }
+	if (!DB)
+	{
+		UE_LOG(LogDepthrunSave, Error, TEXT("[Save] InitializeSchema: DB is null, aborting"));
+		return;
+	}
 
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] InitializeSchema: step 1 — CREATE TABLE player_profile"));
 	// player_profile table: 1 row with TotalDiamonds and upgrade levels
 	const FString CreateProfileTable = TEXT(
 		"CREATE TABLE IF NOT EXISTS player_profile ("
@@ -52,16 +57,48 @@ void UDepthrunSaveSubsystem::InitializeSchema()
 		"MaxHP_Lvl INTEGER DEFAULT 0"
 		");"
 	);
-	DB->ExecuteQuery(CreateProfileTable);
+	const bool bTableCreated = DB->ExecuteQuery(CreateProfileTable);
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] CREATE TABLE ExecuteQuery result: %s"),
+		bTableCreated ? TEXT("returned true") : TEXT("returned false — check SQL error above"));
 
-	// Insert default row if not exists
+	// Physically verify the table exists in sqlite_master
+	const TArray<TMap<FString, FString>> TableCheck =
+		DB->SelectRows(TEXT("sqlite_master"), TEXT("type='table' AND name='player_profile'"));
+	const bool bTablePhysicallyExists = TableCheck.Num() > 0;
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] sqlite_master check — player_profile physically exists: %s"),
+		bTablePhysicallyExists ? TEXT("YES") : TEXT("NO — table was NOT created!"));
+
+	if (!bTablePhysicallyExists)
+	{
+		UE_LOG(LogDepthrunSave, Error,
+			TEXT("[Save] CRITICAL: CREATE TABLE succeeded (no SQL error) but table not found in sqlite_master."));
+		UE_LOG(LogDepthrunSave, Error,
+			TEXT("[Save] This means writes go to a DIFFERENT connection or the DB file is read-only."));
+		return;
+	}
+
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] InitializeSchema: step 2 — INSERT OR IGNORE default row"));
 	const FString InsertDefault = TEXT(
 		"INSERT OR IGNORE INTO player_profile (id, TotalDiamonds, Damage_Lvl, Range_Lvl, ArrowCount_Lvl, MaxHP_Lvl) "
 		"VALUES (1, 0, 0, 0, 0, 0);"
 	);
-	DB->ExecuteQuery(InsertDefault);
+	const bool bRowInserted = DB->ExecuteQuery(InsertDefault);
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] INSERT OR IGNORE default row: %s"),
+		bRowInserted ? TEXT("OK") : TEXT("FAILED"));
 
-	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] Schema initialized — player_profile ready"));
+	// Final physical check — row must exist
+	const TArray<TMap<FString, FString>> RowCheck =
+		DB->SelectRows(TEXT("player_profile"), TEXT("id = 1"));
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Save] Row verification — rows in player_profile: %d"), RowCheck.Num());
+
+	if (RowCheck.Num() > 0)
+	{
+		UE_LOG(LogDepthrunSave, Log, TEXT("[Save] Schema OK — player_profile table and default row confirmed"));
+	}
+	else
+	{
+		UE_LOG(LogDepthrunSave, Error, TEXT("[Save] Schema FAILED — table exists but default row missing"));
+	}
 }
 
 void UDepthrunSaveSubsystem::SaveRunResult(int32 Floor, int32 Score, bool bWon)

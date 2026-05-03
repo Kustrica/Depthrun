@@ -284,6 +284,7 @@ void ADepthrunCharacter::SetupPlayerInputComponent(
 // ─────────────────────────── Input handlers ───────────────────────────────
 
 void ADepthrunCharacter::HandleMove(const FInputActionValue &Value) {
+  if (bIsDead) return;
   const FVector2D Input = Value.Get<FVector2D>();
   bIsMoving = !Input.IsNearlyZero();
 
@@ -299,6 +300,7 @@ void ADepthrunCharacter::HandleMove(const FInputActionValue &Value) {
 }
 
 void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
+  if (bIsDead) return;
   if (!CombatComponent || !IsValid(CombatComponent->CurrentWeapon)) {
     UE_LOG(LogTemp, Warning,
            TEXT("[HandleAttack] Failed: No weapon equipped. Assign "
@@ -369,7 +371,10 @@ void ADepthrunCharacter::HandleAttack(const FInputActionValue &Value) {
   ActionTracker->RecordAction(ActionType, GetActorLocation());
 }
 
-void ADepthrunCharacter::HandleDash(const FInputActionValue &Value) { Dash(); }
+void ADepthrunCharacter::HandleDash(const FInputActionValue &Value) {
+  if (bIsDead) return;
+  Dash();
+}
 void ADepthrunCharacter::HandleSwitchSlot1(const FInputActionValue &) {
   SwitchToWeaponSlot(1);
 }
@@ -549,9 +554,27 @@ void ADepthrunCharacter::Die() {
 
   UE_LOG(LogDepthrun, Error, TEXT("[Player] DIED!"));
 
-  if (GetCharacterMovement())
-    GetCharacterMovement()->StopMovementImmediately();
+  if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+  {
+    MoveComp->StopMovementImmediately();
+    MoveComp->DisableMovement();
+  }
+  ConsumeMovementInputVector();
   SetActorEnableCollision(false);
+  bIsMoving = false;
+
+  // Disable all player input — prevent moving/attacking/dashing while dead
+  if (APlayerController* PC = Cast<APlayerController>(GetController()))
+  {
+    DisableInput(PC);
+    if (UEnhancedInputLocalPlayerSubsystem* EIS =
+            ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(
+                PC->GetLocalPlayer()))
+    {
+      EIS->ClearAllMappings();
+    }
+    UE_LOG(LogDepthrun, Log, TEXT("[Player] Input disabled after death"));
+  }
 
   if (FB_Death && GetSprite()) {
     GetSprite()->SetFlipbook(FB_Death);

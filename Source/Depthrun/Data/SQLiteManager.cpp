@@ -13,31 +13,48 @@ bool USQLiteManager::OpenDatabase(const FString& Path)
 {
 	if (bIsOpen && SQLiteDB)
 	{
-		UE_LOG(LogDepthrun, Warning, TEXT("[SQLite] Database already open, closing first"));
+		UE_LOG(LogDepthrunSave, Warning, TEXT("[SQLite] Database already open, closing first"));
 		CloseDatabase();
 	}
 
+	// Convert to absolute path — sqlite3_open with relative paths is unreliable
+	// when the working directory differs between Editor and Game
+	FString AbsPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*Path);
+	FPaths::NormalizeFilename(AbsPath);
+
 	// Ensure directory exists
-	FString DirPath = FPaths::GetPath(Path);
-	if (!FPaths::DirectoryExists(DirPath))
+	FString DirPath = FPaths::GetPath(AbsPath);
+	if (!IFileManager::Get().DirectoryExists(*DirPath))
 	{
 		IFileManager::Get().MakeDirectory(*DirPath, true);
+		UE_LOG(LogDepthrunSave, Log, TEXT("[SQLite] Created directory: %s"), *DirPath);
 	}
 
-	const char* PathUTF8 = TCHAR_TO_UTF8(*Path);
+	FTCHARToUTF8 PathConv(*AbsPath);
 	sqlite3* DB = nullptr;
-	int Result = sqlite3_open(PathUTF8, &DB);
+	UE_LOG(LogDepthrunSave, Log, TEXT("[SQLite] Opening database at (abs): %s"), *AbsPath);
+	int Result = sqlite3_open(PathConv.Get(), &DB);
 
 	if (Result != SQLITE_OK)
 	{
-		UE_LOG(LogDepthrunSave, Error, TEXT("[SQLite] Failed to open database: %s"), UTF8_TO_TCHAR(sqlite3_errstr(Result)));
+		UE_LOG(LogDepthrunSave, Error, TEXT("[SQLite] Failed to open database (code=%d): %s"),
+			Result, UTF8_TO_TCHAR(sqlite3_errstr(Result)));
 		if (DB) sqlite3_close(DB);
 		return false;
 	}
 
+	// Verify the handle is valid and writable with a quick pragma
+	char* PragmaErr = nullptr;
+	if (sqlite3_exec(DB, "PRAGMA journal_mode=WAL;", nullptr, nullptr, &PragmaErr) != SQLITE_OK)
+	{
+		UE_LOG(LogDepthrunSave, Warning, TEXT("[SQLite] PRAGMA journal_mode failed: %s"),
+			PragmaErr ? UTF8_TO_TCHAR(PragmaErr) : TEXT("unknown"));
+		if (PragmaErr) sqlite3_free(PragmaErr);
+	}
+
 	SQLiteDB = DB;
 	bIsOpen = true;
-	UE_LOG(LogDepthrunSave, Log, TEXT("[SQLite] Database opened: %s"), *Path);
+	UE_LOG(LogDepthrunSave, Log, TEXT("[SQLite] Database opened successfully: %s"), *Path);
 	return true;
 }
 
@@ -60,10 +77,10 @@ bool USQLiteManager::ExecuteQuery(const FString& SQL)
 		return false;
 	}
 
-	const char* SQLUTF8 = TCHAR_TO_UTF8(*SQL);
+	FTCHARToUTF8 SQLConv(*SQL);
 	char* ErrorMsg = nullptr;
 
-	int Result = sqlite3_exec(SQLiteDB, SQLUTF8, nullptr, nullptr, &ErrorMsg);
+	int Result = sqlite3_exec(SQLiteDB, SQLConv.Get(), nullptr, nullptr, &ErrorMsg);
 
 	if (Result != SQLITE_OK)
 	{
@@ -75,7 +92,7 @@ bool USQLiteManager::ExecuteQuery(const FString& SQL)
 		return false;
 	}
 
-	UE_LOG(LogDepthrunSave, Verbose, TEXT("[SQLite] Executed: %s"), *SQL);
+	UE_LOG(LogDepthrunSave, Log, TEXT("[SQLite] Executed OK: %.80s"), *SQL);
 	return true;
 }
 
@@ -104,19 +121,21 @@ int64 USQLiteManager::InsertRow(const FString& Table, const TMap<FString, FStrin
 	}
 
 	FString SQL = FString::Printf(TEXT("INSERT INTO %s (%s) VALUES (%s);"), *Table, *ColumnNames, *ValuePlaceholders);
-	const char* SQLUTF8 = TCHAR_TO_UTF8(*SQL);
+	FTCHARToUTF8 SQLConvInsert(*SQL);
 
 	sqlite3_stmt* Stmt = nullptr;
-	if (sqlite3_prepare_v2(SQLiteDB, SQLUTF8, -1, &Stmt, nullptr) != SQLITE_OK)
+	if (sqlite3_prepare_v2(SQLiteDB, SQLConvInsert.Get(), -1, &Stmt, nullptr) != SQLITE_OK)
 	{
 		UE_LOG(LogDepthrunSave, Error, TEXT("[SQLite] Prepare failed: %s"), UTF8_TO_TCHAR(sqlite3_errmsg(SQLiteDB)));
 		return -1;
 	}
 
+	TArray<FTCHARToUTF8> ValueConvs;
+	ValueConvs.Reserve(Values.Num());
 	for (int32 i = 0; i < Values.Num(); ++i)
 	{
-		const char* ValueUTF8 = TCHAR_TO_UTF8(*Values[i]);
-		sqlite3_bind_text(Stmt, i + 1, ValueUTF8, -1, SQLITE_TRANSIENT);
+		ValueConvs.Emplace(*Values[i]);
+		sqlite3_bind_text(Stmt, i + 1, ValueConvs[i].Get(), -1, SQLITE_STATIC);
 	}
 
 	int Result = sqlite3_step(Stmt);
@@ -147,10 +166,10 @@ TArray<TMap<FString, FString>> USQLiteManager::SelectRows(const FString& Table, 
 	}
 	SQL += TEXT(";");
 
-	const char* SQLUTF8 = TCHAR_TO_UTF8(*SQL);
+	FTCHARToUTF8 SQLConvSelect(*SQL);
 	sqlite3_stmt* Stmt = nullptr;
 
-	if (sqlite3_prepare_v2(SQLiteDB, SQLUTF8, -1, &Stmt, nullptr) != SQLITE_OK)
+	if (sqlite3_prepare_v2(SQLiteDB, SQLConvSelect.Get(), -1, &Stmt, nullptr) != SQLITE_OK)
 	{
 		UE_LOG(LogDepthrunSave, Error, TEXT("[SQLite] Select prepare failed: %s"), UTF8_TO_TCHAR(sqlite3_errmsg(SQLiteDB)));
 		return Result;
