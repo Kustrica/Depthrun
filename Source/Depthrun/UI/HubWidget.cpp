@@ -1,7 +1,7 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "HubWidget.h"
 #include "Kismet/GameplayStatics.h"
-#include "Items/RunItemConfig.h"
+#include "Items/RunItemCollection.h"
 
 void UHubWidget::RefreshUI()
 {
@@ -9,10 +9,10 @@ void UHubWidget::RefreshUI()
 	OnUIRefreshed();
 }
 
-void UHubWidget::SelectItem(URunItemConfig* Config)
+void UHubWidget::SelectItem(int32 ItemIndex)
 {
-	if (!Config) return;
-	SelectedItems.AddUnique(Config);
+	if (!ItemCollection || !ItemCollection->Items.IsValidIndex(ItemIndex)) return;
+	SelectedItemIndices.AddUnique(ItemIndex);
 }
 
 void UHubWidget::OnStartRunPressed()

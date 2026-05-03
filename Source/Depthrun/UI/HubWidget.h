@@ -5,8 +5,8 @@
 #include "Blueprint/UserWidget.h"
 #include "HubWidget.generated.h"
 
-class URunItemConfig;
 class URunItemInventory;
+class URunItemCollection;
 
 /**
  * UHubWidget
@@ -30,9 +30,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hub")
 	void RefreshUI();
 
-	/** Add displayed item to the run inventory (URunItemInventory on the GameInstance or pending state). */
+	/** Add displayed item by index from ItemCollection to the pending run inventory. */
 	UFUNCTION(BlueprintCallable, Category = "Hub")
-	void SelectItem(URunItemConfig* Config);
+	void SelectItem(int32 ItemIndex);
 
 	/** Begin the run: clear inventory, load gameplay level. */
 	UFUNCTION(BlueprintCallable, Category = "Hub")
@@ -50,16 +50,15 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub")
 	FName MainMenuLevelName = TEXT("L_MainMenu");
 
-	/** All available items the player can choose from this run. Assigned in Blueprint. */
+	/** All available run items. Assign DA_RunItemCollection. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub|Items")
-	TArray<TObjectPtr<URunItemConfig>> AvailableItems;
+	TObjectPtr<URunItemCollection> ItemCollection;
 
 protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Hub")
 	void OnUIRefreshed();
 
 private:
-	/** Items selected for the upcoming run (pending, applied on StartRun). */
-	UPROPERTY()
-	TArray<TObjectPtr<URunItemConfig>> SelectedItems;
+	/** Indices into ItemCollection.Items selected for the upcoming run. */
+	TArray<int32> SelectedItemIndices;
 };
