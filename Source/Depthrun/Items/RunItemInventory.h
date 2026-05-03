@@ -3,10 +3,9 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Items/RunItemTypes.h"
+#include "Items/RunItemCollection.h"
 #include "RunItemInventory.generated.h"
 
-class URunItemConfig;
 class ABaseWeapon;
 class ADepthrunCharacter;
 
@@ -35,9 +34,8 @@ public:
 
 	// ─── Item management ─────────────────────────────────────────────────────
 
-	/** Add an item to the run inventory. Returns false if already has it. */
-	UFUNCTION(BlueprintCallable, Category = "Items")
-	bool AddItem(URunItemConfig* Config);
+	/** Add an item to the run inventory. Returns false if inventory is full. */
+	bool AddItem(const FRunItemData& Data);
 
 	/** Remove all items (call at run start). */
 	UFUNCTION(BlueprintCallable, Category = "Items")
@@ -56,19 +54,12 @@ public:
 	bool HasEffect(ERunItemEffect Effect) const;
 
 	/** All items currently held in this run. */
-	UFUNCTION(BlueprintPure, Category = "Items")
-	const TArray<URunItemConfig*>& GetItems() const { return Items; }
+	const TArray<FRunItemData>& GetItems() const { return Items; }
 
 	/** Max items allowed per run. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items")
 	int32 MaxItems = 6;
 
-	/** Broadcast when an item is added. Subscribed by HubWidget. */
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemAdded, URunItemConfig*, Config);
-	UPROPERTY(BlueprintAssignable, Category = "Items")
-	FOnItemAdded OnItemAdded;
-
 private:
-	UPROPERTY()
-	TArray<TObjectPtr<URunItemConfig>> Items;
+	TArray<FRunItemData> Items;
 };

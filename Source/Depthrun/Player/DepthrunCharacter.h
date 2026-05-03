@@ -116,6 +116,10 @@ public:
   UFUNCTION(Exec, Category = "Player|Debug")
   void ClearRunItems();
 
+  /** Console: Show run_history rows from SQLite DB. Usage: DBCheck */
+  UFUNCTION(Exec, Category = "Player|Debug")
+  void DBCheck();
+
   // ────────────────────── Components ──────────────────────
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
   TObjectPtr<USpringArmComponent> SpringArm;
@@ -321,6 +325,8 @@ private:
 
   float LockedPlayerZ = 4.0f;
   bool  bZLocked = false;
+
+  float RunStartTime = 0.f;
 
   FTimerHandle DashCooldownTimer;
   FTimerHandle DashStopTimer;

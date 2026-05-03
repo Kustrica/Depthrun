@@ -67,6 +67,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Save|Debug")
 	void ResetProfile();
 
+	/** Direct DB access for debug console commands. */
+	USQLiteManager* GetDB() const { return DB; }
+
 private:
 	void InitializeSchema();
 

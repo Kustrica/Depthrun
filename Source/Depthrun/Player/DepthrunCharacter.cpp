@@ -5,11 +5,12 @@
 #include "Combat/MeleeWeapon.h"
 #include "Core/DepthrunLogChannels.h"
 #include "Data/DepthrunSaveSubsystem.h"
+#include "Data/SQLiteManager.h"
 #include "Audio/CombatMusicTrigger.h"
 #include "Data/HubUpgradeTypes.h"
 #include "Items/RunItemInventory.h"
 #include "Items/RunItemCollection.h"
-#include "Items/RunItemConfig.h"
+#include "RoomGeneration/RoomGeneratorSubsystem.h"
 #include "PlayerActionTracker.h"
 #include "PlayerCombatComponent.h"
 #include "PlayerEconomy.h"
@@ -143,6 +144,7 @@ void ADepthrunCharacter::BeginPlay() {
 
   CurrentHP = MaxHP;
   bCanDash = true;
+  RunStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 
   // ─── Apply Movement Configuration ─────────────────────────────────────
   if (MovementConfig) {
@@ -556,6 +558,18 @@ void ADepthrunCharacter::Die() {
 
   UE_LOG(LogDepthrun, Error, TEXT("[Player] DIED!"));
 
+  // Save run result to run_history
+  if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)
+  {
+    const float Duration = GetWorld() ? (GetWorld()->GetTimeSeconds() - RunStartTime) : 0.f;
+    int32 Floor = 0;
+    if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
+    {
+      Floor = RoomGen->GetCurrentRoomIndex();
+    }
+    Save->SaveRunResult(Floor, FMath::RoundToInt(Duration), false);
+  }
+
   if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
   {
     MoveComp->StopMovementImmediately();
@@ -734,26 +748,24 @@ void ADepthrunCharacter::GiveItem(const FString& ItemName)
 		return;
 	}
 
-	URunItemConfig* Found = ItemCollection->FindByName(ItemName);
+	const FRunItemData* Found = ItemCollection->FindByName(ItemName);
 	if (!Found)
 	{
 		UE_LOG(LogDepthrun, Warning, TEXT("[Console] GiveItem: '%s' not found. Use ListItems to see available items."), *ItemName);
 		return;
 	}
 
-	const bool bAdded = ItemInventory->AddItem(Found);
+	const bool bAdded = ItemInventory->AddItem(*Found);
 	if (bAdded)
 	{
-		// Apply weapon effects to both weapon slots
 		if (SpawnedWeapon1) ItemInventory->ApplyToWeapon(SpawnedWeapon1);
 		if (SpawnedWeapon2) ItemInventory->ApplyToWeapon(SpawnedWeapon2);
-		// Apply stat effects
 		ItemInventory->ApplyToCharacter(this);
-		UE_LOG(LogDepthrun, Log, TEXT("[Console] GiveItem: gave '%s', applied to weapons and character"), *Found->ItemName.ToString());
+		UE_LOG(LogDepthrun, Log, TEXT("[Console] GiveItem: gave '%s', applied"), *Found->ItemName);
 	}
 	else
 	{
-		UE_LOG(LogDepthrun, Warning, TEXT("[Console] GiveItem: could not add '%s' (inventory full or duplicate)"), *Found->ItemName.ToString());
+		UE_LOG(LogDepthrun, Warning, TEXT("[Console] GiveItem: could not add '%s' (inventory full)"), *Found->ItemName);
 	}
 }
 
@@ -767,13 +779,9 @@ void ADepthrunCharacter::ListItems()
 	UE_LOG(LogDepthrun, Log, TEXT("[Console] === Available Items (%d) ==="), ItemCollection->Items.Num());
 	for (int32 i = 0; i < ItemCollection->Items.Num(); ++i)
 	{
-		if (const URunItemConfig* Item = ItemCollection->Items[i])
-		{
-			UE_LOG(LogDepthrun, Log, TEXT("[Console]  [%d] %s — Effect: %s"),
-				i,
-				*Item->ItemName.ToString(),
-				*UEnum::GetValueAsString(Item->Effect));
-		}
+		const FRunItemData& Item = ItemCollection->Items[i];
+		UE_LOG(LogDepthrun, Log, TEXT("[Console]  [%d] %s — %s"),
+			i, *Item.ItemName, *UEnum::GetValueAsString(Item.Effect));
 	}
 	UE_LOG(LogDepthrun, Log, TEXT("[Console] Usage: GiveItem <name>"));
 }
@@ -791,6 +799,47 @@ void ADepthrunCharacter::ClearRunItems()
 	if (SpawnedWeapon1) ItemInventory->ApplyToWeapon(SpawnedWeapon1);
 	if (SpawnedWeapon2) ItemInventory->ApplyToWeapon(SpawnedWeapon2);
 	UE_LOG(LogDepthrun, Log, TEXT("[Console] ClearRunItems: all items cleared, base stats restored"));
+}
+
+void ADepthrunCharacter::DBCheck()
+{
+	UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr;
+	USQLiteManager* DB = Save ? Save->GetDB() : nullptr;
+	if (!DB)
+	{
+		UE_LOG(LogDepthrunSave, Error, TEXT("[Console] DBCheck: DB not open"));
+		return;
+	}
+
+	// player_profile
+	const TArray<TMap<FString,FString>> Profile = DB->SelectRows(TEXT("player_profile"), TEXT("id=1"));
+	if (Profile.Num() > 0)
+	{
+		const TMap<FString,FString>& Row = Profile[0];
+		UE_LOG(LogDepthrunSave, Log, TEXT("[DBCheck] player_profile: Diamonds=%s Dmg=%s Range=%s Arrows=%s HP=%s"),
+			Row.Contains(TEXT("TotalDiamonds")) ? *Row[TEXT("TotalDiamonds")] : TEXT("?"),
+			Row.Contains(TEXT("Damage_Lvl"))    ? *Row[TEXT("Damage_Lvl")]    : TEXT("?"),
+			Row.Contains(TEXT("Range_Lvl"))     ? *Row[TEXT("Range_Lvl")]     : TEXT("?"),
+			Row.Contains(TEXT("ArrowCount_Lvl"))? *Row[TEXT("ArrowCount_Lvl")]: TEXT("?"),
+			Row.Contains(TEXT("MaxHP_Lvl"))     ? *Row[TEXT("MaxHP_Lvl")]     : TEXT("?"));
+	}
+	else
+	{
+		UE_LOG(LogDepthrunSave, Warning, TEXT("[DBCheck] player_profile: no rows"));
+	}
+
+	// run_history
+	const TArray<TMap<FString,FString>> Runs = DB->SelectRows(TEXT("run_history"), TEXT("1=1"));
+	UE_LOG(LogDepthrunSave, Log, TEXT("[DBCheck] run_history: %d rows"), Runs.Num());
+	for (const TMap<FString,FString>& Row : Runs)
+	{
+		UE_LOG(LogDepthrunSave, Log, TEXT("[DBCheck]  id=%s Floor=%s Won=%s Duration=%ss Timestamp=%s"),
+			Row.Contains(TEXT("id"))          ? *Row[TEXT("id")]          : TEXT("?"),
+			Row.Contains(TEXT("Floor"))       ? *Row[TEXT("Floor")]       : TEXT("?"),
+			Row.Contains(TEXT("Won"))         ? *Row[TEXT("Won")]         : TEXT("?"),
+			Row.Contains(TEXT("RunDuration")) ? *Row[TEXT("RunDuration")] : TEXT("?"),
+			Row.Contains(TEXT("Timestamp"))   ? *Row[TEXT("Timestamp")]   : TEXT("?"));
+	}
 }
 
 // ─────────────────────────── Helpers ──────────────────────────────────────
