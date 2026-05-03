@@ -8,6 +8,7 @@
 
 class URunItemConfig;
 class ABaseWeapon;
+class ADepthrunCharacter;
 
 /**
  * URunItemInventory
@@ -45,6 +46,10 @@ public:
 	/** Apply all relevant items to a weapon when it becomes active. */
 	UFUNCTION(BlueprintCallable, Category = "Items")
 	void ApplyToWeapon(ABaseWeapon* Weapon) const;
+
+	/** Apply stat-boost items (BonusMaxHP, BonusMoveSpeed, BonusProjectileCount) to character. */
+	UFUNCTION(BlueprintCallable, Category = "Items")
+	void ApplyToCharacter(ADepthrunCharacter* Character) const;
 
 	/** Returns true if any item with this effect is present. */
 	UFUNCTION(BlueprintPure, Category = "Items")

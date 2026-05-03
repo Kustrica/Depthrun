@@ -45,4 +45,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Parameters",
 		meta = (ClampMin = "1", ClampMax = "3"))
 	int32 RicochetCount = 1;
+
+	/**
+	 * Generic numeric value for stat-boost effects:
+	 *   BonusMaxHP           — flat HP added (e.g. 25)
+	 *   BonusMoveSpeed       — fraction of base speed added (e.g. 0.15 = +15%)
+	 *   BonusProjectileCount — integer arrow count bonus (e.g. 1)
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Parameters")
+	float NumericValue = 1.f;
 };

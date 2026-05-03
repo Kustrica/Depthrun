@@ -31,7 +31,12 @@ enum class ERunItemEffect : uint8
 
 	// Ranged (Bow)
 	ArrowRicochet      UMETA(DisplayName = "Arrow: Ricochet"),
-	ArrowPierce        UMETA(DisplayName = "Arrow: Pierce")
+	ArrowPierce        UMETA(DisplayName = "Arrow: Pierce"),
+
+	// Character stats (Any weapon)
+	BonusMaxHP           UMETA(DisplayName = "Stat: Bonus Max HP"),
+	BonusMoveSpeed       UMETA(DisplayName = "Stat: Bonus Move Speed"),
+	BonusProjectileCount UMETA(DisplayName = "Stat: Bonus Projectile Count")
 };
 
 /** Which weapon type an item modifies. None = universal. */

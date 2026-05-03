@@ -4,6 +4,8 @@
 #include "Combat/BaseWeapon.h"
 #include "Combat/MeleeWeapon.h"
 #include "Combat/RangedWeapon.h"
+#include "Player/DepthrunCharacter.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Core/DepthrunLogChannels.h"
 
 URunItemInventory::URunItemInventory()
@@ -78,6 +80,43 @@ void URunItemInventory::ApplyToWeapon(ABaseWeapon* Weapon) const
 
 		UE_LOG(LogDepthrun, Verbose, TEXT("[Items] Applied: %s to %s"),
 			*Item->ItemName.ToString(), *Weapon->GetName());
+	}
+}
+
+void URunItemInventory::ApplyToCharacter(ADepthrunCharacter* Character) const
+{
+	if (!Character) return;
+
+	for (const URunItemConfig* Item : Items)
+	{
+		if (!Item) continue;
+
+		switch (Item->Effect)
+		{
+		case ERunItemEffect::BonusMaxHP:
+			Character->MaxHP += Item->NumericValue;
+			Character->CurrentHP = FMath::Clamp(Character->CurrentHP, 0.f, Character->MaxHP);
+			UE_LOG(LogDepthrun, Log, TEXT("[Items] BonusMaxHP +%.0f → MaxHP=%.0f"),
+				Item->NumericValue, Character->MaxHP);
+			break;
+		case ERunItemEffect::BonusMoveSpeed:
+			if (UCharacterMovementComponent* MC = Character->GetCharacterMovement())
+			{
+				const float Bonus = MC->MaxFlySpeed * Item->NumericValue;
+				MC->MaxFlySpeed += Bonus;
+				MC->MaxWalkSpeed += Bonus;
+				UE_LOG(LogDepthrun, Log, TEXT("[Items] BonusMoveSpeed +%.0f (%.0f%%) → MaxFlySpeed=%.0f"),
+					Bonus, Item->NumericValue * 100.f, MC->MaxFlySpeed);
+			}
+			break;
+		case ERunItemEffect::BonusProjectileCount:
+			Character->BaseProjectileCount += FMath::RoundToInt(Item->NumericValue);
+			Character->BaseProjectileCount = FMath::Clamp(Character->BaseProjectileCount, 1, 5);
+			UE_LOG(LogDepthrun, Log, TEXT("[Items] BonusProjectileCount +%d → Count=%d"),
+				FMath::RoundToInt(Item->NumericValue), Character->BaseProjectileCount);
+			break;
+		default: break;
+		}
 	}
 }
 
