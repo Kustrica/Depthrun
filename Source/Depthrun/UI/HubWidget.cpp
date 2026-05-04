@@ -34,29 +34,23 @@ void UHubWidget::SelectItem(int32 ItemIndex)
 	SelectedItemIndices.AddUnique(ItemIndex);
 }
 
+static void PlayClick(const UObject* Ctx)
+{
+	if (UGameInstance* GI = UGameplayStatics::GetGameInstance(Ctx))
+		if (UUISoundLibrary* SFX = GI->GetSubsystem<UUISoundLibrary>())
+			SFX->PlayButtonClick();
+}
+
 void UHubWidget::OnStartRunPressed()
 {
-	// TODO (Stage 9B): push SelectedItems into GameInstance/RunItemInventory, then open level
+	PlayClick(this);
 	UGameplayStatics::OpenLevel(this, GameplayLevelName);
 }
 
 void UHubWidget::OnBackToMenuPressed()
 {
+	PlayClick(this);
 	UGameplayStatics::OpenLevel(this, MainMenuLevelName);
-}
-
-void UHubWidget::PlayHoverSound()
-{
-	if (UGameInstance* GI = GetGameInstance())
-		if (UUISoundLibrary* SFX = GI->GetSubsystem<UUISoundLibrary>())
-			SFX->PlayButtonHover();
-}
-
-void UHubWidget::PlayClickSound()
-{
-	if (UGameInstance* GI = GetGameInstance())
-		if (UUISoundLibrary* SFX = GI->GetSubsystem<UUISoundLibrary>())
-			SFX->PlayButtonClick();
 }
 
 // ─── 9G: Metaprogression ────────────────────────────────────────────────
@@ -91,6 +85,7 @@ int32 UHubWidget::GetUpgradeCost(EHubUpgrade Type) const
 
 void UHubWidget::OnUpgradePressed(EHubUpgrade Type)
 {
+	PlayClick(this);
 	if (UDepthrunSaveSubsystem* Save = GetSave(this))
 	{
 		if (Save->BuyUpgrade(Type))

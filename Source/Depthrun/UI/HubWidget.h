@@ -62,14 +62,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Upgrades")
 	void OnUpgradePressed(EHubUpgrade Type);
 
-	/** Play hover sound — call from Blueprint On Hovered event on any button. */
-	UFUNCTION(BlueprintCallable, Category = "Hub|SFX")
-	void PlayHoverSound();
-
-	/** Play click sound — call from Blueprint On Clicked on any button. */
-	UFUNCTION(BlueprintCallable, Category = "Hub|SFX")
-	void PlayClickSound();
-
 	// ─── Config ──────────────────────────────────────────────────────────────
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub")
