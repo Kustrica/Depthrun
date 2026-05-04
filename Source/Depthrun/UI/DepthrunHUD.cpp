@@ -1,5 +1,6 @@
 #include "DepthrunHUD.h"
 #include "Blueprint/UserWidget.h"
+#include "UI/HUDOverlayWidget.h"
 #include "UI/DebugAdaptiveWidget.h"
 #include "AdaptiveBehavior/AdaptiveBehaviorComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -26,6 +27,11 @@ void ADepthrunHUD::BeginPlay()
 			DebugWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
+}
+
+UHUDOverlayWidget* ADepthrunHUD::GetHUDOverlay() const
+{
+	return Cast<UHUDOverlayWidget>(MainWidget);
 }
 
 void ADepthrunHUD::UpdatePlayerHP(float Current, float Max)

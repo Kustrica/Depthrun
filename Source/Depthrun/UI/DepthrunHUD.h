@@ -6,6 +6,7 @@
 #include "DepthrunHUD.generated.h"
 
 class UHealthBarWidget;
+class UHUDOverlayWidget;
 
 /**
  * ADepthrunHUD
@@ -32,6 +33,10 @@ public:
 	/** Toggle the debug adaptive overlay visible/hidden. */
 	UFUNCTION(BlueprintCallable, Category = "HUD|Debug")
 	void ToggleAdaptiveDebugWidget();
+
+	/** Returns the main HUD overlay widget (WBP_HUDOverlay). Use to call Set Active Weapon Slot etc. */
+	UFUNCTION(BlueprintPure, Category = "HUD")
+	UHUDOverlayWidget* GetHUDOverlay() const;
 
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "HUD|Classes")
