@@ -62,6 +62,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Upgrades")
 	void OnUpgradePressed(EHubUpgrade Type);
 
+	/** Called by any button On Hovered event. */
+	UFUNCTION(BlueprintCallable, Category = "Hub|SFX")
+	void OnButtonHovered();
+
 	// ─── Config ──────────────────────────────────────────────────────────────
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub")

@@ -34,6 +34,13 @@ void UHubWidget::SelectItem(int32 ItemIndex)
 	SelectedItemIndices.AddUnique(ItemIndex);
 }
 
+void UHubWidget::OnButtonHovered()
+{
+	if (UGameInstance* GI = GetGameInstance())
+		if (UUISoundLibrary* SFX = GI->GetSubsystem<UUISoundLibrary>())
+			SFX->PlayButtonHover();
+}
+
 static void PlayClick(const UObject* Ctx)
 {
 	if (UGameInstance* GI = UGameplayStatics::GetGameInstance(Ctx))

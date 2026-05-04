@@ -90,6 +90,11 @@ CrashReportClient/*
 .agent/
 .project/
 .skills/
+.windsurf/
 
 # IDE-specific plugins
 Plugins/VisualStudioTools/
+
+#assets
+
+IMPORTED ASSETS/
