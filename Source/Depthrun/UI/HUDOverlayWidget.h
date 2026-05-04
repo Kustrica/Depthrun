@@ -3,6 +3,8 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/Border.h"
+#include "Components/Image.h"
 #include "HUDOverlayWidget.generated.h"
 
 class ADepthrunCharacter;
@@ -42,13 +44,36 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void SetActiveWeaponSlot(int32 SlotIndex);
 
-	// ─── Pulled from character on tick or delegate ──────────────────────────
+	/**
+	 * Highlight active weapon slot visually.
+	 * Assign BorderSlot1/BorderSlot2 and IconSlot1/IconSlot2 in WBP Designer (Is Variable).
+	 * @param ActiveSlot   0 = sword, 1 = bow
+	 * @param ActiveAlpha  Opacity for the ACTIVE slot icon (default 1.0)
+	 * @param InactiveAlpha Opacity for the INACTIVE slot icon (default 0.4)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void UpdateWeaponSlotVisuals(int32 ActiveSlot,
+		float ActiveAlpha = 1.f, float InactiveAlpha = 0.4f);
+
+protected:
+	// ─── BindWidget — assign in WBP Designer (Is Variable + exact name) ───────
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UBorder> BorderSlot1;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UBorder> BorderSlot2;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UImage> IconSlot1;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UImage> IconSlot2;
 
 	/** Refresh all values from the player character. */
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void RefreshFromPlayer();
 
-protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 

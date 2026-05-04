@@ -80,7 +80,25 @@ void UHUDOverlayWidget::SetRoomInfo(int32 Current, int32 Total)
 
 void UHUDOverlayWidget::SetActiveWeaponSlot(int32 SlotIndex)
 {
+	UpdateWeaponSlotVisuals(SlotIndex);
 	OnWeaponSlotUpdated(SlotIndex);
+}
+
+void UHUDOverlayWidget::UpdateWeaponSlotVisuals(int32 ActiveSlot,
+	float ActiveAlpha, float InactiveAlpha)
+{
+	const FLinearColor ActiveColor(1.f, 1.f, 1.f, 1.f);
+	const FLinearColor InactiveColor(0.3f, 0.3f, 0.3f, 1.f);
+
+	const bool bSlot0Active = (ActiveSlot == 0);
+
+	if (BorderSlot1) BorderSlot1->SetContentColorAndOpacity(
+		bSlot0Active ? ActiveColor : InactiveColor);
+	if (BorderSlot2) BorderSlot2->SetContentColorAndOpacity(
+		bSlot0Active ? InactiveColor : ActiveColor);
+
+	if (IconSlot1) IconSlot1->SetRenderOpacity(bSlot0Active ? ActiveAlpha : InactiveAlpha);
+	if (IconSlot2) IconSlot2->SetRenderOpacity(bSlot0Active ? InactiveAlpha : ActiveAlpha);
 }
 
 // ─── Private delegate receivers ─────────────────────────────────────────────
