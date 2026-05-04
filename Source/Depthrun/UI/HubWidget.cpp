@@ -3,6 +3,24 @@
 #include "Kismet/GameplayStatics.h"
 #include "Items/RunItemCollection.h"
 #include "Data/DepthrunSaveSubsystem.h"
+#include "UI/UISoundLibrary.h"
+#include "Input/Events.h"
+
+void UHubWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+	SetIsFocusable(true);
+}
+
+FReply UHubWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		OnBackToMenuPressed();
+		return FReply::Handled();
+	}
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
 
 void UHubWidget::RefreshUI()
 {
@@ -25,6 +43,20 @@ void UHubWidget::OnStartRunPressed()
 void UHubWidget::OnBackToMenuPressed()
 {
 	UGameplayStatics::OpenLevel(this, MainMenuLevelName);
+}
+
+void UHubWidget::PlayHoverSound()
+{
+	if (UGameInstance* GI = GetGameInstance())
+		if (UUISoundLibrary* SFX = GI->GetSubsystem<UUISoundLibrary>())
+			SFX->PlayButtonHover();
+}
+
+void UHubWidget::PlayClickSound()
+{
+	if (UGameInstance* GI = GetGameInstance())
+		if (UUISoundLibrary* SFX = GI->GetSubsystem<UUISoundLibrary>())
+			SFX->PlayButtonClick();
 }
 
 // ─── 9G: Metaprogression ────────────────────────────────────────────────

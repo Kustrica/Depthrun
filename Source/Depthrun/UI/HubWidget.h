@@ -62,6 +62,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Upgrades")
 	void OnUpgradePressed(EHubUpgrade Type);
 
+	/** Play hover sound — call from Blueprint On Hovered event on any button. */
+	UFUNCTION(BlueprintCallable, Category = "Hub|SFX")
+	void PlayHoverSound();
+
+	/** Play click sound — call from Blueprint On Clicked on any button. */
+	UFUNCTION(BlueprintCallable, Category = "Hub|SFX")
+	void PlayClickSound();
+
 	// ─── Config ──────────────────────────────────────────────────────────────
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub")
@@ -75,6 +83,9 @@ public:
 	TObjectPtr<URunItemCollection> ItemCollection;
 
 protected:
+	virtual void NativeConstruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "Hub")
 	void OnUIRefreshed();
 
