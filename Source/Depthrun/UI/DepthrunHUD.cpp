@@ -36,7 +36,8 @@ UHUDOverlayWidget* ADepthrunHUD::GetHUDOverlay() const
 
 void ADepthrunHUD::UpdatePlayerHP(float Current, float Max)
 {
-	// Logic for HP bar update in MainWidget will be added in Stage 9
+	if (UHUDOverlayWidget* Overlay = GetHUDOverlay())
+		Overlay->SetHP(Current, Max);
 }
 
 void ADepthrunHUD::ToggleAdaptiveDebugWidget()

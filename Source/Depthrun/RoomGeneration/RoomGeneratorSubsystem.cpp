@@ -9,6 +9,9 @@
 #include "PaperCharacter.h"
 #include "PaperFlipbookComponent.h"
 #include "Player/DepthrunCharacter.h"
+#include "UI/DepthrunHUD.h"
+#include "UI/HUDOverlayWidget.h"
+#include "GameFramework/PlayerController.h"
 
 namespace RoomGeneratorLocal
 {
@@ -224,6 +227,12 @@ void URoomGeneratorSubsystem::OnPlayerEnteredRoom(ARoomBase* Room)
     {
         ActivateRoom(Index);
     }
+
+    // Update HUD room counter
+    if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+        if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
+            if (UHUDOverlayWidget* Overlay = HUD->GetHUDOverlay())
+                Overlay->SetRoomInfo(CurrentRoomIndex + 1, GeneratedRooms.Num());
 }
 
 void URoomGeneratorSubsystem::SetTemplates(URoomTemplate* Start, URoomTemplate* Boss, const TArray<URoomTemplate*>& Combat, const TArray<URoomTemplate*>& Treasure, const TArray<URoomTemplate*>& Rest)
