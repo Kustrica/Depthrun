@@ -33,7 +33,7 @@ constexpr float DashStopDelay = 0.12f;
 } // namespace
 
 ADepthrunCharacter::ADepthrunCharacter() {
-  PrimaryActorTick.bCanEverTick = false;
+  PrimaryActorTick.bCanEverTick = true;
 
   // ─── Top-down camera ───────────────────────────────────────────────────
   SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -513,6 +513,56 @@ void ADepthrunCharacter::Dash() {
 
 void ADepthrunCharacter::OnDashCooldownEnd() { bCanDash = true; }
 
+void ADepthrunCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	UpdateChromaticAberration(DeltaSeconds);
+}
+
+void ADepthrunCharacter::TriggerChromaticAberration()
+{
+	// Reset hold timer — if already active, extend hold
+	CA_HoldTimeRemaining = HitFX_HoldDuration;
+	bCA_FadingOut = false;
+}
+
+void ADepthrunCharacter::UpdateChromaticAberration(float DeltaSeconds)
+{
+	if (!FollowCamera) return;
+	if (CA_CurrentIntensity <= 0.f && bCA_FadingOut) return;
+
+	if (!bCA_FadingOut)
+	{
+		// Fade IN fast
+		CA_CurrentIntensity = FMath::Min(
+			CA_CurrentIntensity + HitFX_FadeInSpeed * DeltaSeconds,
+			HitFX_Intensity);
+
+		// Count down hold time
+		if (CA_CurrentIntensity >= HitFX_Intensity)
+		{
+			CA_HoldTimeRemaining -= DeltaSeconds;
+			if (CA_HoldTimeRemaining <= 0.f)
+				bCA_FadingOut = true;
+		}
+	}
+	else
+	{
+		// Fade OUT slow
+		const float FadeSpeed = (HitFX_FadeOutDuration > 0.f)
+			? (HitFX_Intensity / HitFX_FadeOutDuration)
+			: 1.f;
+		CA_CurrentIntensity = FMath::Max(
+			CA_CurrentIntensity - FadeSpeed * DeltaSeconds, 0.f);
+	}
+
+	// Apply to camera post process
+	FollowCamera->PostProcessSettings.bOverride_SceneFringeIntensity = true;
+	FollowCamera->PostProcessSettings.SceneFringeIntensity = CA_CurrentIntensity;
+	FollowCamera->PostProcessSettings.bOverride_ChromaticAberrationStartOffset = true;
+	FollowCamera->PostProcessSettings.ChromaticAberrationStartOffset = 0.f;
+}
+
 float ADepthrunCharacter::TakeDamage(float DamageAmount,
                                      FDamageEvent const &DamageEvent,
                                      AController *EventInstigator,
@@ -529,6 +579,7 @@ float ADepthrunCharacter::TakeDamage(float DamageAmount,
     GetWorldTimerManager().SetTimer(HitAnimTimer, this,
                                     &ADepthrunCharacter::ResetHitAnimation,
                                     0.2f, false);
+    TriggerChromaticAberration();
   }
 
   UE_LOG(LogDepthrun, Log,

@@ -52,6 +52,7 @@ public:
 
 protected:
   virtual void BeginPlay() override;
+  virtual void Tick(float DeltaSeconds) override;
   virtual void
   SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;
 
@@ -280,6 +281,32 @@ public:
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation|Combat")
   TObjectPtr<UPaperFlipbook> FB_Death;
 
+  // ────────────────────── Combat FX ─────────────────────────
+
+  /** Distance from actor origin at which projectiles spawn (UU). */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Player|Combat")
+  float MuzzleOffset = 5.f;
+
+  /** Chromatic Aberration: max intensity when hit. */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Player|HitFX")
+  float HitFX_Intensity = 1.f;
+
+  /** Chromatic Aberration: how fast the effect fades IN (intensity/sec). */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Player|HitFX")
+  float HitFX_FadeInSpeed = 10.f;
+
+  /** Chromatic Aberration: how fast the effect fades OUT (intensity/sec). */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Player|HitFX")
+  float HitFX_FadeOutSpeed = 0.5f;
+
+  /** Chromatic Aberration: min hold time before fade-out begins (seconds). */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Player|HitFX")
+  float HitFX_HoldDuration = 1.f;
+
+  /** Chromatic Aberration: fade-out duration (seconds). */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Player|HitFX")
+  float HitFX_FadeOutDuration = 2.5f;
+
   // ────────────────────── Debug ────────────────────────────
   UPROPERTY(BlueprintReadWrite, Category = "Player|Debug")
   bool bGodMode = false;
@@ -333,6 +360,14 @@ private:
   FTimerHandle AttackAnimTimer;
   FTimerHandle HitAnimTimer;
 
+  // ─── Chromatic Aberration hit effect state ──────────────
+  float CA_CurrentIntensity = 0.f;
+  float CA_HoldTimeRemaining = 0.f;
+  bool  bCA_FadingOut = false;
+
+  void TriggerChromaticAberration();
+  void UpdateChromaticAberration(float DeltaSeconds);
+
   void ResetHitAnimation() { bIsHitAnimationActive = false; }
 
   /** Live weapon actor instances (spawned in BeginPlay). */
@@ -341,6 +376,7 @@ private:
   UPROPERTY()
   TObjectPtr<ABaseWeapon> SpawnedWeapon2; // Bow
 
+public:
   /** Returns weapon in slot 1 or 2, nullptr if invalid. */
   ABaseWeapon* GetWeaponSlot(int32 Slot) const
   {
