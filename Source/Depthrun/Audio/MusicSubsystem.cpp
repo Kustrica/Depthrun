@@ -45,14 +45,22 @@ void UMusicSubsystem::Deinitialize()
 
 void UMusicSubsystem::PlayMusic(EMusicTrack Track, float FadeIn, float FadeOut)
 {
-	// If the same track is already playing (even after level transition), skip restart
+	// Skip restart if same track is requested — IsPlaying() can return false
+	// immediately after level transition even if audio is still audible.
+	// Trust CurrentTrack as the source of truth.
 	if (Track == CurrentTrack)
 	{
 		UAudioComponent* Existing = TrackComponents.FindRef(Track).Get();
-		if (IsValid(Existing) && Existing->IsPlaying())
+		if (IsValid(Existing))
 		{
-			UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Track %d already playing — skip restart"), (int32)Track);
+			UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Track %d already active — skip restart"), (int32)Track);
 			ActiveComponent = Existing;
+			// Ensure it's actually playing (may have been paused by level GC)
+			if (!Existing->IsPlaying())
+			{
+				Existing->Play();
+				UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Track %d was paused — resumed"), (int32)Track);
+			}
 			return;
 		}
 	}

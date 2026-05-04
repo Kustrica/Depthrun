@@ -18,8 +18,15 @@ void AMainMenuGameMode::BeginPlay()
 	if (UMusicSubsystem* Music = UGameplayStatics::GetGameInstance(GetWorld())
 		->GetSubsystem<UMusicSubsystem>())
 	{
-		Music->PlayMusic(EMusicTrack::Hub, 0.f, 0.f);
-		UE_LOG(LogDepthrunMusic, Log, TEXT("[MainMenuGameMode] Playing Hub music (instant)"));
+		if (Music->GetCurrentTrack() != EMusicTrack::Hub)
+		{
+			Music->PlayMusic(EMusicTrack::Hub, 1.5f, 1.0f);
+			UE_LOG(LogDepthrunMusic, Log, TEXT("[MainMenuGameMode] Starting Hub music"));
+		}
+		else
+		{
+			UE_LOG(LogDepthrunMusic, Log, TEXT("[MainMenuGameMode] Hub music already playing — skip"));
+		}
 	}
 
 	if (MainMenuWidgetClass && GetWorld())
