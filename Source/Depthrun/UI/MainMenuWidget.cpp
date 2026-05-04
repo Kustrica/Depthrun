@@ -29,3 +29,9 @@ void UMainMenuWidget::OnQuitPressed()
 
 	UKismetSystemLibrary::QuitGame(this, nullptr, EQuitPreference::Quit, false);
 }
+
+void UMainMenuWidget::OnButtonHovered()
+{
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonHover();
+}

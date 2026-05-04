@@ -31,6 +31,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void OnQuitPressed();
 
+	/** Called by any button On Hovered event. */
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	void OnButtonHovered();
+
 protected:
 	/** Override in Blueprint: animate the transition. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "MainMenu")

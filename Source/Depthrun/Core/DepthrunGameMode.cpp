@@ -48,6 +48,12 @@ void ADepthrunGameMode::BeginPlay()
 		}
 	}
 
+	if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+	{
+		PC->SetInputMode(FInputModeGameOnly());
+		PC->bShowMouseCursor = false;
+	}
+
 	if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
 	{
 		RoomGen->SetTemplates(StartRoomTemplate, BossRoomTemplate, CombatRoomTemplates, TreasureRoomTemplates, RestRoomTemplates);
