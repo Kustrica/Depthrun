@@ -25,6 +25,7 @@
 #include "PaperFlipbook.h"
 #include "PaperFlipbookComponent.h"
 #include "UI/DepthrunHUD.h"
+#include "UI/HUDOverlayWidget.h"
 
 // ─── Timer handles for dash stop and attack reset ─────────────────────────
 namespace {
@@ -425,6 +426,12 @@ void ADepthrunCharacter::SwitchToWeaponSlot(int32 SlotIndex) {
     UE_LOG(LogDepthrun, Log, TEXT("[Weapon] Switched to Slot 2 (Bow)"));
   }
   UpdateAnimation();
+
+  // Notify HUD — slot 1 = index 0, slot 2 = index 1
+  if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
+      if (UHUDOverlayWidget* Overlay = HUD->GetHUDOverlay())
+        Overlay->SetActiveWeaponSlot(ActiveWeaponSlot - 1);
 }
 
 // ─────────────────────────── Dash ─────────────────────────────────────────
