@@ -231,8 +231,14 @@ UAudioComponent* UMusicSubsystem::GetOrCreateComponent(EMusicTrack Track)
 	UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
 	if (!World) { return nullptr; }
 
-	UAudioComponent* NewComponent = UGameplayStatics::SpawnSoundAtLocation(
-		World, Sound, FVector::ZeroVector);
+	UAudioComponent* NewComponent = UGameplayStatics::SpawnSound2D(
+		World, Sound,
+		/*VolumeMultiplier=*/1.f,
+		/*PitchMultiplier=*/1.f,
+		/*StartTime=*/0.f,
+		/*ConcurrencySettings=*/nullptr,
+		/*bPersistAcrossLevelTransitions=*/true,
+		/*bAutoDestroy=*/false);
 
 	if (IsValid(NewComponent))
 	{

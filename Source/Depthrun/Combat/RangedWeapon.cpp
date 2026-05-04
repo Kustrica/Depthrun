@@ -4,6 +4,7 @@
 #include "BaseProjectile.h"
 #include "Components/SphereComponent.h"
 #include "Core/DepthrunLogChannels.h"
+#include "Player/DepthrunCharacter.h"
 
 ARangedWeapon::ARangedWeapon() {
   AttackCooldown = 0.5f;
@@ -39,14 +40,16 @@ void ARangedWeapon::ActuallyFire() {
   // Character that owns this weapon
   AActor *CharacterOwner = GetOwner();
 
-  // Spawn slightly ahead in FireDirection to clear the character's capsule.
-  // ADDED: Z+10.0f offset to prevent Z-fighting or floor-level invisibility.
-  // Commercial Fix: Increased offset to 60.f to ensure large enemy capsules
-  // don't block the spawn sweep.
+  // Spawn ahead in FireDirection. Read MuzzleOffset from player character if available,
+  // fallback to 40.f for enemy-owned weapons (large capsule clearance).
+  float MuzzleOffsetDist = 40.f;
+  if (ADepthrunCharacter* PlayerChar = Cast<ADepthrunCharacter>(CharacterOwner))
+    MuzzleOffsetDist = PlayerChar->MuzzleOffset;
+
   const FVector SpawnLocation =
       (CharacterOwner ? CharacterOwner->GetActorLocation()
                       : GetActorLocation()) +
-      FireDirection.GetSafeNormal() * 60.f + FVector(0.f, 0.f, 10.0f);
+      FireDirection.GetSafeNormal() * MuzzleOffsetDist + FVector(0.f, 0.f, 10.0f);
 
   const FRotator SpawnRotation = FireDirection.GetSafeNormal().IsNearlyZero()
                                      ? FRotator::ZeroRotator
