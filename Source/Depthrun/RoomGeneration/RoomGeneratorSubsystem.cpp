@@ -228,11 +228,11 @@ void URoomGeneratorSubsystem::OnPlayerEnteredRoom(ARoomBase* Room)
         ActivateRoom(Index);
     }
 
-    // Update HUD room counter
+    // Update HUD room counter (cleared rooms / total)
     if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
         if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
             if (UHUDOverlayWidget* Overlay = HUD->GetHUDOverlay())
-                Overlay->SetRoomInfo(CurrentRoomIndex + 1, GeneratedRooms.Num());
+                Overlay->SetRoomInfo(GetClearedRoomsCount(), GeneratedRooms.Num());
 }
 
 void URoomGeneratorSubsystem::SetTemplates(URoomTemplate* Start, URoomTemplate* Boss, const TArray<URoomTemplate*>& Combat, const TArray<URoomTemplate*>& Treasure, const TArray<URoomTemplate*>& Rest)

@@ -671,6 +671,11 @@ float ADepthrunCharacter::Heal(float Amount) {
   CurrentHP = FMath::Clamp(CurrentHP + Amount, 0.0f, MaxHP);
   float ActualHealed = CurrentHP - OldHP;
   UE_LOG(LogDepthrun, Log, TEXT("[Player] Healed: %.0f → %.0f (+%.0f)"), OldHP, CurrentHP, ActualHealed);
+
+  if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
+      HUD->UpdatePlayerHP(CurrentHP, MaxHP);
+
   return ActualHealed;
 }
 

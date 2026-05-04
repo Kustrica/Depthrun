@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "RoomGeneration/RoomGeneratorSubsystem.h"
 
 void UHUDOverlayWidget::NativeConstruct()
 {
@@ -57,11 +58,16 @@ void UHUDOverlayWidget::RefreshFromPlayer()
 		SetDiamonds(CachedPlayer->PlayerEconomy->RunDiamonds);
 		SetPotions(CachedPlayer->PlayerEconomy->HealthPotions);
 	}
+
+	if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
+		SetRoomInfo(RoomGen->GetClearedRoomsCount(), RoomGen->GetTotalRooms());
 }
 
 void UHUDOverlayWidget::SetHP(float Current, float Max)
 {
 	const float Pct = (Max > 0.f) ? FMath::Clamp(Current / Max, 0.f, 1.f) : 0.f;
+	UE_LOG(LogTemp, Warning, TEXT("[HUD] SetHP called: %.1f/%.1f → Pct=%.2f | HPBar=%s"),
+		Current, Max, Pct, HPBar ? TEXT("FOUND") : TEXT("NULL"));
 	if (HPBar)  HPBar->SetPercent(Pct);
 	if (HPText) HPText->SetText(FText::FromString(
 		FString::Printf(TEXT("%.0f / %.0f"), Current, Max)));

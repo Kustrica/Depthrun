@@ -35,19 +35,9 @@ void UMusicSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 void UMusicSubsystem::Deinitialize()
 {
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
-
-	// Stop all track components
-	for (auto& Pair : TrackComponents)
-	{
-		if (IsValid(Pair.Value))
-		{
-			Pair.Value->Stop();
-		}
-	}
-	TrackComponents.Empty();
-	ActiveComponent = nullptr;
-	FadingComponent = nullptr;
-
+	// Do NOT stop or destroy TrackComponents here.
+	// bPersistAcrossLevelTransitions keeps them alive across level transitions.
+	// They are owned by the audio engine, not the world.
 	Super::Deinitialize();
 }
 
@@ -55,9 +45,16 @@ void UMusicSubsystem::Deinitialize()
 
 void UMusicSubsystem::PlayMusic(EMusicTrack Track, float FadeIn, float FadeOut)
 {
-	if (Track == CurrentTrack && IsValid(ActiveComponent) && ActiveComponent->IsPlaying())
+	// If the same track is already playing (even after level transition), skip restart
+	if (Track == CurrentTrack)
 	{
-		return;
+		UAudioComponent* Existing = TrackComponents.FindRef(Track).Get();
+		if (IsValid(Existing) && Existing->IsPlaying())
+		{
+			UE_LOG(LogDepthrunMusic, Log, TEXT("[Music] Track %d already playing — skip restart"), (int32)Track);
+			ActiveComponent = Existing;
+			return;
+		}
 	}
 
 	USoundBase* NewSound = GetSoundForTrack(Track);
