@@ -3,6 +3,8 @@
 #include "Player/DepthrunCharacter.h"
 #include "Player/PlayerEconomy.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
 
 void UHUDOverlayWidget::NativeConstruct()
 {
@@ -60,21 +62,29 @@ void UHUDOverlayWidget::RefreshFromPlayer()
 void UHUDOverlayWidget::SetHP(float Current, float Max)
 {
 	const float Pct = (Max > 0.f) ? FMath::Clamp(Current / Max, 0.f, 1.f) : 0.f;
+	if (HPBar)  HPBar->SetPercent(Pct);
+	if (HPText) HPText->SetText(FText::FromString(
+		FString::Printf(TEXT("%.0f / %.0f"), Current, Max)));
 	OnHPUpdated(Pct, Current, Max);
 }
 
 void UHUDOverlayWidget::SetDiamonds(int32 Amount)
 {
+	if (DiamondText) DiamondText->SetText(FText::AsNumber(Amount));
 	OnDiamondsUpdated(Amount);
 }
 
 void UHUDOverlayWidget::SetPotions(int32 Amount)
 {
+	if (PotionText) PotionText->SetText(
+		FText::FromString(FString::Printf(TEXT("x%d"), Amount)));
 	OnPotionsUpdated(Amount);
 }
 
 void UHUDOverlayWidget::SetRoomInfo(int32 Current, int32 Total)
 {
+	if (RoomText) RoomText->SetText(FText::FromString(
+		FString::Printf(TEXT("Room %d / %d"), Current, Total)));
 	OnRoomInfoUpdated(Current, Total);
 }
 

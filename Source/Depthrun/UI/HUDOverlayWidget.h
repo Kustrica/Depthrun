@@ -5,6 +5,8 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/Border.h"
 #include "Components/Image.h"
+#include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
 #include "HUDOverlayWidget.generated.h"
 
 class ADepthrunCharacter;
@@ -69,6 +71,23 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	TObjectPtr<UImage> IconSlot2;
+
+	// ─── Text / Bar BindWidgets — name them EXACTLY in WBP Designer ────────
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UProgressBar> HPBar;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> HPText;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> DiamondText;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> PotionText;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> RoomText;
 
 	/** Refresh all values from the player character. */
 	UFUNCTION(BlueprintCallable, Category = "HUD")
