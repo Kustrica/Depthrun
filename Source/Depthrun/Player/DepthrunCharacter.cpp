@@ -417,6 +417,16 @@ void ADepthrunCharacter::TogglePause() {
     if (PauseMenuWidgetClass && !IsValid(ActivePauseWidget)) {
       ActivePauseWidget = CreateWidget<UPauseMenuWidget>(PC, PauseMenuWidgetClass);
       if (ActivePauseWidget) {
+        // When pause menu closes itself (Continue/Esc/P), restore game input
+        ActivePauseWidget->OnPauseClosed.AddLambda([this, PC]()
+        {
+          ActivePauseWidget = nullptr;
+          if (PC)
+          {
+            PC->SetInputMode(FInputModeGameOnly());
+            PC->bShowMouseCursor = false;
+          }
+        });
         ActivePauseWidget->AddToViewport(10);
         ActivePauseWidget->Show();
       }
@@ -425,7 +435,7 @@ void ADepthrunCharacter::TogglePause() {
     PC->SetInputMode(FInputModeUIOnly());
     PC->bShowMouseCursor = true;
   } else {
-    // Close pause menu
+    // Close pause menu from outside (e.g. called programmatically)
     if (IsValid(ActivePauseWidget)) {
       ActivePauseWidget->RemoveFromParent();
       ActivePauseWidget = nullptr;

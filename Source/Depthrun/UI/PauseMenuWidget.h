@@ -6,6 +6,8 @@
 #include "InputCoreTypes.h"
 #include "PauseMenuWidget.generated.h"
 
+DECLARE_MULTICAST_DELEGATE(FOnPauseClosed);
+
 class UButton;
 class UWidget;
 class USettingsWidget;
@@ -27,6 +29,9 @@ protected:
 public:
 	/** Called from DepthrunCharacter::TogglePause — sets the widget visible and pauses. */
 	void Show();
+
+	/** Fired when the pause menu closes itself (Continue / Esc / P). */
+	FOnPauseClosed OnPauseClosed;
 
 	/** Assign WBP_Settings in BP_PauseMenu Class Defaults. */
 	UPROPERTY(EditDefaultsOnly, Category = "UI")

@@ -14,6 +14,8 @@
  * Layout done in UMG Editor (WBP_MainMenuWidget).
  * Implementation: Stage 9A.
  */
+class USettingsWidget;
+
 UCLASS()
 class DEPTHRUN_API UMainMenuWidget : public UUserWidget
 {
@@ -47,4 +49,8 @@ protected:
 	/** Level name for the Hub. Set in GameInstance or hardcoded here. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MainMenu")
 	FName HubLevelName = TEXT("L_Hub");
+
+	/** Assign WBP_Settings. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MainMenu")
+	TSubclassOf<USettingsWidget> SettingsWidgetClass;
 };

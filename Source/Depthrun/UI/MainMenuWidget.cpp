@@ -1,5 +1,6 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "MainMenuWidget.h"
+#include "UI/SettingsWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "UI/UISoundLibrary.h"
@@ -35,8 +36,21 @@ void UMainMenuWidget::OnSettingsPressed()
 	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
 		SFX->PlayButtonClick();
 
-	// TODO (Stage 9H): open settings panel
-	UE_LOG(LogTemp, Log, TEXT("[MainMenu] Settings pressed — not yet implemented"));
+	if (!SettingsWidgetClass) return;
+
+	USettingsWidget* Settings = CreateWidget<USettingsWidget>(GetOwningPlayer(), SettingsWidgetClass);
+	if (!Settings) return;
+
+	SetVisibility(ESlateVisibility::Hidden);
+	Settings->OnSettingsClosed.AddLambda([this]()
+	{
+		if (IsValid(this))
+		{
+			SetVisibility(ESlateVisibility::Visible);
+			SetKeyboardFocus();
+		}
+	});
+	Settings->AddToViewport(5);
 }
 
 void UMainMenuWidget::OnQuitPressed()

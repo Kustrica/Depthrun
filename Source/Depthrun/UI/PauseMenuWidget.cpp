@@ -42,6 +42,7 @@ FReply UPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKey
 void UPauseMenuWidget::OnContinueClicked()
 {
 	UGameplayStatics::SetGamePaused(GetWorld(), false);
+	OnPauseClosed.Broadcast();
 	RemoveFromParent();
 }
 
@@ -53,11 +54,17 @@ void UPauseMenuWidget::OnSettingsClicked()
 		USettingsWidget* Settings = CreateWidget<USettingsWidget>(PC, SettingsWidgetClass);
 		if (Settings)
 		{
-			// When Settings closes, return focus to pause menu
+			// Hide pause menu while settings is open
+			SetVisibility(ESlateVisibility::Hidden);
+
+			// When Settings closes, show pause menu again and restore focus
 			Settings->OnSettingsClosed.AddLambda([this]()
 			{
 				if (IsValid(this))
+				{
+					SetVisibility(ESlateVisibility::Visible);
 					SetKeyboardFocus();
+				}
 			});
 			Settings->AddToViewport(11);
 		}
