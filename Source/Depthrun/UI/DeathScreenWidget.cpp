@@ -3,6 +3,7 @@
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 void UDeathScreenWidget::NativeConstruct()
 {
@@ -59,5 +60,5 @@ void UDeathScreenWidget::OnToMenuClicked()
 
 void UDeathScreenWidget::OnQuitClicked()
 {
-	UGameplayStatics::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
+	UKismetSystemLibrary::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
 }

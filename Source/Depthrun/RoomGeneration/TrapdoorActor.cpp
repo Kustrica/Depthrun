@@ -4,8 +4,10 @@
 #include "Components/BoxComponent.h"
 #include "PaperSpriteComponent.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/Engine.h"
 #include "TimerManager.h"
+#include "Player/DepthrunCharacter.h"
 
 ATrapdoorActor::ATrapdoorActor()
 {
@@ -72,12 +74,23 @@ void ATrapdoorActor::OnTrapdoorOverlap(UPrimitiveComponent* OverlappedComponent,
     if (!bIsPlayer)
         return;
 
-    // Green log message for player stepping on trapdoor
-    UE_LOG(LogTemp, Log, TEXT("\n========================================"));
-    UE_LOG(LogTemp, Log, TEXT("[TRAPDOOR] Player stepped on exit hatch!"));
-    UE_LOG(LogTemp, Log, TEXT("[TRAPDOOR] Level complete - ready for transition!"));
-    UE_LOG(LogTemp, Log, TEXT("========================================\n"));
+    UE_LOG(LogTemp, Log, TEXT("[Trapdoor] Player stepped on exit hatch — showing victory screen."));
 
-    // TODO: Add level transition logic here
-    // For now this just logs to console in green (via LogTemp category)
+    // Disable collision so it can't fire twice
+    CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    ADepthrunCharacter* Player = Cast<ADepthrunCharacter>(OverlapPawn);
+    if (!Player)
+        return;
+
+    // Freeze player movement
+    if (UCharacterMovementComponent* Move = Player->GetCharacterMovement())
+    {
+        Move->StopMovementImmediately();
+        Move->DisableMovement();
+    }
+    Player->ConsumeMovementInputVector();
+
+    // Show victory screen (handles diamonds, input lock, widget spawn)
+    Player->ShowVictoryScreen();
 }

@@ -3,6 +3,7 @@
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 void UVictoryScreenWidget::NativeConstruct()
 {
@@ -51,5 +52,5 @@ void UVictoryScreenWidget::OnToMenuClicked()
 
 void UVictoryScreenWidget::OnQuitClicked()
 {
-	UGameplayStatics::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
+	UKismetSystemLibrary::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
 }

@@ -7,6 +7,7 @@
 #include "Items/RunItemInventory.h"
 #include "GameFramework/Character.h"
 #include "Blueprint/UserWidget.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 void UPauseMenuWidget::NativeConstruct()
 {
@@ -70,5 +71,5 @@ void UPauseMenuWidget::OnToMenuClicked()
 
 void UPauseMenuWidget::OnQuitClicked()
 {
-	UGameplayStatics::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
+	UKismetSystemLibrary::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
 }
