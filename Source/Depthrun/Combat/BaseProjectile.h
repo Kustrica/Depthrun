@@ -70,4 +70,13 @@ private:
   UPROPERTY()
   TArray<TObjectPtr<AActor>> HitActors;
 
+  /** Redirect projectile toward nearest enemy and decrement ricochet counter. */
+  void TryRicochet(AActor* JustHitEnemy);
+
+  /** Frame counter for alternating overlap checks (perf optimization). */
+  int32 OverlapCheckFrameCounter = 0;
+
+  /** Radius within which to search for ricochet target. */
+  float RicochetSearchRadius = 1200.f;
+
 };

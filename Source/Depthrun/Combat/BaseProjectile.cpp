@@ -5,6 +5,8 @@
 #include "Core/DepthrunLogChannels.h"
 #include "Engine/DamageEvents.h"
 #include "PaperSpriteComponent.h"
+#include "Enemy/BaseEnemy.h"
+#include "Kismet/GameplayStatics.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor
@@ -93,8 +95,6 @@ void ABaseProjectile::InitProjectile(const FVector &Direction, float Damage,
 // OnOverlap — damage on enemy contact
 // ─────────────────────────────────────────────────────────────────────────────
 
-#include "Enemy/BaseEnemy.h"
-
 void ABaseProjectile::OnOverlap(UPrimitiveComponent *OverlappedComp,
                                  AActor *OtherActor,
                                  UPrimitiveComponent *OtherComp,
@@ -107,9 +107,9 @@ void ABaseProjectile::OnOverlap(UPrimitiveComponent *OverlappedComp,
   if (OtherActor == ShooterActor)
     return;
   if (OtherActor == GetOwner())
-    return; // skip weapon actor
+    return;
   if (HitActors.Contains(OtherActor))
-    return; // already hit (pierce mode guard)
+    return;
 
   // Friendly Fire Prevention: Enemies shouldn't hit other enemies
   if (ShooterActor && ShooterActor->IsA(ABaseEnemy::StaticClass()) && OtherActor->IsA(ABaseEnemy::StaticClass()))
@@ -118,7 +118,57 @@ void ABaseProjectile::OnOverlap(UPrimitiveComponent *OverlappedComp,
   OtherActor->TakeDamage(DamageAmount, FDamageEvent(), nullptr, ShooterActor);
   HitActors.Add(OtherActor);
 
+  // ── Ricochet: redirect to nearest other enemy ────────────────────────────
+  if (RicochetCount > 0 && OtherActor->IsA(ABaseEnemy::StaticClass()))
+  {
+    TryRicochet(OtherActor);
+    return; // don't destroy yet — TryRicochet decides
+  }
+
   if (!bPierceEnabled) {
     Destroy();
   }
+}
+
+void ABaseProjectile::TryRicochet(AActor* JustHitEnemy)
+{
+  UWorld* World = GetWorld();
+  if (!World) { Destroy(); return; }
+
+  // Gather all living enemies within search radius
+  TArray<AActor*> AllEnemies;
+  UGameplayStatics::GetAllActorsOfClass(World, ABaseEnemy::StaticClass(), AllEnemies);
+
+  AActor* BestTarget = nullptr;
+  float BestDistSq = FLT_MAX;
+  const FVector MyPos = GetActorLocation();
+
+  for (AActor* Enemy : AllEnemies)
+  {
+    if (!IsValid(Enemy)) continue;
+    if (Enemy == JustHitEnemy) continue;
+    if (HitActors.Contains(Enemy)) continue; // already bounced through this one
+
+    const float DistSq = FVector::DistSquared(MyPos, Enemy->GetActorLocation());
+    if (DistSq < BestDistSq && FMath::Sqrt(DistSq) <= RicochetSearchRadius)
+    {
+      BestDistSq = DistSq;
+      BestTarget = Enemy;
+    }
+  }
+
+  if (!BestTarget)
+  {
+    // No valid target in range — projectile dies
+    Destroy();
+    return;
+  }
+
+  --RicochetCount;
+  const FVector NewDir = (BestTarget->GetActorLocation() - MyPos).GetSafeNormal();
+  LaunchDirection = NewDir;
+  SetActorRotation(NewDir.Rotation());
+
+  UE_LOG(LogCombat, Log, TEXT("[Projectile] Ricochet -> %s (remaining: %d)"),
+    *BestTarget->GetName(), RicochetCount);
 }

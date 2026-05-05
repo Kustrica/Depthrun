@@ -8,6 +8,7 @@
 
 class UVerticalBox;
 class UTextBlock;
+class UImage;
 
 /**
  * UChestRewardWidget
@@ -36,14 +37,51 @@ public:
 	void Show(int32 Diamonds, int32 Potions, const FString& ItemName,
 		UTexture2D* DiamondIcon, UTexture2D* PotionIcon, UTexture2D* ItemIcon);
 
-	/** Auto-close countdown seconds. Default 3. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ChestReward")
-	float AutoCloseDelay = 3.f;
+	// ─── Timing ────────────────────────────────────────────────────────────
+	/** How long the popup stays open before auto-close. Change in WBP defaults. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ChestReward|Timing")
+	float AutoCloseDelay = 5.f;
+
+	// ─── Icons ─────────────────────────────────────────────────────────────
+	/** Size of each reward icon in pixels (width = height). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ChestReward|Icons",
+		meta = (ClampMin = "16", ClampMax = "128"))
+	float IconSize = 32.f;
+
+	// ─── Typography ────────────────────────────────────────────────────────
+	/** Font for reward lines (item name, diamond count, potion count). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ChestReward|Typography")
+	FSlateFontInfo RewardFont;
+
+	/** Font size for reward lines. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ChestReward|Typography",
+		meta = (ClampMin = "8", ClampMax = "72"))
+	int32 RewardFontSize = 20;
+
+	/** Color of reward line text. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ChestReward|Typography")
+	FLinearColor RewardTextColor = FLinearColor::White;
+
+	/** Font size for the countdown text. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ChestReward|Typography",
+		meta = (ClampMin = "8", ClampMax = "48"))
+	int32 CountdownFontSize = 14;
+
+	/** Color of the countdown text. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "ChestReward|Typography")
+	FLinearColor CountdownTextColor = FLinearColor(0.7f, 0.7f, 0.7f, 1.f);
 
 	// ─── BindWidget — names must match exactly in WBP ──────────────────────
+
+	/** Full-screen scroll PNG background. Set your scroll texture in WBP. */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> ScrollBackground;
+
+	/** Vertical box inside the scroll where reward rows are added. */
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UVerticalBox> RewardLinesBox;
 
+	/** Countdown text at the bottom of the scroll. */
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> AutoCloseText;
 

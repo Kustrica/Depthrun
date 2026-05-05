@@ -46,8 +46,15 @@ void UChestRewardWidget::Show(int32 Diamonds, int32 Potions, const FString& Item
 	// Start countdown
 	SecondsRemaining = FMath::RoundToInt(AutoCloseDelay);
 	if (AutoCloseText)
+	{
 		AutoCloseText->SetText(FText::FromString(
 			FString::Printf(TEXT("Closing in %d..."), SecondsRemaining)));
+
+		FSlateFontInfo CFont = AutoCloseText->GetFont();
+		CFont.Size = CountdownFontSize;
+		AutoCloseText->SetFont(CFont);
+		AutoCloseText->SetColorAndOpacity(FSlateColor(CountdownTextColor));
+	}
 
 	UWorld* World = GetWorld();
 	if (World)
@@ -68,13 +75,13 @@ void UChestRewardWidget::AddRewardRow(UTexture2D* Icon, const FString& Label)
 
 	UHorizontalBox* Row = NewObject<UHorizontalBox>(this);
 
-	// Icon (32x32) — only if texture provided
+	// Icon — size driven by IconSize property
 	if (IsValid(Icon))
 	{
 		UImage* IconWidget = NewObject<UImage>(this);
 		FSlateBrush Brush;
 		Brush.SetResourceObject(Icon);
-		Brush.ImageSize = FVector2D(32.f, 32.f);
+		Brush.ImageSize = FVector2D(IconSize, IconSize);
 		IconWidget->SetBrush(Brush);
 
 		UHorizontalBoxSlot* IconSlot = Row->AddChildToHorizontalBox(IconWidget);
@@ -83,20 +90,19 @@ void UChestRewardWidget::AddRewardRow(UTexture2D* Icon, const FString& Label)
 		IconSlot->SetPadding(FMargin(0.f, 0.f, 8.f, 0.f));
 	}
 
-	// Text label
+	// Text label — font/size/color from configurable properties
 	UTextBlock* TextWidget = NewObject<UTextBlock>(this);
 	TextWidget->SetText(FText::FromString(Label));
 
-	FSlateFontInfo Font = TextWidget->GetFont();
-	Font.Size = 20;
+	FSlateFontInfo Font = RewardFont.HasValidFont() ? RewardFont : TextWidget->GetFont();
+	Font.Size = RewardFontSize;
 	TextWidget->SetFont(Font);
-	TextWidget->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+	TextWidget->SetColorAndOpacity(FSlateColor(RewardTextColor));
 
 	UHorizontalBoxSlot* TextSlot = Row->AddChildToHorizontalBox(TextWidget);
 	TextSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	TextSlot->SetVerticalAlignment(VAlign_Center);
 
-	// Add row to vertical box
 	UVerticalBoxSlot* RowSlot = RewardLinesBox->AddChildToVerticalBox(Row);
 	RowSlot->SetPadding(FMargin(0.f, 4.f));
 	RowSlot->SetHorizontalAlignment(HAlign_Left);
