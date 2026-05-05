@@ -457,16 +457,21 @@ void ADepthrunCharacter::ShowVictoryScreen() {
   if (PlayerEconomy) PlayerEconomy->OnRunExitToHub();
 
   int32 TotalDiamonds = 0;
+  int32 ClearedRooms = 0;
+  int32 TotalRooms = 0;
   if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr) {
-    if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
-      Save->SaveRunResult(RoomGen->GetTotalRooms(), FMath::RoundToInt(RunTime), true);
+    if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>()) {
+      TotalRooms = RoomGen->GetTotalRooms();
+      ClearedRooms = RoomGen->GetClearedRoomsCount();
+      Save->SaveRunResult(TotalRooms, FMath::RoundToInt(RunTime), true);
+    }
     TotalDiamonds = Save->GetTotalDiamonds();
   }
 
   UVictoryScreenWidget* Widget = CreateWidget<UVictoryScreenWidget>(PC, VictoryScreenWidgetClass);
   if (Widget) {
     Widget->AddToViewport(20);
-    Widget->Show(RunTime, EarnedDiamonds, TotalDiamonds);
+    Widget->Show(RunTime, ClearedRooms, TotalRooms, EarnedDiamonds, TotalDiamonds);
   }
 
   DisableInput(PC);

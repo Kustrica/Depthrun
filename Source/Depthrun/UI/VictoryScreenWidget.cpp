@@ -23,7 +23,7 @@ void UVictoryScreenWidget::NativeConstruct()
 	BindHover(ToHubBtn); BindHover(ToMenuBtn); BindHover(QuitBtn);
 }
 
-void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 EarnedDiamonds, int32 TotalDiamondsAfter)
+void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 TotalRooms, int32 EarnedDiamonds, int32 TotalDiamondsAfter)
 {
 	int32 Minutes = FMath::FloorToInt(RunTimeSeconds / 60.f);
 	int32 Seconds = FMath::FloorToInt(RunTimeSeconds) % 60;
@@ -31,6 +31,10 @@ void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 EarnedDiamonds, int3
 	if (RunTimeText)
 		RunTimeText->SetText(FText::FromString(
 			FString::Printf(TEXT("%d:%02d"), Minutes, Seconds)));
+
+	if (RoomsText)
+		RoomsText->SetText(FText::FromString(
+			FString::Printf(TEXT("%d / %d"), RoomsCleared, TotalRooms)));
 
 	if (EarnedDiamondsText)
 	{

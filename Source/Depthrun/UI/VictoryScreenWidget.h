@@ -28,11 +28,14 @@ public:
 	 * @param EarnedDiamonds      Diamonds earned this run.
 	 * @param TotalDiamondsAfter  Profile total after adding earned.
 	 */
-	void Show(float RunTimeSeconds, int32 EarnedDiamonds, int32 TotalDiamondsAfter);
+	void Show(float RunTimeSeconds, int32 RoomsCleared, int32 TotalRooms, int32 EarnedDiamonds, int32 TotalDiamondsAfter);
 
 	// ── Stats labels ─────────────────────────────────────────────────────────
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> RunTimeText;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> RoomsText;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> EarnedDiamondsText;
