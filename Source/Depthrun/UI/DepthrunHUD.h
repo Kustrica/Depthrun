@@ -31,6 +31,9 @@ protected:
 public:
 	/** Called by ChestActor delegate — spawns the reward popup widget. */
 	void ShowChestReward(const FChestRewardPayload& Payload);
+
+	/** Called by AChestActor::BeginPlay to register itself. Guaranteed before any overlap. */
+	void RegisterChest(AChestActor* Chest);
 	/** Called by damage system to refresh HP display. */
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void UpdatePlayerHP(float Current, float Max);
@@ -63,7 +66,5 @@ private:
 
 	bool bDebugWidgetVisible = false;
 
-	FTimerHandle TimerHandle_ChestSubscription;
 	TSet<AChestActor*> SubscribedChests;
-	void SubscribeToChests();
 };

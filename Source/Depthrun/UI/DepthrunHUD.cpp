@@ -30,11 +30,6 @@ void ADepthrunHUD::BeginPlay()
 		if (MainWidget) MainWidget->AddToViewport();
 	}
 
-	// Subscribe to all chest actors that spawn during runtime via a world event
-	// We use a timer to find chests that spawn after BeginPlay (via room generation)
-	GetWorldTimerManager().SetTimer(TimerHandle_ChestSubscription, this,
-		&ADepthrunHUD::SubscribeToChests, 0.5f, true);
-
 	if (DebugAdaptiveWidgetClass)
 	{
 		DebugWidget = CreateWidget<UUserWidget>(GetWorld(), DebugAdaptiveWidgetClass);
@@ -80,17 +75,9 @@ void ADepthrunHUD::ToggleAdaptiveDebugWidget()
 	}
 }
 
-void ADepthrunHUD::SubscribeToChests()
+void ADepthrunHUD::RegisterChest(AChestActor* Chest)
 {
-	TArray<AActor*> FoundChests;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AChestActor::StaticClass(), FoundChests);
-
-	for (AActor* Actor : FoundChests)
-	{
-		AChestActor* Chest = Cast<AChestActor>(Actor);
-		if (!Chest || SubscribedChests.Contains(Chest)) continue;
-
-		SubscribedChests.Add(Chest);
-		Chest->OnChestOpened.AddUObject(this, &ADepthrunHUD::ShowChestReward);
-	}
+	if (!Chest || SubscribedChests.Contains(Chest)) return;
+	SubscribedChests.Add(Chest);
+	Chest->OnChestOpened.AddUObject(this, &ADepthrunHUD::ShowChestReward);
 }

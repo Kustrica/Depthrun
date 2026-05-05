@@ -11,6 +11,8 @@
 #include "PaperSpriteComponent.h"
 #include "Core/DepthrunLogChannels.h"
 #include "Math/UnrealMathUtility.h"
+#include "UI/DepthrunHUD.h"
+#include "GameFramework/PlayerController.h"
 
 AChestActor::AChestActor()
 {
@@ -33,9 +35,13 @@ void AChestActor::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Disable overlap detection initially; enable after a short delay.
-    // This prevents the chest from being instantly opened when it spawns
-    // directly on top of the player (e.g., room clears while player stands there).
+    // Register with HUD immediately — must happen before any overlap fires.
+    if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+        if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
+            HUD->RegisterChest(this);
+
+    // Disable overlap until ActivationDelay expires to avoid instant open
+    // when chest spawns directly on the player.
     CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     CollisionBox->OnComponentBeginOverlap.AddDynamic(this, &AChestActor::OnChestOverlap);
 
