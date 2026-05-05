@@ -46,6 +46,23 @@ void AChestActor::BeginPlay()
 void AChestActor::EnableOverlap()
 {
     CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
+    // Manually check if the player is already standing inside the box
+    // (BeginOverlap won't fire for actors that were overlapping before collision was enabled)
+    TArray<AActor*> Overlapping;
+    CollisionBox->GetOverlappingActors(Overlapping, ADepthrunCharacter::StaticClass());
+    for (AActor* Actor : Overlapping)
+    {
+        if (ADepthrunCharacter* Player = Cast<ADepthrunCharacter>(Actor))
+        {
+            if (Player->IsPlayerControlled() && !bOpened)
+            {
+                bOpened = true;
+                DistributeLoot(Player);
+                return;
+            }
+        }
+    }
 }
 
 void AChestActor::OnChestOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,

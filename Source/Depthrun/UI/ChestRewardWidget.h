@@ -9,6 +9,7 @@
 class UVerticalBox;
 class UTextBlock;
 class UImage;
+class UButton;
 
 /**
  * UChestRewardWidget
@@ -85,9 +86,15 @@ public:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> AutoCloseText;
 
+	/**
+	 * Fullscreen transparent button overlay — place it as the topmost child in Canvas Panel.
+	 * Name it exactly "ClickOverlay" in WBP. Clicking anywhere on the widget closes it.
+	 */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> ClickOverlay;
+
 protected:
 	virtual void NativeConstruct() override;
-	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 private:
 	/** Adds one reward row: [icon 32x32] [text]. Icon may be null → shows no image. */
