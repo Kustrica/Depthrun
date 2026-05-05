@@ -8,6 +8,7 @@
 #include "GameFramework/Character.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "UI/UISoundLibrary.h"
 
 void UPauseMenuWidget::NativeConstruct()
 {
@@ -15,11 +16,11 @@ void UPauseMenuWidget::NativeConstruct()
 	SetIsFocusable(true);
 	SetKeyboardFocus();
 
-	if (ContinueBtn) ContinueBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnContinueClicked);
-	if (SettingsBtn)  SettingsBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnSettingsClicked);
-	if (ToHubBtn)     ToHubBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnToHubClicked);
-	if (ToMenuBtn)    ToMenuBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnToMenuClicked);
-	if (QuitBtn)      QuitBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnQuitClicked);
+	if (ContinueBtn) { ContinueBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnContinueClicked); ContinueBtn->OnHovered.AddDynamic(this, &UPauseMenuWidget::OnButtonHovered); }
+	if (SettingsBtn)  { SettingsBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnSettingsClicked);  SettingsBtn->OnHovered.AddDynamic(this, &UPauseMenuWidget::OnButtonHovered); }
+	if (ToHubBtn)     { ToHubBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnToHubClicked);        ToHubBtn->OnHovered.AddDynamic(this, &UPauseMenuWidget::OnButtonHovered); }
+	if (ToMenuBtn)    { ToMenuBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnToMenuClicked);      ToMenuBtn->OnHovered.AddDynamic(this, &UPauseMenuWidget::OnButtonHovered); }
+	if (QuitBtn)      { QuitBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnQuitClicked);          QuitBtn->OnHovered.AddDynamic(this, &UPauseMenuWidget::OnButtonHovered); }
 }
 
 void UPauseMenuWidget::Show()
@@ -39,6 +40,12 @@ FReply UPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKey
 	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
+void UPauseMenuWidget::OnButtonHovered()
+{
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonHover();
+}
+
 void UPauseMenuWidget::OnContinueClicked()
 {
 	UGameplayStatics::SetGamePaused(GetWorld(), false);
@@ -48,6 +55,8 @@ void UPauseMenuWidget::OnContinueClicked()
 
 void UPauseMenuWidget::OnSettingsClicked()
 {
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonClick();
 	if (!SettingsWidgetClass) return;
 	if (APlayerController* PC = GetOwningPlayer())
 	{
@@ -73,6 +82,8 @@ void UPauseMenuWidget::OnSettingsClicked()
 
 void UPauseMenuWidget::OnToHubClicked()
 {
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonClick();
 	UGameplayStatics::SetGamePaused(GetWorld(), false);
 
 	if (ACharacter* Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
@@ -88,11 +99,15 @@ void UPauseMenuWidget::OnToHubClicked()
 
 void UPauseMenuWidget::OnToMenuClicked()
 {
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonClick();
 	UGameplayStatics::SetGamePaused(GetWorld(), false);
 	UGameplayStatics::OpenLevel(GetWorld(), TEXT("L_MainMenu"));
 }
 
 void UPauseMenuWidget::OnQuitClicked()
 {
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonClick();
 	UKismetSystemLibrary::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
 }

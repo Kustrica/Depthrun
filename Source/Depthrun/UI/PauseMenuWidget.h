@@ -68,4 +68,7 @@ private:
 
 	UFUNCTION()
 	void OnQuitClicked();
+
+	UFUNCTION()
+	void OnButtonHovered();
 };

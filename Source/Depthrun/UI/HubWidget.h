@@ -9,6 +9,7 @@
 class URunItemInventory;
 class URunItemCollection;
 class UDepthrunSaveSubsystem;
+class UButton;
 
 /**
  * UHubWidget
@@ -66,6 +67,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|SFX")
 	void OnButtonHovered();
 
+	// ── Buttons — name must match in WBP (BindWidgetOptional) ────────────────
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> StartRunBtn;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> BackToMenuBtn;
+
 	// ─── Config ──────────────────────────────────────────────────────────────
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub")
@@ -86,6 +94,9 @@ protected:
 	void OnUIRefreshed();
 
 private:
+	UFUNCTION() void OnButtonClickedInternal_Start();
+	UFUNCTION() void OnButtonClickedInternal_Back();
+
 	/** Indices into ItemCollection.Items selected for the upcoming run. */
 	TArray<int32> SelectedItemIndices;
 };

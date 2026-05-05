@@ -6,8 +6,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundMix.h"
 #include "Sound/SoundClass.h"
-#include "AudioDevice.h"
 #include "Core/DepthrunGameInstance.h"
+#include "UI/UISoundLibrary.h"
 
 void USettingsWidget::NativeConstruct()
 {
@@ -34,7 +34,11 @@ void USettingsWidget::NativeConstruct()
 		}
 	}
 
-	if (BackBtn) BackBtn->OnClicked.AddDynamic(this, &USettingsWidget::OnBackClicked);
+	if (BackBtn)
+	{
+		BackBtn->OnClicked.AddDynamic(this, &USettingsWidget::OnBackClicked);
+		BackBtn->OnHovered.AddDynamic(this, &USettingsWidget::OnBackHovered);
+	}
 }
 
 void USettingsWidget::OnVolumeChanged(float Value)
@@ -42,22 +46,11 @@ void USettingsWidget::OnVolumeChanged(float Value)
 	if (VolumeValueText)
 		VolumeValueText->SetText(FText::FromString(FString::Printf(TEXT("%.0f%%"), Value * 100.f)));
 
-	// Most reliable way: set master volume directly on the audio device
-	if (GEngine && GEngine->GetAudioDeviceManager())
-	{
-		if (FAudioDeviceHandle AudioDevice = GEngine->GetAudioDeviceManager()->GetMainAudioDeviceHandle())
-		{
-			AudioDevice->SetTransientMasterVolume(Value);
-		}
-	}
-
-	// Also save to GameInstance and apply via SoundMix if configured
 	if (UDepthrunGameInstance* GI = Cast<UDepthrunGameInstance>(GetGameInstance()))
 	{
 		GI->MasterVolume = Value;
 		if (GI->MasterSoundMix && GI->MasterSoundClass)
 		{
-			// Push first, then override — required order
 			UGameplayStatics::PushSoundMixModifier(GetWorld(), GI->MasterSoundMix);
 			UGameplayStatics::SetSoundMixClassOverride(
 				GetWorld(), GI->MasterSoundMix, GI->MasterSoundClass, Value, 1.f, 0.f, true);
@@ -65,8 +58,16 @@ void USettingsWidget::OnVolumeChanged(float Value)
 	}
 }
 
+void USettingsWidget::OnBackHovered()
+{
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonHover();
+}
+
 void USettingsWidget::OnBackClicked()
 {
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonClick();
 	OnSettingsClosed.Broadcast();
 	RemoveFromParent();
 }

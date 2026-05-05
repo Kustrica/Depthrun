@@ -1,5 +1,6 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "HubWidget.h"
+#include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
 #include "Items/RunItemCollection.h"
 #include "Data/DepthrunSaveSubsystem.h"
@@ -10,6 +11,27 @@ void UHubWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 	SetIsFocusable(true);
+
+	if (StartRunBtn)
+	{
+		StartRunBtn->OnClicked.AddDynamic(this, &UHubWidget::OnButtonClickedInternal_Start);
+		StartRunBtn->OnHovered.AddDynamic(this, &UHubWidget::OnButtonHovered);
+	}
+	if (BackToMenuBtn)
+	{
+		BackToMenuBtn->OnClicked.AddDynamic(this, &UHubWidget::OnButtonClickedInternal_Back);
+		BackToMenuBtn->OnHovered.AddDynamic(this, &UHubWidget::OnButtonHovered);
+	}
+}
+
+void UHubWidget::OnButtonClickedInternal_Start()
+{
+	OnStartRunPressed();
+}
+
+void UHubWidget::OnButtonClickedInternal_Back()
+{
+	OnBackToMenuPressed();
 }
 
 FReply UHubWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)

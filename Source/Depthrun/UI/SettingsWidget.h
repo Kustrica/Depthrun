@@ -44,4 +44,7 @@ private:
 
 	UFUNCTION()
 	void OnBackClicked();
+
+	UFUNCTION()
+	void OnBackHovered();
 };
