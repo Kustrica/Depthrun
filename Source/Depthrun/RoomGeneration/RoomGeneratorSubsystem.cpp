@@ -67,19 +67,62 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
 
     TArray<FIntPoint> Dirs = { {1,0}, {-1,0}, {0,1}, {0,-1} };
 
+    // Branching walk: 70% chance to continue from the last room (creates arms),
+    // 30% chance to branch from any existing room (avoids dead-ends on small counts).
+    // This produces tree-like layouts with gaps between branches.
+    int32 LastIdx = 0;
     for (int32 i = 1; i < RoomCount; ++i)
     {
         bool bFound = false;
-        for (int32 At = 0; At < 30; ++At)
+        for (int32 At = 0; At < 40; ++At)
         {
-            FIntPoint Parent = Coords[FMath::RandRange(0, Coords.Num() - 1)];
-            FIntPoint Candidate = Parent + Dirs[FMath::RandRange(0, 3)];
-            if (!Occupied.Contains(Candidate))
+            // Bias strongly toward extending the current tip of the walk
+            FIntPoint Parent;
+            if (FMath::FRand() < 0.7f)
+                Parent = Coords[LastIdx];
+            else
+                Parent = Coords[FMath::RandRange(0, Coords.Num() - 1)];
+
+            // Shuffle directions for variety
+            TArray<FIntPoint> ShuffledDirs = Dirs;
+            for (int32 d = ShuffledDirs.Num() - 1; d > 0; --d)
             {
+                int32 j = FMath::RandRange(0, d);
+                ShuffledDirs.Swap(d, j);
+            }
+
+            for (const FIntPoint& Dir : ShuffledDirs)
+            {
+                FIntPoint Candidate = Parent + Dir;
+                // Reject cells that already have 2+ occupied neighbors (prevents clumping)
+                if (Occupied.Contains(Candidate)) continue;
+                int32 NeighborCount = 0;
+                for (const FIntPoint& D2 : Dirs)
+                    if (Occupied.Contains(Candidate + D2)) ++NeighborCount;
+                if (NeighborCount > 1) continue; // keeps layout sparse
+
                 Coords.Add(Candidate);
                 Occupied.Add(Candidate);
+                LastIdx = Coords.Num() - 1;
                 bFound = true;
                 break;
+            }
+            if (bFound) break;
+        }
+        if (!bFound)
+        {
+            // Fallback: relax neighbor constraint and pick any free adjacent cell
+            for (int32 At2 = 0; At2 < 20 && !bFound; ++At2)
+            {
+                FIntPoint Parent = Coords[FMath::RandRange(0, Coords.Num() - 1)];
+                FIntPoint Candidate = Parent + Dirs[FMath::RandRange(0, 3)];
+                if (!Occupied.Contains(Candidate))
+                {
+                    Coords.Add(Candidate);
+                    Occupied.Add(Candidate);
+                    LastIdx = Coords.Num() - 1;
+                    bFound = true;
+                }
             }
         }
         if (!bFound) break;
@@ -109,14 +152,20 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
                Coords.Last().X, Coords.Last().Y, MaxDist);
     }
 
-    // 3. Расчет размеров (БЕЗ нахлеста)
+    // 3. Расчет размеров с нахлестом 1 пиксель мира для устранения пиксельных зазоров.
     // Из-за поворота тайлмапа (-90, 0, 90):
     // Ось X в мире (Вверх/Вниз) соответствует высоте комнаты (6 тайлов).
     // Ось Y в мире (Влево/Вправо) соответствует ширине комнаты (8 тайлов).
     const float TileSize = RoomGeneratorLocal::RoomGenBaseTileSize *
                            RoomGeneratorLocal::ResolveRoomGenWorldScale(StartTemplate);
-    const float RoomSizeX = 6.0f * TileSize; // World X
-    const float RoomSizeY = 8.0f * TileSize; // World Y
+    // TileMapVisualOffset in the template shifts art by (X=-20, Y=+15) world units.
+    // To make adjacent tilemap art touch without gaps, shrink the room step by
+    // the absolute offset on each axis. Gameplay colliders are unaffected.
+    const FVector2D VO = StartTemplate ? StartTemplate->TileMapVisualOffset : FVector2D(-20.f, 15.f);
+    const float SeamOverlapX = FMath::Abs(VO.X); // ~20
+    const float SeamOverlapY = FMath::Abs(VO.Y); // ~15
+    const float RoomSizeX = 6.0f * TileSize - SeamOverlapX; // World X
+    const float RoomSizeY = 8.0f * TileSize - SeamOverlapY; // World Y
 
     // 4. Спавн актеров
     for (int32 i = 0; i < Coords.Num(); ++i)
