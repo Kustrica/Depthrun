@@ -128,26 +128,45 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
         if (!bFound) break;
     }
 
-    // 2b. Переставить самую дальнюю от старта комнату на последнее место (→ Boss Room)
-    // Используем манхэттенское расстояние от (0,0). Комната [0] = Start, не трогаем.
+    // 2b. Boss Room = leaf node (1 neighbor) farthest from start.
+    // Leaf nodes are branch tips — they can never appear "in the middle".
+    // Fallback: if no leaf found beyond index 0, use farthest any room.
     if (Coords.Num() > 2)
     {
-        int32 FarthestIdx = 1;
+        int32 BossIdx = -1;
         int32 MaxDist = 0;
+
+        // Pass 1: prefer leaf nodes (rooms with exactly 1 occupied neighbor)
         for (int32 k = 1; k < Coords.Num(); ++k)
         {
-            int32 Dist = FMath::Abs(Coords[k].X) + FMath::Abs(Coords[k].Y);
-            if (Dist > MaxDist)
+            int32 NeighborCount = 0;
+            for (const FIntPoint& D : Dirs)
+                if (Occupied.Contains(Coords[k] + D)) ++NeighborCount;
+
+            if (NeighborCount == 1)
             {
-                MaxDist = Dist;
-                FarthestIdx = k;
+                int32 Dist = FMath::Abs(Coords[k].X) + FMath::Abs(Coords[k].Y);
+                if (Dist > MaxDist)
+                {
+                    MaxDist = Dist;
+                    BossIdx = k;
+                }
             }
         }
-        // Swap farthest with last slot (Boss will be placed at last index)
-        if (FarthestIdx != Coords.Num() - 1)
+
+        // Pass 2 fallback: no suitable leaf — use plain farthest
+        if (BossIdx == -1)
         {
-            Coords.Swap(FarthestIdx, Coords.Num() - 1);
+            for (int32 k = 1; k < Coords.Num(); ++k)
+            {
+                int32 Dist = FMath::Abs(Coords[k].X) + FMath::Abs(Coords[k].Y);
+                if (Dist > MaxDist) { MaxDist = Dist; BossIdx = k; }
+            }
         }
+
+        if (BossIdx != -1 && BossIdx != Coords.Num() - 1)
+            Coords.Swap(BossIdx, Coords.Num() - 1);
+
         UE_LOG(LogTemp, Log, TEXT("[DungeonGen] Boss Room at grid (%d,%d), dist=%d from start"),
                Coords.Last().X, Coords.Last().Y, MaxDist);
     }
@@ -158,14 +177,8 @@ void URoomGeneratorSubsystem::GenerateRooms(int32 RoomCount)
     // Ось Y в мире (Влево/Вправо) соответствует ширине комнаты (8 тайлов).
     const float TileSize = RoomGeneratorLocal::RoomGenBaseTileSize *
                            RoomGeneratorLocal::ResolveRoomGenWorldScale(StartTemplate);
-    // TileMapVisualOffset in the template shifts art by (X=-20, Y=+15) world units.
-    // To make adjacent tilemap art touch without gaps, shrink the room step by
-    // the absolute offset on each axis. Gameplay colliders are unaffected.
-    const FVector2D VO = StartTemplate ? StartTemplate->TileMapVisualOffset : FVector2D(-20.f, 15.f);
-    const float SeamOverlapX = FMath::Abs(VO.X); // ~20
-    const float SeamOverlapY = FMath::Abs(VO.Y); // ~15
-    const float RoomSizeX = 6.0f * TileSize - SeamOverlapX; // World X
-    const float RoomSizeY = 8.0f * TileSize - SeamOverlapY; // World Y
+    const float RoomSizeX = 6.0f * TileSize; // World X (6 tile rows)
+    const float RoomSizeY = 8.0f * TileSize; // World Y (8 tile cols)
 
     // 4. Спавн актеров
     for (int32 i = 0; i < Coords.Num(); ++i)

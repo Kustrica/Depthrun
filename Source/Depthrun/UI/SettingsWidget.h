@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "InputCoreTypes.h"
 #include "SettingsWidget.generated.h"
 
 class UButton;
@@ -20,6 +21,7 @@ class DEPTHRUN_API USettingsWidget : public UUserWidget
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 public:
 	UPROPERTY(meta = (BindWidget))

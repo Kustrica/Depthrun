@@ -12,6 +12,10 @@ void USettingsWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	// Must be focusable to receive NativeOnKeyDown
+	SetIsFocusable(true);
+	SetKeyboardFocus();
+
 	if (VolumeSlider)
 	{
 		VolumeSlider->OnValueChanged.AddDynamic(this, &USettingsWidget::OnVolumeChanged);
@@ -53,4 +57,15 @@ void USettingsWidget::OnVolumeChanged(float Value)
 void USettingsWidget::OnBackClicked()
 {
 	RemoveFromParent();
+}
+
+FReply USettingsWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FKey Key = InKeyEvent.GetKey();
+	if (Key == EKeys::Escape || Key == EKeys::P)
+	{
+		RemoveFromParent();
+		return FReply::Handled();
+	}
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
