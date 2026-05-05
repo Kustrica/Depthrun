@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "InputCoreTypes.h"
 #include "PauseMenuWidget.generated.h"
 
 class UButton;
@@ -21,6 +22,7 @@ class DEPTHRUN_API UPauseMenuWidget : public UUserWidget
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 public:
 	/** Called from DepthrunCharacter::TogglePause — sets the widget visible and pauses. */

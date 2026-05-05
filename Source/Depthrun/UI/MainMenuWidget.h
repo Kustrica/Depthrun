@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "InputCoreTypes.h"
 #include "MainMenuWidget.generated.h"
 
 /**
@@ -36,6 +37,9 @@ public:
 	void OnButtonHovered();
 
 protected:
+	virtual void NativeConstruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
 	/** Override in Blueprint: animate the transition. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "MainMenu")
 	void PlayTransitionOut();

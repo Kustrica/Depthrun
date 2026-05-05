@@ -56,6 +56,7 @@ void USettingsWidget::OnVolumeChanged(float Value)
 
 void USettingsWidget::OnBackClicked()
 {
+	OnSettingsClosed.Broadcast();
 	RemoveFromParent();
 }
 
@@ -64,6 +65,7 @@ FReply USettingsWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
 	const FKey Key = InKeyEvent.GetKey();
 	if (Key == EKeys::Escape || Key == EKeys::P)
 	{
+		OnSettingsClosed.Broadcast();
 		RemoveFromParent();
 		return FReply::Handled();
 	}

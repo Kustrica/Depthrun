@@ -12,6 +12,8 @@
 void UPauseMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	SetIsFocusable(true);
+	SetKeyboardFocus();
 
 	if (ContinueBtn) ContinueBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnContinueClicked);
 	if (SettingsBtn)  SettingsBtn->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnSettingsClicked);
@@ -23,6 +25,18 @@ void UPauseMenuWidget::NativeConstruct()
 void UPauseMenuWidget::Show()
 {
 	SetVisibility(ESlateVisibility::Visible);
+	SetKeyboardFocus();
+}
+
+FReply UPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FKey Key = InKeyEvent.GetKey();
+	if (Key == EKeys::Escape || Key == EKeys::P)
+	{
+		OnContinueClicked(); // unpause + remove
+		return FReply::Handled();
+	}
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UPauseMenuWidget::OnContinueClicked()
@@ -33,18 +47,20 @@ void UPauseMenuWidget::OnContinueClicked()
 
 void UPauseMenuWidget::OnSettingsClicked()
 {
-	// Spawn WBP_Settings on top of this widget.
-	// SettingsWidgetClass must be assigned in WBP_PauseMenu (or its BP child).
 	if (!SettingsWidgetClass) return;
 	if (APlayerController* PC = GetOwningPlayer())
 	{
-		UGameplayStatics::SetGamePaused(GetWorld(), false); // unpause briefly so widgets respond
 		USettingsWidget* Settings = CreateWidget<USettingsWidget>(PC, SettingsWidgetClass);
 		if (Settings)
 		{
+			// When Settings closes, return focus to pause menu
+			Settings->OnSettingsClosed.AddLambda([this]()
+			{
+				if (IsValid(this))
+					SetKeyboardFocus();
+			});
 			Settings->AddToViewport(11);
 		}
-		UGameplayStatics::SetGamePaused(GetWorld(), true);
 	}
 }
 

@@ -6,6 +6,8 @@
 #include "InputCoreTypes.h"
 #include "SettingsWidget.generated.h"
 
+DECLARE_MULTICAST_DELEGATE(FOnSettingsClosed);
+
 class UButton;
 class USlider;
 class UTextBlock;
@@ -24,6 +26,9 @@ protected:
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 public:
+	/** Fired when the widget removes itself (Back button or Esc/P). */
+	FOnSettingsClosed OnSettingsClosed;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<USlider> VolumeSlider;
 
