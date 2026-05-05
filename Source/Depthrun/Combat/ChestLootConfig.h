@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "Engine/Texture2D.h"
 #include "ChestLootConfig.generated.h"
 
 /**
@@ -52,6 +53,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Loot|Item",
 		meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float ItemDropChance = 0.7f;
+
+	// ─── Display Icons (for chest reward popup) ───────────────────────────────
+
+	/** Icon for diamonds shown in chest reward popup. Assign diamond PNG. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Loot|Display")
+	TObjectPtr<UTexture2D> DiamondIcon;
+
+	/** Icon for potions shown in chest reward popup. Assign potion PNG. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Loot|Display")
+	TObjectPtr<UTexture2D> PotionIcon;
 
 	/** Roll a random diamond amount in [DiamondMin, DiamondMax]. */
 	int32 RollDiamonds() const;

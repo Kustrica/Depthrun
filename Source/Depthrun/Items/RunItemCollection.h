@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "Engine/Texture2D.h"
 #include "Items/RunItemTypes.h"
 #include "RunItemCollection.generated.h"
 
@@ -38,6 +39,10 @@ struct DEPTHRUN_API FRunItemData
 	/** BonusMaxHP / BonusMoveSpeed / BonusProjectileCount: numeric boost */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Parameters")
 	float NumericValue = 0.f;
+
+	/** Icon shown in chest reward popup and hub item selection. Assign your PNG here. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Display")
+	TObjectPtr<UTexture2D> ItemIcon;
 };
 
 /**

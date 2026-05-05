@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/Texture2D.h"
 #include "ChestActor.generated.h"
 
 class UBoxComponent;
@@ -10,6 +11,22 @@ class UPaperSpriteComponent;
 class UChestLootConfig;
 class URunItemCollection;
 class ADepthrunCharacter;
+
+/** Payload broadcast after chest is opened — consumed by HUD to show reward popup. */
+USTRUCT(BlueprintType)
+struct FChestRewardPayload
+{
+	GENERATED_BODY()
+
+	UPROPERTY() int32 Diamonds = 0;
+	UPROPERTY() int32 Potions  = 0;
+	UPROPERTY() FString ItemName;
+	UPROPERTY() TObjectPtr<UTexture2D> DiamondIcon;
+	UPROPERTY() TObjectPtr<UTexture2D> PotionIcon;
+	UPROPERTY() TObjectPtr<UTexture2D> ItemIcon;
+};
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnChestOpened, const FChestRewardPayload&);
 
 UCLASS()
 class DEPTHRUN_API AChestActor : public AActor
@@ -26,6 +43,9 @@ public:
     /** Item pool. Assign DA_RunItemCollection in Blueprint defaults. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chest|Loot")
     TObjectPtr<URunItemCollection> ItemCollection;
+
+    /** Broadcast after loot is distributed. HUD subscribes to spawn reward popup. */
+    FOnChestOpened OnChestOpened;
 
 protected:
     virtual void BeginPlay() override;

@@ -7,6 +7,9 @@
 
 class UHealthBarWidget;
 class UHUDOverlayWidget;
+class UChestRewardWidget;
+class AChestActor;
+struct FChestRewardPayload;
 
 /**
  * ADepthrunHUD
@@ -26,6 +29,8 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
+	/** Called by ChestActor delegate — spawns the reward popup widget. */
+	void ShowChestReward(const FChestRewardPayload& Payload);
 	/** Called by damage system to refresh HP display. */
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void UpdatePlayerHP(float Current, float Max);
@@ -45,6 +50,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "HUD|Classes")
 	TSubclassOf<UUserWidget> DebugAdaptiveWidgetClass;
 
+	/** Assign WBP_ChestRewardScroll. */
+	UPROPERTY(EditDefaultsOnly, Category = "HUD|Classes")
+	TSubclassOf<UChestRewardWidget> ChestRewardWidgetClass;
+
 private:
 	UPROPERTY()
 	TObjectPtr<UUserWidget> MainWidget;
@@ -53,4 +62,8 @@ private:
 	TObjectPtr<UUserWidget> DebugWidget;
 
 	bool bDebugWidgetVisible = false;
+
+	FTimerHandle TimerHandle_ChestSubscription;
+	TSet<AChestActor*> SubscribedChests;
+	void SubscribeToChests();
 };
