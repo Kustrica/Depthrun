@@ -87,6 +87,7 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 private:
 	/** Adds one reward row: [icon 32x32] [text]. Icon may be null → shows no image. */

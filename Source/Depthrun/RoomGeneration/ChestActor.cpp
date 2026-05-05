@@ -32,7 +32,20 @@ AChestActor::AChestActor()
 void AChestActor::BeginPlay()
 {
     Super::BeginPlay();
+
+    // Disable overlap detection initially; enable after a short delay.
+    // This prevents the chest from being instantly opened when it spawns
+    // directly on top of the player (e.g., room clears while player stands there).
+    CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     CollisionBox->OnComponentBeginOverlap.AddDynamic(this, &AChestActor::OnChestOverlap);
+
+    GetWorldTimerManager().SetTimer(TimerHandle_Activate, this,
+        &AChestActor::EnableOverlap, ActivationDelay, false);
+}
+
+void AChestActor::EnableOverlap()
+{
+    CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
 void AChestActor::OnChestOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,

@@ -64,5 +64,12 @@ protected:
 private:
     bool bOpened = false;
 
+    /** Delay before collision is active — prevents instant open when spawned under player. */
+    UPROPERTY(EditDefaultsOnly, Category = "Chest|Loot", meta = (ClampMin="0.0", ClampMax="2.0"))
+    float ActivationDelay = 0.35f;
+
+    FTimerHandle TimerHandle_Activate;
+    void EnableOverlap();
+
     void DistributeLoot(ADepthrunCharacter* Player);
 };

@@ -8,12 +8,26 @@
 #include "Components/VerticalBoxSlot.h"
 #include "Engine/Texture2D.h"
 #include "TimerManager.h"
+#include "Input/Events.h"
+#include "InputCoreTypes.h"
 #include "UI/UISoundLibrary.h"
 #include "Core/DepthrunLogChannels.h"
 
 void UChestRewardWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	// Must be hit-testable to receive mouse button events
+	SetIsFocusable(true);
+}
+
+FReply UChestRewardWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	{
+		OnAutoClose();
+		return FReply::Handled();
+	}
+	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 }
 
 void UChestRewardWidget::Show(int32 Diamonds, int32 Potions, const FString& ItemName,
