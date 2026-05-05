@@ -294,7 +294,7 @@ void URoomGeneratorSubsystem::OnPlayerEnteredRoom(ARoomBase* Room)
     if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
         if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
             if (UHUDOverlayWidget* Overlay = HUD->GetHUDOverlay())
-                Overlay->SetRoomInfo(GetClearedRoomsCount(), GeneratedRooms.Num());
+                Overlay->SetRoomInfo(GetClearedRoomsCount(), GeneratedRooms.Num() - 1);
 }
 
 void URoomGeneratorSubsystem::SetTemplates(URoomTemplate* Start, URoomTemplate* Boss, const TArray<URoomTemplate*>& Combat, const TArray<URoomTemplate*>& Treasure, const TArray<URoomTemplate*>& Rest)
@@ -318,11 +318,21 @@ ARoomBase* URoomGeneratorSubsystem::GetCurrentActiveRoom() const
 int32 URoomGeneratorSubsystem::GetClearedRoomsCount() const
 {
     int32 Count = 0;
-    for (const TObjectPtr<ARoomBase>& Room : GeneratedRooms)
+    // Skip index 0 (start room) — it auto-clears without combat and should not count
+    for (int32 i = 1; i < GeneratedRooms.Num(); ++i)
     {
-        if (Room && Room->IsCleared()) ++Count;
+        if (GeneratedRooms[i] && GeneratedRooms[i]->IsCleared()) ++Count;
     }
     return Count;
+}
+
+void URoomGeneratorSubsystem::NotifyRoomCleared()
+{
+    // Update HUD immediately when a room is cleared
+    if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+        if (ADepthrunHUD* HUD = Cast<ADepthrunHUD>(PC->GetHUD()))
+            if (UHUDOverlayWidget* Overlay = HUD->GetHUDOverlay())
+                Overlay->SetRoomInfo(GetClearedRoomsCount(), GeneratedRooms.Num() - 1);
 }
 
 void URoomGeneratorSubsystem::OnPlayerEnteredTransition(ARoomBase* FromRoom, int32 ExitIndex)

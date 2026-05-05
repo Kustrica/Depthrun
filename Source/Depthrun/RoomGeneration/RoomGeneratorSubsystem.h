@@ -38,10 +38,14 @@ public:
 
 	const TArray<ARoomBase*>& GetRooms() const { return GeneratedRooms; }
 	int32 GetCurrentRoomIndex() const { return CurrentRoomIndex; }
-	int32 GetTotalRooms() const { return GeneratedRooms.Num(); }
+	/** Total rooms excluding start room (matches GetClearedRoomsCount denominator). */
+	int32 GetTotalRooms() const { return FMath::Max(0, GeneratedRooms.Num() - 1); }
 
-	/** Returns how many rooms have been cleared (IsCleared == true). */
+	/** Returns how many rooms have been cleared (IsCleared == true), excluding start room. */
 	int32 GetClearedRoomsCount() const;
+
+	/** Called by ARoomBase::DeactivateRoom to refresh HUD immediately on clear. */
+	void NotifyRoomCleared();
 
 	/** Returns the currently active room actor, or nullptr. */
 	UFUNCTION(BlueprintPure, Category = "RoomGen")

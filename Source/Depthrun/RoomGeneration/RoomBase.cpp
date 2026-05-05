@@ -388,6 +388,14 @@ void ARoomBase::DeactivateRoom() {
   bIsActive = false;
   GetWorldTimerManager().ClearTimer(TimerHandle_CheckEnemies);
 
+  // Notify subsystem immediately so HUD updates on room clear, not on next room entry.
+  // Skip start room (no enemies, should not count).
+  if (MyTemplate && MyTemplate->RoomType != ERoomType::Start)
+  {
+    if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
+      RoomGen->NotifyRoomCleared();
+  }
+
   for (AActor *Door : SpawnedDoors) {
     if (ADoorActor *DA = Cast<ADoorActor>(Door))
       DA->OpenDoor();
