@@ -20,6 +20,9 @@ class URunItemCollection;
 class UPlayerMovementConfig;
 class UCombatMusicTrigger;
 class UPlayerEconomy;
+class UPauseMenuWidget;
+class UDeathScreenWidget;
+class UVictoryScreenWidget;
 
 /** Which direction the character sprite faces. */
 UENUM(BlueprintType)
@@ -63,6 +66,7 @@ protected:
   void HandleSwitchSlot1(const FInputActionValue &Value);
   void HandleSwitchSlot2(const FInputActionValue &Value);
   void HandleUsePotion(const FInputActionValue &Value);
+  void HandlePause(const FInputActionValue &Value);
 
   // --- Internal ---
   void Dash();
@@ -184,6 +188,10 @@ public:
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
   TObjectPtr<UInputAction> IA_UsePotion;
 
+  /** Keys P + Escape — toggle pause. Assign in Blueprint / IMC. */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+  TObjectPtr<UInputAction> IA_Pause;
+
   /** Manual rotation offset for the sprite component to match top-down view. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation|Rotation")
   FRotator SpriteRotationOffset = FRotator(-90.f, 0.f, 0.f);
@@ -208,6 +216,24 @@ public:
    */
   UFUNCTION(BlueprintCallable, Category = "Combat")
   void SwitchToWeaponSlot(int32 SlotIndex);
+
+  /** Toggle pause: show/hide PauseMenuWidget, call SetGamePaused. */
+  UFUNCTION(BlueprintCallable, Category = "Player|UI")
+  void TogglePause();
+
+  /** Show victory screen after boss cleared. Called by RoomBase/HUD. */
+  UFUNCTION(BlueprintCallable, Category = "Player|UI")
+  void ShowVictoryScreen();
+
+  // ── UI widget classes — assign in BP_DepthrunCharacter ─────────────────
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|UI")
+  TSubclassOf<UPauseMenuWidget> PauseMenuWidgetClass;
+
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|UI")
+  TSubclassOf<UDeathScreenWidget> DeathScreenWidgetClass;
+
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|UI")
+  TSubclassOf<UVictoryScreenWidget> VictoryScreenWidgetClass;
 
   // ─────────────── Flipbooks (assigned in Blueprint) ───────
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation|Idle")
@@ -354,6 +380,9 @@ private:
   bool  bZLocked = false;
 
   float RunStartTime = 0.f;
+
+  UPROPERTY()
+  TObjectPtr<UPauseMenuWidget> ActivePauseWidget;
 
   FTimerHandle DashCooldownTimer;
   FTimerHandle DashStopTimer;

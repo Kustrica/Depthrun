@@ -26,6 +26,10 @@
 #include "PaperFlipbookComponent.h"
 #include "UI/DepthrunHUD.h"
 #include "UI/HUDOverlayWidget.h"
+#include "UI/PauseMenuWidget.h"
+#include "UI/DeathScreenWidget.h"
+#include "UI/VictoryScreenWidget.h"
+#include "Blueprint/UserWidget.h"
 
 // ─── Timer handles for dash stop and attack reset ─────────────────────────
 namespace {
@@ -276,6 +280,9 @@ void ADepthrunCharacter::SetupPlayerInputComponent(
     if (IA_UsePotion)
       EIC->BindAction(IA_UsePotion, ETriggerEvent::Started, this,
                       &ADepthrunCharacter::HandleUsePotion);
+    if (IA_Pause)
+      EIC->BindAction(IA_Pause, ETriggerEvent::Started, this,
+                      &ADepthrunCharacter::HandlePause);
   }
 
   // --- Debug Bindings ---
@@ -391,6 +398,70 @@ void ADepthrunCharacter::HandleUsePotion(const FInputActionValue &) {
   if (PlayerEconomy) {
     PlayerEconomy->UsePotion();
   }
+}
+
+void ADepthrunCharacter::HandlePause(const FInputActionValue &) {
+  TogglePause();
+}
+
+void ADepthrunCharacter::TogglePause() {
+  if (bIsDead) return;
+
+  APlayerController* PC = Cast<APlayerController>(GetController());
+  if (!PC) return;
+
+  const bool bPaused = UGameplayStatics::IsGamePaused(GetWorld());
+
+  if (!bPaused) {
+    // Open pause menu
+    if (PauseMenuWidgetClass && !IsValid(ActivePauseWidget)) {
+      ActivePauseWidget = CreateWidget<UPauseMenuWidget>(PC, PauseMenuWidgetClass);
+      if (ActivePauseWidget) {
+        ActivePauseWidget->AddToViewport(10);
+        ActivePauseWidget->Show();
+      }
+    }
+    UGameplayStatics::SetGamePaused(GetWorld(), true);
+    PC->SetInputMode(FInputModeUIOnly());
+    PC->bShowMouseCursor = true;
+  } else {
+    // Close pause menu
+    if (IsValid(ActivePauseWidget)) {
+      ActivePauseWidget->RemoveFromParent();
+      ActivePauseWidget = nullptr;
+    }
+    UGameplayStatics::SetGamePaused(GetWorld(), false);
+    PC->SetInputMode(FInputModeGameOnly());
+    PC->bShowMouseCursor = false;
+  }
+}
+
+void ADepthrunCharacter::ShowVictoryScreen() {
+  APlayerController* PC = Cast<APlayerController>(GetController());
+  if (!PC || !VictoryScreenWidgetClass) return;
+
+  const float RunTime = GetWorld() ? (GetWorld()->GetTimeSeconds() - RunStartTime) : 0.f;
+  int32 EarnedDiamonds = PlayerEconomy ? PlayerEconomy->RunDiamonds : 0;
+
+  // Commit 100% diamonds to profile
+  if (PlayerEconomy) PlayerEconomy->OnRunExitToHub();
+
+  int32 TotalDiamonds = 0;
+  if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr) {
+    if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>())
+      Save->SaveRunResult(RoomGen->GetTotalRooms(), FMath::RoundToInt(RunTime), true);
+    TotalDiamonds = Save->GetTotalDiamonds();
+  }
+
+  UVictoryScreenWidget* Widget = CreateWidget<UVictoryScreenWidget>(PC, VictoryScreenWidgetClass);
+  if (Widget) {
+    Widget->AddToViewport(20);
+    Widget->Show(RunTime, EarnedDiamonds, TotalDiamonds);
+  }
+
+  DisableInput(PC);
+  PC->SetInputMode(FInputModeUIOnly());
+  PC->bShowMouseCursor = true;
 }
 
 // ─────────────────────────── Weapon Slot Switch ────────────────────────────
@@ -660,6 +731,29 @@ void ADepthrunCharacter::Die() {
     GetSprite()->SetFlipbook(FB_Death);
     GetSprite()->SetLooping(false);
     GetSprite()->Play();
+  }
+
+  // Show death screen
+  if (APlayerController* PC2 = Cast<APlayerController>(GetController())) {
+    if (DeathScreenWidgetClass) {
+      const float RunTime = GetWorld() ? (GetWorld()->GetTimeSeconds() - RunStartTime) : 0.f;
+      int32 EarnedDiamonds = PlayerEconomy ? PlayerEconomy->RunDiamonds : 0;
+      int32 TotalDiamonds  = 0;
+      int32 TotalRooms     = 0;
+      int32 ClearedRooms   = 0;
+      if (URoomGeneratorSubsystem* RoomGen = GetWorld()->GetSubsystem<URoomGeneratorSubsystem>()) {
+        ClearedRooms = RoomGen->GetClearedRoomsCount();
+        TotalRooms   = RoomGen->GetTotalRooms();
+      }
+      if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)
+        TotalDiamonds = Save->GetTotalDiamonds();
+
+      UDeathScreenWidget* DeathWidget = CreateWidget<UDeathScreenWidget>(PC2, DeathScreenWidgetClass);
+      if (DeathWidget) {
+        DeathWidget->AddToViewport(20);
+        DeathWidget->Show(RunTime, ClearedRooms, TotalRooms, EarnedDiamonds, TotalDiamonds);
+      }
+    }
   }
 }
 
