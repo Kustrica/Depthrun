@@ -29,7 +29,8 @@ public class Depthrun : ModuleRules
 			"EnhancedInput",
 			"Paper2D",
 			"Niagara",
-			"UMG"
+			"UMG",
+			"AudioMixer"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
