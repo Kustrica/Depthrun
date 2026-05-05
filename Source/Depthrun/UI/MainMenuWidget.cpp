@@ -1,6 +1,7 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "MainMenuWidget.h"
 #include "UI/SettingsWidget.h"
+#include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "UI/UISoundLibrary.h"
@@ -10,6 +11,14 @@ void UMainMenuWidget::NativeConstruct()
 	Super::NativeConstruct();
 	SetIsFocusable(true);
 	SetKeyboardFocus();
+
+	if (PlayBtn)     PlayBtn->OnClicked.AddDynamic(this, &UMainMenuWidget::OnPlayPressed);
+	if (SettingsBtn) SettingsBtn->OnClicked.AddDynamic(this, &UMainMenuWidget::OnSettingsPressed);
+	if (QuitBtn)     QuitBtn->OnClicked.AddDynamic(this, &UMainMenuWidget::OnQuitPressed);
+
+	if (PlayBtn)     PlayBtn->OnHovered.AddDynamic(this, &UMainMenuWidget::OnButtonHovered);
+	if (SettingsBtn) SettingsBtn->OnHovered.AddDynamic(this, &UMainMenuWidget::OnButtonHovered);
+	if (QuitBtn)     QuitBtn->OnHovered.AddDynamic(this, &UMainMenuWidget::OnButtonHovered);
 }
 
 FReply UMainMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)

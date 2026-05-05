@@ -50,6 +50,7 @@ public:
 	TObjectPtr<UButton> QuitBtn;
 
 private:
+	void PlayClickSound();
 	UFUNCTION() void OnToHubClicked();
 	UFUNCTION() void OnToMenuClicked();
 	UFUNCTION() void OnQuitClicked();

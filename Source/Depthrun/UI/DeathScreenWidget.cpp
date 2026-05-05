@@ -4,6 +4,7 @@
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "UI/UISoundLibrary.h"
 
 void UDeathScreenWidget::NativeConstruct()
 {
@@ -12,6 +13,14 @@ void UDeathScreenWidget::NativeConstruct()
 	if (ToHubBtn)  ToHubBtn->OnClicked.AddDynamic(this, &UDeathScreenWidget::OnToHubClicked);
 	if (ToMenuBtn) ToMenuBtn->OnClicked.AddDynamic(this, &UDeathScreenWidget::OnToMenuClicked);
 	if (QuitBtn)   QuitBtn->OnClicked.AddDynamic(this, &UDeathScreenWidget::OnQuitClicked);
+
+	auto BindHover = [this](UButton* Btn) {
+		if (Btn) Btn->OnHovered.AddLambda([this]() {
+			if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+				SFX->PlayButtonHover();
+		});
+	};
+	BindHover(ToHubBtn); BindHover(ToMenuBtn); BindHover(QuitBtn);
 }
 
 void UDeathScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 TotalRooms,
@@ -30,10 +39,14 @@ void UDeathScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 To
 			FString::Printf(TEXT("%d / %d"), RoomsCleared, TotalRooms)));
 
 	int32 DiamondsPenalty = FMath::FloorToInt(EarnedDiamonds * 0.5f);
+	int32 DiamondsFinal = EarnedDiamonds - DiamondsPenalty;
 	if (EarnedDiamondsText)
-		EarnedDiamondsText->SetText(FText::FromString(
-			FString::Printf(TEXT("+%d (-%d penalty = +%d)"),
-				EarnedDiamonds, DiamondsPenalty, EarnedDiamonds - DiamondsPenalty)));
+	{
+		FString DiamondStr = (EarnedDiamonds > 0)
+			? FString::Printf(TEXT("+%d  (-%d penalty  = +%d)"), EarnedDiamonds, DiamondsPenalty, DiamondsFinal)
+			: TEXT("0");
+		EarnedDiamondsText->SetText(FText::FromString(DiamondStr));
+	}
 
 	if (TotalDiamondsText)
 		TotalDiamondsText->SetText(FText::FromString(
@@ -48,17 +61,26 @@ void UDeathScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 To
 	}
 }
 
+void UDeathScreenWidget::PlayClickSound()
+{
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonClick();
+}
+
 void UDeathScreenWidget::OnToHubClicked()
 {
+	PlayClickSound();
 	UGameplayStatics::OpenLevel(GetWorld(), TEXT("L_Hub"));
 }
 
 void UDeathScreenWidget::OnToMenuClicked()
 {
+	PlayClickSound();
 	UGameplayStatics::OpenLevel(GetWorld(), TEXT("L_MainMenu"));
 }
 
 void UDeathScreenWidget::OnQuitClicked()
 {
+	PlayClickSound();
 	UKismetSystemLibrary::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
 }

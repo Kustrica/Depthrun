@@ -4,6 +4,7 @@
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "UI/UISoundLibrary.h"
 
 void UVictoryScreenWidget::NativeConstruct()
 {
@@ -12,6 +13,14 @@ void UVictoryScreenWidget::NativeConstruct()
 	if (ToHubBtn)  ToHubBtn->OnClicked.AddDynamic(this, &UVictoryScreenWidget::OnToHubClicked);
 	if (ToMenuBtn) ToMenuBtn->OnClicked.AddDynamic(this, &UVictoryScreenWidget::OnToMenuClicked);
 	if (QuitBtn)   QuitBtn->OnClicked.AddDynamic(this, &UVictoryScreenWidget::OnQuitClicked);
+
+	auto BindHover = [this](UButton* Btn) {
+		if (Btn) Btn->OnHovered.AddLambda([this]() {
+			if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+				SFX->PlayButtonHover();
+		});
+	};
+	BindHover(ToHubBtn); BindHover(ToMenuBtn); BindHover(QuitBtn);
 }
 
 void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 EarnedDiamonds, int32 TotalDiamondsAfter)
@@ -24,8 +33,12 @@ void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 EarnedDiamonds, int3
 			FString::Printf(TEXT("%d:%02d"), Minutes, Seconds)));
 
 	if (EarnedDiamondsText)
-		EarnedDiamondsText->SetText(FText::FromString(
-			FString::Printf(TEXT("+%d"), EarnedDiamonds)));
+	{
+		FString DiamondStr = (EarnedDiamonds > 0)
+			? FString::Printf(TEXT("+%d"), EarnedDiamonds)
+			: TEXT("0");
+		EarnedDiamondsText->SetText(FText::FromString(DiamondStr));
+	}
 
 	if (TotalDiamondsText)
 		TotalDiamondsText->SetText(FText::FromString(
@@ -40,17 +53,26 @@ void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 EarnedDiamonds, int3
 	}
 }
 
+void UVictoryScreenWidget::PlayClickSound()
+{
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonClick();
+}
+
 void UVictoryScreenWidget::OnToHubClicked()
 {
+	PlayClickSound();
 	UGameplayStatics::OpenLevel(GetWorld(), TEXT("L_Hub"));
 }
 
 void UVictoryScreenWidget::OnToMenuClicked()
 {
+	PlayClickSound();
 	UGameplayStatics::OpenLevel(GetWorld(), TEXT("L_MainMenu"));
 }
 
 void UVictoryScreenWidget::OnQuitClicked()
 {
+	PlayClickSound();
 	UKismetSystemLibrary::QuitGame(GetWorld(), GetOwningPlayer(), EQuitPreference::Quit, false);
 }

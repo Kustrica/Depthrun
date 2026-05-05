@@ -6,6 +6,8 @@
 #include "InputCoreTypes.h"
 #include "MainMenuWidget.generated.h"
 
+class UButton;
+
 /**
  * UMainMenuWidget
  * First screen the player sees on launch.
@@ -53,4 +55,14 @@ protected:
 	/** Assign WBP_Settings. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MainMenu")
 	TSubclassOf<USettingsWidget> SettingsWidgetClass;
+
+	// ── Buttons — names must match exactly in WBP (BindWidget) ───────────────
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> PlayBtn;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> SettingsBtn;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> QuitBtn;
 };

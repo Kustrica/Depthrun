@@ -41,15 +41,26 @@ void USettingsWidget::OnVolumeChanged(float Value)
 	if (VolumeValueText)
 		VolumeValueText->SetText(FText::FromString(FString::Printf(TEXT("%.0f%%"), Value * 100.f)));
 
-	// Apply to SC_Master sound class via sound mix
 	if (UDepthrunGameInstance* GI = Cast<UDepthrunGameInstance>(GetGameInstance()))
 	{
 		GI->MasterVolume = Value;
 		if (GI->MasterSoundMix && GI->MasterSoundClass)
 		{
+			// Apply to project SC_Master class
 			UGameplayStatics::SetSoundMixClassOverride(
 				GetWorld(), GI->MasterSoundMix, GI->MasterSoundClass, Value, 1.f, 0.f, true);
 			UGameplayStatics::PushSoundMixModifier(GetWorld(), GI->MasterSoundMix);
+		}
+		// Also apply to engine built-in "Master" class so ALL sounds are affected
+		// regardless of whether they explicitly use SC_Master
+		if (GI->MasterSoundMix)
+		{
+			if (USoundClass* BuiltInMaster = LoadObject<USoundClass>(
+				nullptr, TEXT("/Engine/EngineSounds/Master.Master")))
+			{
+				UGameplayStatics::SetSoundMixClassOverride(
+					GetWorld(), GI->MasterSoundMix, BuiltInMaster, Value, 1.f, 0.f, true);
+			}
 		}
 	}
 }
