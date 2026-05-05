@@ -1,6 +1,7 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "MainMenuWidget.h"
 #include "UI/SettingsWidget.h"
+#include "UI/MainMenuSettingsWidget.h"
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -47,7 +48,7 @@ void UMainMenuWidget::OnSettingsPressed()
 
 	if (!SettingsWidgetClass) return;
 
-	USettingsWidget* Settings = CreateWidget<USettingsWidget>(GetOwningPlayer(), SettingsWidgetClass);
+	UMainMenuSettingsWidget* Settings = CreateWidget<UMainMenuSettingsWidget>(GetOwningPlayer(), SettingsWidgetClass);
 	if (!Settings) return;
 
 	SetVisibility(ESlateVisibility::Hidden);

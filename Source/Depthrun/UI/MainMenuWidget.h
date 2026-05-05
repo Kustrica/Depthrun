@@ -17,6 +17,7 @@ class UButton;
  * Implementation: Stage 9A.
  */
 class USettingsWidget;
+class UMainMenuSettingsWidget;
 
 UCLASS()
 class DEPTHRUN_API UMainMenuWidget : public UUserWidget
@@ -52,9 +53,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MainMenu")
 	FName HubLevelName = TEXT("L_Hub");
 
-	/** Assign WBP_Settings. */
+	/** Assign WBP_MainMenuSettings (copy of WBP_Settings with background). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MainMenu")
-	TSubclassOf<USettingsWidget> SettingsWidgetClass;
+	TSubclassOf<UMainMenuSettingsWidget> SettingsWidgetClass;
 
 	// ── Buttons — names must match exactly in WBP (BindWidget) ───────────────
 	UPROPERTY(meta = (BindWidgetOptional))
