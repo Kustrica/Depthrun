@@ -458,19 +458,29 @@ void ARoomBase::SpawnEnemies() {
       TotalWeight += Info.Weight;
   }
 
+  // Available inner tiles: X=[2..5], Y=[2..3] → 4×2 = 8 slots
+  // If Count > free slots we stop early to avoid an infinite retry loop.
+  constexpr int32 MaxSpawnRetries = 32;
+
   for (int32 i = 0; i < Count; ++i) {
     if (MyTemplate->PotentialEnemies.Num() == 0 || TotalWeight <= 0.f)
       break;
 
     // Spawn enemies in the inner area only — keep distance from doors
     // so the player doesn't get stuck in an enemy when entering the room.
-    int32 RX = FMath::RandRange(2, 5);
-    int32 RY = FMath::RandRange(2, 3);
-    if (OccupiedTiles.Contains(FIntPoint(RX, RY)))
+    int32 RX = 0, RY = 0;
+    bool bFoundFreeTile = false;
+    for (int32 Retry = 0; Retry < MaxSpawnRetries; ++Retry)
     {
-      --i; // tile occupied — retry, don't waste this spawn slot
-      continue;
+      RX = FMath::RandRange(2, 5);
+      RY = FMath::RandRange(2, 3);
+      if (!OccupiedTiles.Contains(FIntPoint(RX, RY)))
+      {
+        bFoundFreeTile = true;
+        break;
+      }
     }
+    if (!bFoundFreeTile) break; // no free tiles left — stop spawning
 
     // Use EnemyLockedZ directly from DataAsset (no clamping applied here).
     FVector SpawnLoc = GetActorLocation() +
@@ -499,6 +509,8 @@ void ARoomBase::SpawnEnemies() {
           {
             BaseEnemy->SetLockedZ(MyTemplate->EnemyLockedZ);
           }
+          // Mark tile as occupied so no second enemy spawns in the same spot.
+          OccupiedTiles.Add(FIntPoint(RX, RY));
           // Enemies stay at scale 1.0 — do not apply the tilemap visual scale.
           SpawnedEnemies.Add(Enemy);
         }

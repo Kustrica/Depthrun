@@ -28,4 +28,8 @@ public:
 	/** Distance threshold (cm) at which Chase requests transition to Attack. */
 	UPROPERTY(EditDefaultsOnly, Category = "FSM|Chase")
 	float AttackRangeThreshold = 120.f;
+
+private:
+	/** Timer for ranged shots during Chase (ranged enemies only). */
+	float TimeSinceLastRangedShot = 0.f;
 };

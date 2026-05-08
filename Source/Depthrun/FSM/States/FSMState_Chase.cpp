@@ -1,6 +1,7 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "FSMState_Chase.h"
 #include "Enemy/BaseEnemy.h"
+#include "Enemy/AdaptiveEnemy.h"
 #include "FSM/FSMComponent.h"
 #include "Core/DepthrunLogChannels.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -10,6 +11,7 @@
 void UFSMState_Chase::EnterState(ABaseEnemy* Owner)
 {
 	Super::EnterState(Owner);
+	TimeSinceLastRangedShot = Owner ? Owner->AttackCooldown * 0.5f : 0.f; // half-cooldown head start
 	UE_LOG(LogFSM, Log, TEXT("[Chase] Enter — %s"), *GetNameSafe(Owner));
 }
 
@@ -70,6 +72,20 @@ void UFSMState_Chase::TickState(ABaseEnemy* Owner, float DeltaTime)
     Dir = (Dir + Separation * 0.8f).GetSafeNormal2D();
 
 	Owner->AddMovementInput(Dir);
+
+	// Ranged enemies shoot while chasing — fire on cooldown even during movement
+	if (AAdaptiveEnemy* AdaptiveOwner = Cast<AAdaptiveEnemy>(Owner))
+	{
+		if (AdaptiveOwner->bIsRangedMode)
+		{
+			TimeSinceLastRangedShot += DeltaTime;
+			if (TimeSinceLastRangedShot >= Owner->AttackCooldown)
+			{
+				TimeSinceLastRangedShot = 0.f;
+				AdaptiveOwner->PerformMeleeAttack();
+			}
+		}
+	}
 }
 
 void UFSMState_Chase::ExitState(ABaseEnemy* Owner)

@@ -1,5 +1,6 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "FSMState_Attack.h"
+#include "Enemy/AdaptiveEnemy.h"
 #include "Enemy/BaseEnemy.h"
 #include "FSM/FSMComponent.h"
 #include "Core/DepthrunLogChannels.h"
@@ -14,13 +15,15 @@ void UFSMState_Attack::EnterState(ABaseEnemy* Owner)
 	bAttackCoolingDown  = false;
 	TimeInAttackState   = 0.f;
 
-	// Stop moving during attack.
-	if (Owner && Owner->GetCharacterMovement())
+	// Ranged enemies keep moving — only stop melee enemies during attack.
+	AAdaptiveEnemy* Adaptive = Cast<AAdaptiveEnemy>(Owner);
+	bool bIsRanged = Adaptive && Adaptive->bIsRangedMode;
+	if (!bIsRanged && Owner && Owner->GetCharacterMovement())
 	{
 		Owner->GetCharacterMovement()->StopMovementImmediately();
 	}
 
-	UE_LOG(LogFSM, Log, TEXT("[Attack] Enter — %s"), *GetNameSafe(Owner));
+	UE_LOG(LogFSM, Log, TEXT("[Attack] Enter — %s (ranged=%s)"), *GetNameSafe(Owner), bIsRanged ? TEXT("true") : TEXT("false"));
 }
 
 void UFSMState_Attack::TickState(ABaseEnemy* Owner, float DeltaTime)
@@ -52,19 +55,24 @@ void UFSMState_Attack::TickState(ABaseEnemy* Owner, float DeltaTime)
 	TimeSinceLastAttack += DeltaTime;
 	TimeInAttackState   += DeltaTime;
 
-	// ── Exit condition: player moved out of attack range ───────────────────
-	// Only allow exit after MinTimeBeforeDistanceExit to prevent frame-level
-	// Chase<->Attack oscillation when the enemy sits exactly at AttackRange.
-	if (TimeInAttackState >= MinTimeBeforeDistanceExit && Dist > Owner->AttackRange * 1.2f)
+	// Check if this is a ranged adaptive enemy
+	AAdaptiveEnemy* Adaptive = Cast<AAdaptiveEnemy>(Owner);
+	const bool bIsRanged = Adaptive && Adaptive->bIsRangedMode;
+
+	// ── Ranged: back off if player is too close ────────────────────────────
+	if (bIsRanged && Dist < Owner->MinAttackRange)
 	{
-		FSM->TransitionTo(EFSMStateType::Chase);
+		FSM->TransitionTo(EFSMStateType::Retreat);
 		return;
 	}
 
-	// ── Commercial Fix: Ranged enemies should back off if player is too close
-	if (Owner->GetEnemyType() == EEnemyType::Ranged && Dist < Owner->MinAttackRange)
+	// ── Exit condition: player moved out of attack range ───────────────────
+	// Ranged enemies have a much larger effective attack range (use MinAttackRange as lower bound).
+	// Melee enemies exit to Chase when player walks away past AttackRange.
+	const float ExitRange = bIsRanged ? Owner->DetectionRange * 0.9f : Owner->AttackRange * 1.2f;
+	if (TimeInAttackState >= MinTimeBeforeDistanceExit && Dist > ExitRange)
 	{
-		FSM->TransitionTo(EFSMStateType::Retreat);
+		FSM->TransitionTo(EFSMStateType::Chase);
 		return;
 	}
 
@@ -73,7 +81,15 @@ void UFSMState_Attack::TickState(ABaseEnemy* Owner, float DeltaTime)
 	{
 		TimeSinceLastAttack = 0.f;
 		Owner->PerformMeleeAttack(); // Delegate actual attack to the enemy actor
-		UE_LOG(LogFSM, Log, TEXT("[Attack] %s → attack fired"), *GetNameSafe(Owner));
+		UE_LOG(LogFSM, Log, TEXT("[Attack] %s → attack fired (ranged=%s)"), *GetNameSafe(Owner), bIsRanged ? TEXT("true") : TEXT("false"));
+	}
+
+	// ── Ranged: strafe sideways to avoid standing still ───────────────────
+	if (bIsRanged)
+	{
+		const FVector ToPlayer   = (Player->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal2D();
+		const FVector Strafe     = FVector(-ToPlayer.Y, ToPlayer.X, 0.f); // perpendicular
+		Owner->AddMovementInput(Strafe, 0.4f);
 	}
 
     // Stage 12: Separation during attack

@@ -159,23 +159,23 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
   // Stage 7.5 / Sprint Refinement: Dynamic Ranged Mode Toggle (Auto-Ranged)
   if (Owner)
   {
-      // Switch to range if Flanking (tactical) or if Retreating (hybrid support)
-      bool bShouldBeRanged = (NewState == EFSMStateType::Flank) || (NewState == EFSMStateType::Retreat);
-      
-      // Determine distance threshold based on combat style for Chase/Attack
-      float RangeThreshold = 100.f;
+      // Ranged mode threshold: distance at which enemy switches to bow.
+      // Balanced: ranged when player is farther than AttackRange (melee zone).
+      // MeleeOriented: ranged only when very far (prefers melee).
+      // RangedOriented: always ranged unless player is inside melee range.
+      float RangeThreshold = Owner->AttackRange * 1.5f; // default: just outside melee range
       switch (CombatStyle)
       {
-          case EEnemyCombatStyle::MeleeOriented:  RangeThreshold = 300.f; break; // Stays melee longer
-          case EEnemyCombatStyle::Balanced:       RangeThreshold = 100.f; break;
-          case EEnemyCombatStyle::RangedOriented: RangeThreshold = 20.f;  break; // Takes bow MUCH earlier
+          case EEnemyCombatStyle::MeleeOriented:  RangeThreshold = Owner->DetectionRange * 0.8f; break;
+          case EEnemyCombatStyle::Balanced:       RangeThreshold = Owner->AttackRange * 1.5f;    break;
+          case EEnemyCombatStyle::RangedOriented: RangeThreshold = Owner->AttackRange;            break;
       }
 
-      // Also stay ranged if we are far and in Attack/Chase
-      if (LastContext.DistanceToPlayer > RangeThreshold && (NewState == EFSMStateType::Attack || NewState == EFSMStateType::Chase))
-      {
-          bShouldBeRanged = true;
-      }
+      // Ranged when: flanking, retreating, or player is beyond melee threshold
+      bool bShouldBeRanged = (NewState == EFSMStateType::Flank)
+                           || (NewState == EFSMStateType::Retreat)
+                           || (LastContext.DistanceToPlayer > RangeThreshold
+                               && (NewState == EFSMStateType::Attack || NewState == EFSMStateType::Chase));
 
       // Cast to AdaptiveEnemy to access the property
       if (AAdaptiveEnemy* AdaptiveOwner = Cast<AAdaptiveEnemy>(Owner))
