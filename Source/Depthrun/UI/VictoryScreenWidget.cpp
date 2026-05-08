@@ -14,13 +14,9 @@ void UVictoryScreenWidget::NativeConstruct()
 	if (ToMenuBtn) ToMenuBtn->OnClicked.AddDynamic(this, &UVictoryScreenWidget::OnToMenuClicked);
 	if (QuitBtn)   QuitBtn->OnClicked.AddDynamic(this, &UVictoryScreenWidget::OnQuitClicked);
 
-	auto BindHover = [this](UButton* Btn) {
-		if (Btn) Btn->OnHovered.AddLambda([this]() {
-			if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
-				SFX->PlayButtonHover();
-		});
-	};
-	BindHover(ToHubBtn); BindHover(ToMenuBtn); BindHover(QuitBtn);
+	if (ToHubBtn)  ToHubBtn->OnHovered.AddDynamic(this, &UVictoryScreenWidget::OnButtonHovered);
+	if (ToMenuBtn) ToMenuBtn->OnHovered.AddDynamic(this, &UVictoryScreenWidget::OnButtonHovered);
+	if (QuitBtn)   QuitBtn->OnHovered.AddDynamic(this, &UVictoryScreenWidget::OnButtonHovered);
 }
 
 void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 TotalRooms, int32 EarnedDiamonds, int32 TotalDiamondsAfter)
@@ -55,6 +51,12 @@ void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 
 		PC->SetInputMode(FInputModeUIOnly());
 		PC->bShowMouseCursor = true;
 	}
+}
+
+void UVictoryScreenWidget::OnButtonHovered()
+{
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonHover();
 }
 
 void UVictoryScreenWidget::PlayClickSound()

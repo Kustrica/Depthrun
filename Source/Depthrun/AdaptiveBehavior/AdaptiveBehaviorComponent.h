@@ -81,6 +81,10 @@ public:
   UFUNCTION(BlueprintPure, Category = "Adaptive|Debug")
   FThreatAssessment GetLastThreatAssessment() const;
 
+  /** Last evaluated context — used by debug widget for raw factor display. */
+  UFUNCTION(BlueprintPure, Category = "Adaptive|Debug")
+  FContextData GetLastContext() const;
+
   // ─── Reward signals (called by damage delegates) ──────────────────────────
 
   /** Call when this enemy deals damage. Reward = +1. */

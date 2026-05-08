@@ -8,15 +8,12 @@
 #include "Components/VerticalBoxSlot.h"
 #include "Engine/Texture2D.h"
 #include "TimerManager.h"
-#include "Components/Button.h"
 #include "UI/UISoundLibrary.h"
 #include "Core/DepthrunLogChannels.h"
 
 void UChestRewardWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	if (ClickOverlay)
-		ClickOverlay->OnClicked.AddDynamic(this, &UChestRewardWidget::OnAutoClose);
 }
 
 void UChestRewardWidget::Show(int32 Diamonds, int32 Potions, const FString& ItemName,
@@ -43,8 +40,9 @@ void UChestRewardWidget::Show(int32 Diamonds, int32 Potions, const FString& Item
 	if (!ItemName.IsEmpty())
 		AddRewardRow(ItemIcon, ItemName);
 
-	// Add to viewport
-	AddToViewport(20);
+	// Add to viewport (guard against double-add if Show() is called again)
+	if (!IsInViewport())
+		AddToViewport(20);
 
 	// Start countdown
 	SecondsRemaining = FMath::RoundToInt(AutoCloseDelay);
@@ -119,7 +117,7 @@ void UChestRewardWidget::OnCountdownTick()
 			FString::Printf(TEXT("Closing in %d..."), SecondsRemaining)));
 }
 
-void UChestRewardWidget::OnAutoClose()
+void UChestRewardWidget::Close()
 {
 	if (UWorld* World = GetWorld())
 	{
@@ -127,4 +125,9 @@ void UChestRewardWidget::OnAutoClose()
 		World->GetTimerManager().ClearTimer(TimerHandle_AutoClose);
 	}
 	RemoveFromParent();
+}
+
+void UChestRewardWidget::OnAutoClose()
+{
+	Close();
 }

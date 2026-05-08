@@ -32,6 +32,10 @@ public:
 	/** Called by ChestActor delegate — spawns the reward popup widget. */
 	void ShowChestReward(const FChestRewardPayload& Payload);
 
+	/** Close the chest reward popup immediately (call from player Blueprint on LMB). */
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void CloseChestReward();
+
 	/** Called by AChestActor::BeginPlay to register itself. Guaranteed before any overlap. */
 	void RegisterChest(AChestActor* Chest);
 	/** Called by damage system to refresh HP display. */
@@ -63,6 +67,10 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UUserWidget> DebugWidget;
+
+	/** Currently visible chest reward popup, if any. */
+	UPROPERTY()
+	TObjectPtr<UChestRewardWidget> ActiveChestWidget;
 
 	bool bDebugWidgetVisible = false;
 

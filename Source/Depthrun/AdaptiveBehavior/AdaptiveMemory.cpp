@@ -1,10 +1,11 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
+// Variant E: exponential decay replaced by simple time-window counter.
 #include "AdaptiveMemory.h"
 #include "AdaptiveConfig.h"
 
 void UAdaptiveMemory::Initialize(const UAdaptiveConfig* Config)
 {
-	if (Config) { MaxBufferSize = Config->MemoryBufferSize; }
+	if (Config) { MemoryWindowSeconds = Config->MemoryWindowSeconds; }
 	MemoryBuffer.Reserve(MaxBufferSize);
 }
 
@@ -12,54 +13,61 @@ void UAdaptiveMemory::RecordEvent(const FMemoryEvent& Event)
 {
 	if (MemoryBuffer.Num() >= MaxBufferSize)
 	{
-		MemoryBuffer.RemoveAt(0); // evict oldest
+		// O(1) eviction: swap an arbitrary entry with last, then pop.
+		// Order does not matter — CountWindowMetric filters by timestamp, not position.
+		MemoryBuffer[0] = MemoryBuffer.Last();
+		MemoryBuffer.Pop(EAllowShrinking::No);
 	}
 	MemoryBuffer.Add(Event);
 }
 
-float UAdaptiveMemory::GetDecayedAggressiveness(float CurrentTime, float Lambda) const
+// Lambda param kept for API compatibility — ignored in Variant E
+float UAdaptiveMemory::GetDecayedAggressiveness(float CurrentTime, float /*Lambda*/) const
 {
-	return ComputeDecayedMetric(CurrentTime, Lambda, [](EPlayerActionType T)
+	return CountWindowMetric(CurrentTime, [](EPlayerActionType T)
 	{
 		return T == EPlayerActionType::Shot || T == EPlayerActionType::MeleeAttack;
 	});
 }
 
-float UAdaptiveMemory::GetDecayedMobility(float CurrentTime, float Lambda) const
+float UAdaptiveMemory::GetDecayedMobility(float CurrentTime, float /*Lambda*/) const
 {
-	return ComputeDecayedMetric(CurrentTime, Lambda, [](EPlayerActionType T)
+	return CountWindowMetric(CurrentTime, [](EPlayerActionType T)
 	{
 		return T == EPlayerActionType::Dash;
 	});
 }
 
-float UAdaptiveMemory::GetDecayedCaution(float CurrentTime, float Lambda) const
+float UAdaptiveMemory::GetDecayedCaution(float CurrentTime, float /*Lambda*/) const
 {
-	return ComputeDecayedMetric(CurrentTime, Lambda, [](EPlayerActionType T)
+	return CountWindowMetric(CurrentTime, [](EPlayerActionType T)
 	{
 		return T == EPlayerActionType::Heal;
 	});
 }
 
-void UAdaptiveMemory::CleanupOldEvents(float CurrentTime, float MaxAge)
+void UAdaptiveMemory::CleanupOldEvents(float CurrentTime, float /*MaxAge*/)
 {
-	MemoryBuffer.RemoveAll([CurrentTime, MaxAge](const FMemoryEvent& Ev)
+	// Always prune by the window (MaxAge param ignored in Variant E)
+	MemoryBuffer.RemoveAll([CurrentTime, this](const FMemoryEvent& Ev)
 	{
-		return (CurrentTime - Ev.Timestamp) > MaxAge;
+		return (CurrentTime - Ev.Timestamp) > MemoryWindowSeconds;
 	});
 }
 
-float UAdaptiveMemory::ComputeDecayedMetric(float CurrentTime, float Lambda,
+float UAdaptiveMemory::CountWindowMetric(float CurrentTime,
 	TFunctionRef<bool(EPlayerActionType)> Filter) const
 {
-	float Total = 0.f;
+	if (MemoryWindowSeconds <= 0.f) return 0.f;
+
+	int32 Count = 0;
 	for (const FMemoryEvent& Ev : MemoryBuffer)
 	{
-		if (Filter(Ev.ActionType))
+		if ((CurrentTime - Ev.Timestamp) <= MemoryWindowSeconds && Filter(Ev.ActionType))
 		{
-			const float DeltaT = CurrentTime - Ev.Timestamp;
-			Total += Ev.Intensity * FMath::Exp(-Lambda * DeltaT);
+			++Count;
 		}
 	}
-	return Total;
+	// Normalize: 1 action/second = max aggressiveness (clamped to [0,1])
+	return FMath::Clamp(static_cast<float>(Count) / MemoryWindowSeconds, 0.f, 1.f);
 }

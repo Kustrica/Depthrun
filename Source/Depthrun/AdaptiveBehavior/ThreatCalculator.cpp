@@ -1,46 +1,17 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "ThreatCalculator.h"
 #include "AdaptiveConfig.h"
-#include "AdaptiveMemory.h"
 #include "DynamicWeightManager.h"
-#include "Utils/MathUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogThreatCalculator, Log, All);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-namespace
-{
-	/** Running mean and variance over a fixed-size ring buffer (Welford-style). */
-	void ComputeMeanAndVariance(const TArray<float>& Buffer, float& OutMean, float& OutVariance)
-	{
-		OutMean = 0.f;
-		OutVariance = 0.f;
-		if (Buffer.IsEmpty()) return;
-
-		for (float V : Buffer) OutMean += V;
-		OutMean /= Buffer.Num();
-
-		for (float V : Buffer) OutVariance += FMath::Square(V - OutMean);
-		OutVariance /= Buffer.Num();
-	}
-
-	void PushToRingBuffer(TArray<float>& Buffer, float Value, int32 MaxSize)
-	{
-		if (Buffer.Num() >= MaxSize) Buffer.RemoveAt(0);
-		Buffer.Add(Value);
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Layer 2 main pipeline
+// Layer 2 main pipeline  (Variant E — simplified)
+// T_final = clamp( Σ w_i * f_i(x_i), 0, 1 )
 // ─────────────────────────────────────────────────────────────────────────────
 
 FThreatAssessment UThreatCalculator::CalculateThreat(
 	const FContextData&          Context,
-	const UAdaptiveMemory*       Memory,
 	const UDynamicWeightManager* WeightsMgr,
 	const UAdaptiveConfig*       Config)
 {
@@ -49,45 +20,23 @@ FThreatAssessment UThreatCalculator::CalculateThreat(
 
 	const TArray<float>& W = WeightsMgr ? WeightsMgr->GetWeights() : DefaultWeights;
 
-	// ── Phase 3-4: T_base + T_cross ─────────────────────────────────────────
-	Result.ThreatBase  = ComputeTBase(Context, W);
-	Result.ThreatCross = ComputeTCross(Context, W, Config);
-	Result.ThreatRaw   = FMath::Clamp(Result.ThreatBase + Config->CrossTermBeta * Result.ThreatCross, 0.f, 1.f);
+	// T_base = Σ w_i * f_i(x_i)
+	Result.ThreatBase = ComputeTBase(Context, W);
 
-	// Commercial Fix: If player is too far (DistanceNorm == 0), there is no threat.
-	if (Context.DistanceNorm <= 0.001f)
-	{
-		Result.ThreatRaw = 0.f;
-	}
+	// No cross-terms, no smoothing — T_raw = T_base
+	Result.ThreatRaw = Result.ThreatBase;
 
-	// ── Phase 5a: Store T_raw for σ² computation ─────────────────────────────
-	PushToRingBuffer(TRawHistory, Result.ThreatRaw, Config->ConfidenceWindow);
-
-	// ── Phase 5b: Confidence C = 1 / (1 + σ²) ───────────────────────────────
-	Result.Confidence = ComputeConfidence();
-
-	// ── Phase 5c: Exponential smoothing T_smooth = α*T_raw + (1-α)*T_prev ───
-	Result.ThreatSmoothed = Config->SmoothingAlpha * Result.ThreatRaw
-	                      + (1.f - Config->SmoothingAlpha) * LastTSmooth;
-	LastTSmooth = Result.ThreatSmoothed;
-
-	// ── Phase 5d: T_final = C*T_smooth + (1-C)*T_default ────────────────────
-	Result.ThreatFinal = FMath::Clamp(
-		Result.Confidence * Result.ThreatSmoothed + (1.f - Result.Confidence) * Config->DefaultThreat,
-		0.f, 1.f);
-
-	// ── Stage 6K: Adaptive thresholds — rolling μ/σ over T_final ────────────
-	PushToRingBuffer(TFinalHistory, Result.ThreatFinal, Config->AdaptiveThresholdWindow);
-	float Mean, Variance;
-	ComputeMeanAndVariance(TFinalHistory, Mean, Variance);
-	Result.AdaptiveMeanThreat   = Mean;
-	Result.AdaptiveStdDevThreat = FMath::Sqrt(Variance);
+	// T_final = clamp(T_raw, 0, 1)
+	// Note: when DistanceNorm = 0 (player beyond MaxEngagementRange), fD = 0 and
+	// its w_i contribution disappears naturally. Other factors (HP, Memory, etc.)
+	// remain active — do NOT force T_final = 0 here.
+	Result.ThreatFinal    = FMath::Clamp(Result.ThreatRaw, 0.f, 1.f);
+	Result.ThreatSmoothed = Result.ThreatFinal; // kept for debug widget compat
+	Result.Confidence     = 1.f;               // kept for debug widget compat
 
 	UE_LOG(LogThreatCalculator, Verbose,
-		TEXT("[Threat] T_base=%.3f T_cross=%.3f T_raw=%.3f C=%.3f T_smooth=%.3f T_final=%.3f | μ=%.3f σ=%.3f"),
-		Result.ThreatBase, Result.ThreatCross, Result.ThreatRaw,
-		Result.Confidence, Result.ThreatSmoothed, Result.ThreatFinal,
-		Result.AdaptiveMeanThreat, Result.AdaptiveStdDevThreat);
+		TEXT("[Threat] T_base=%.3f T_final=%.3f"),
+		Result.ThreatBase, Result.ThreatFinal);
 
 	LastAssessment = Result;
 	return Result;
@@ -101,67 +50,24 @@ float UThreatCalculator::ComputeTBase(const FContextData& Ctx, const TArray<floa
 {
 	if (W.Num() < 6) return 0.f;
 
-	// f_D(x): Distance is already sigmoid-transformed by ContextEvaluator (Layer 1)
+	// f_D: linear normalization (no sigmoid — simpler, still [0,1])
 	const float fD = Ctx.DistanceNorm;
 
-	// f_W(x): linear (weapon type is discrete)
+	// f_W: discrete weapon threat lookup [0,1]
 	const float fW = Ctx.WeaponThreatNorm;
 
-	// f_H(x): already x^α from ContextEvaluator (quadratic)
+	// f_H: quadratic inverse HP — x^2 where x = 1 - HPRatio (low HP → high threat)
 	const float fH = Ctx.EnemyHPRatioNorm;
 
-	// f_A(x) = 1 - sqrt(A_norm): inverse — more allies → less threat
+	// f_A: inverse — more allies → less threat
 	const float fA = 1.f - FMath::Sqrt(FMath::Clamp(Ctx.AllyCountNorm, 0.f, 1.f));
 
-	// f_R(x): linear
+	// f_R: room density [0,1]
 	const float fR = Ctx.RoomDensityNorm;
 
-	// f_M(x): decayed aggressiveness (already computed by ContextEvaluator with Memory)
-	// Clamped to [0,1] for formula consistency
+	// f_M: simple aggressiveness counter, normalized to [0,1] by ContextEvaluator
 	const float fM = FMath::Clamp(Ctx.MemoryAggressiveness, 0.f, 1.f);
 
 	return W[0]*fD + W[1]*fW + W[2]*fH + W[3]*fA + W[4]*fR + W[5]*fM;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// T_cross = w_DH * f_D * f_H  +  w_WM * W_norm * M_attack
-// ─────────────────────────────────────────────────────────────────────────────
-float UThreatCalculator::ComputeTCross(const FContextData& Ctx, const TArray<float>& W, const UAdaptiveConfig* Cfg) const
-{
-	if (!Cfg) return 0.f;
-
-	// Cross-term 1: close + low HP → exponential spike (not just arithmetic addition)
-	const float CrossDH = Cfg->CrossWeightDistanceHealth * Ctx.DistanceNorm * Ctx.EnemyHPRatioNorm;
-
-	// Cross-term 2: ranged weapon + player aggression memory
-	const float MAttack = FMath::Clamp(Ctx.MemoryAggressiveness, 0.f, 1.f);
-	const float CrossWM = Cfg->CrossWeightWeaponMemory * Ctx.WeaponThreatNorm * MAttack;
-
-	return CrossDH + CrossWM;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Confidence C = 1 / (1 + σ²)   where σ² = variance(TRawHistory)
-// ─────────────────────────────────────────────────────────────────────────────
-float UThreatCalculator::ComputeConfidence() const
-{
-	if (TRawHistory.IsEmpty()) return 1.f;
-
-	float Mean, Variance;
-	ComputeMeanAndVariance(TRawHistory, Mean, Variance);
-	return 1.f / (1.f + Variance);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Adaptive thresholds (Stage 6K)
-// ─────────────────────────────────────────────────────────────────────────────
-float UThreatCalculator::GetHighThreatThreshold() const
-{
-	return FMath::Clamp(LastAssessment.AdaptiveMeanThreat + LastAssessment.AdaptiveStdDevThreat, 0.f, 1.f);
-}
-
-float UThreatCalculator::GetLowThreatThreshold() const
-{
-	return FMath::Clamp(LastAssessment.AdaptiveMeanThreat - LastAssessment.AdaptiveStdDevThreat, 0.f, 1.f);
 }
 

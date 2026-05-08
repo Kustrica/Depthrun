@@ -7,24 +7,20 @@
 #include "ThreatCalculator.generated.h"
 
 class UAdaptiveConfig;
-class UAdaptiveMemory;
 class UDynamicWeightManager;
 
 /**
  * UThreatCalculator — Layer 2
- * Computes T_final from normalized context data with confidence scoring.
+ * Computes T_final from normalized context data.
  *
- * Formula pipeline:
- *   T_base    = Σ w_i * f_i(x_i)
- *   T_cross   = w_DH * f_D * f_H  +  w_WM * W * M_attack
- *   T_raw     = T_base + β * T_cross
- *   σ²        = variance(T_raw over last N evaluations)
- *   C         = 1 / (1 + σ²)
- *   T_smooth  = α * T_raw + (1-α) * T_prev
- *   T_final   = C * T_smooth + (1-C) * T_default
+ * Formula pipeline (Variant E — simplified):
+ *   T_base  = Σ w_i * f_i(x_i)   (weighted sum, 6 factors)
+ *   T_final = clamp(T_base, 0, 1)
  *
- * Also computes adaptive thresholds (μ ± σ) over K evaluations.
- * Implementation: Stage 6F + Stage 6K.
+ * Removed: cross-terms, exponential smoothing, confidence (σ²),
+ *          DefaultThreat fallback, adaptive threshold window.
+ * Retained: normalization, quadratic HP, dynamic weights, bell curves,
+ *           N-gram patterns, inertia, transition cost matrix.
  */
 UCLASS()
 class DEPTHRUN_API UThreatCalculator : public UObject
@@ -37,37 +33,19 @@ public:
 	 * Must be called every evaluation tick with current context.
 	 */
 	FThreatAssessment CalculateThreat(
-		const FContextData&     Context,
-		const UAdaptiveMemory*  Memory,
+		const FContextData&          Context,
 		const UDynamicWeightManager* Weights,
-		const UAdaptiveConfig*  Config);
+		const UAdaptiveConfig*       Config);
 
 	/** Last computed T_final for debug readouts. */
 	float GetLastThreatFinal() const { return LastAssessment.ThreatFinal; }
 
-	/** Last computed Confidence for debug readouts. */
-	float GetLastConfidence() const { return LastAssessment.Confidence; }
-
-	/** High-threat adaptive threshold (μ + σ) — used by UtilityCurves. */
-	float GetHighThreatThreshold() const;
-
-	/** Low-threat adaptive threshold (μ - σ). */
-	float GetLowThreatThreshold() const;
-
 private:
 	float ComputeTBase(const FContextData& Ctx, const TArray<float>& Weights) const;
-	float ComputeTCross(const FContextData& Ctx, const TArray<float>& Weights, const UAdaptiveConfig* Cfg) const;
-	float ComputeConfidence() const;
 
-	/** Ring buffer of recent T_raw values for σ² computation. */
-	TArray<float> TRawHistory;
+	/** Fallback weights used if DynamicWeightManager is null. Must match AdaptiveConfig defaults.
+	 *  Sum = 1.0: Distance=0.20, Weapon=0.20, Health=0.20, Allies=0.15, Density=0.10, Memory=0.15 */
+	TArray<float> DefaultWeights = { 0.20f, 0.20f, 0.20f, 0.15f, 0.10f, 0.15f };
 
-	/** Ring buffer of recent T_final values for adaptive thresholds (Stage 6K). */
-	TArray<float> TFinalHistory;
-
-	/** Fallback weights used if DynamicWeightManager is null (equal split across 6 factors). */
-	TArray<float> DefaultWeights = { 0.2f, 0.2f, 0.2f, 0.15f, 0.15f, 0.1f };
-
-	float LastTSmooth = 0.f;
 	FThreatAssessment LastAssessment;
 };

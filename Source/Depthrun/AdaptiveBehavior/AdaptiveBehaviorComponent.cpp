@@ -88,13 +88,19 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
   
   if (!Owner || Owner->IsDead() || !Player) return;
 
+  // Prune memory buffer — remove events outside the time window
+  if (Memory)
+  {
+      Memory->CleanupOldEvents(GetWorld()->GetTimeSeconds(), 0.f);
+  }
+
   // ── Layer 1: Context Evaluation (Stage 6C)
   LastContext = ContextEval->EvaluateContextWithMemory(Owner, Player, Memory, Config);
   LastContext.BraveryLevel = BraveryLevel;
   LastContext.CombatStyle = CombatStyle;
 
   // ── Layer 2: Threat Calculation (Stage 6F)
-  LastThreatAssessment = ThreatCalc->CalculateThreat(LastContext, Memory, WeightManager, Config);
+  LastThreatAssessment = ThreatCalc->CalculateThreat(LastContext, WeightManager, Config);
   OnThreatEvaluated.Broadcast(LastThreatAssessment);
 
   if (!bAdaptiveEnabled)
@@ -258,4 +264,7 @@ TArray<FStateScore> UAdaptiveBehaviorComponent::GetLastStateScores() const {
 }
 FThreatAssessment UAdaptiveBehaviorComponent::GetLastThreatAssessment() const {
   return LastThreatAssessment;
+}
+FContextData UAdaptiveBehaviorComponent::GetLastContext() const {
+  return LastContext;
 }

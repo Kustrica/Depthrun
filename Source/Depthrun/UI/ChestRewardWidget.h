@@ -9,7 +9,6 @@
 class UVerticalBox;
 class UTextBlock;
 class UImage;
-class UButton;
 
 /**
  * UChestRewardWidget
@@ -37,6 +36,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "ChestReward")
 	void Show(int32 Diamonds, int32 Potions, const FString& ItemName,
 		UTexture2D* DiamondIcon, UTexture2D* PotionIcon, UTexture2D* ItemIcon);
+
+	/** Immediately close the popup (clears timers, removes from viewport). */
+	UFUNCTION(BlueprintCallable, Category = "ChestReward")
+	void Close();
 
 	// ─── Timing ────────────────────────────────────────────────────────────
 	/** How long the popup stays open before auto-close. Change in WBP defaults. */
@@ -85,13 +88,6 @@ public:
 	/** Countdown text at the bottom of the scroll. */
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> AutoCloseText;
-
-	/**
-	 * Fullscreen transparent button overlay — place it as the topmost child in Canvas Panel.
-	 * Name it exactly "ClickOverlay" in WBP. Clicking anywhere on the widget closes it.
-	 */
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UButton> ClickOverlay;
 
 protected:
 	virtual void NativeConstruct() override;

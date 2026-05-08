@@ -16,8 +16,20 @@ void ADepthrunHUD::ShowChestReward(const FChestRewardPayload& Payload)
 	if (!ChestRewardWidgetClass) return;
 	UChestRewardWidget* Widget = CreateWidget<UChestRewardWidget>(GetOwningPlayerController(), ChestRewardWidgetClass);
 	if (Widget)
+	{
+		ActiveChestWidget = Widget;
 		Widget->Show(Payload.Diamonds, Payload.Potions, Payload.ItemName,
 			Payload.DiamondIcon, Payload.PotionIcon, Payload.ItemIcon);
+	}
+}
+
+void ADepthrunHUD::CloseChestReward()
+{
+	if (IsValid(ActiveChestWidget))
+	{
+		ActiveChestWidget->Close();
+		ActiveChestWidget = nullptr;
+	}
 }
 
 void ADepthrunHUD::BeginPlay()
@@ -62,6 +74,11 @@ void ADepthrunHUD::ToggleAdaptiveDebugWidget()
 
 	if (bDebugWidgetVisible)
 	{
+		// Force immediate scan so #N labels appear at once (bypasses ScanInterval timer).
+		if (UDebugAdaptiveWidget* CastWidget = Cast<UDebugAdaptiveWidget>(DebugWidget))
+			CastWidget->ForceRefresh();
+
+		// Legacy single-enemy bind (kept for backwards compat with old Blueprint nodes).
 		AActor* EnemyActor = UGameplayStatics::GetActorOfClass(GetWorld(), AAdaptiveEnemy::StaticClass());
 		if (EnemyActor)
 		{
@@ -71,6 +88,19 @@ void ADepthrunHUD::ToggleAdaptiveDebugWidget()
 				if (UDebugAdaptiveWidget* CastWidget = Cast<UDebugAdaptiveWidget>(DebugWidget))
 					CastWidget->BindToComponent(AdaptiveComp);
 			}
+		}
+	}
+	else
+	{
+		// Hide #N labels above all enemies when debug widget is dismissed.
+		TArray<AActor*> AllEnemies;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AAdaptiveEnemy::StaticClass(), AllEnemies);
+		for (AActor* Actor : AllEnemies)
+		{
+			// Cast is to AAdaptiveEnemy (same class as query) — always succeeds,
+			// but explicit cast documents intent and avoids ABaseEnemy ambiguity.
+			if (AAdaptiveEnemy* Enemy = Cast<AAdaptiveEnemy>(Actor))
+				Enemy->ClearDebugIndex();
 		}
 	}
 }

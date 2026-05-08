@@ -58,4 +58,5 @@ private:
 	UFUNCTION() void OnToHubClicked();
 	UFUNCTION() void OnToMenuClicked();
 	UFUNCTION() void OnQuitClicked();
+	UFUNCTION() void OnButtonHovered();
 };

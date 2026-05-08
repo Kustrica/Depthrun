@@ -7,24 +7,14 @@ float UUtilityCurves::EvaluateUtility(
 	EFSMStateType State, const FThreatAssessment& Threat, const FContextData& Context, const UAdaptiveConfig* Cfg) const
 {
 	const float T = Threat.ThreatFinal;
-	const float Dist = Context.DistanceToPlayer;
-	
-	// Stage 6K: Adaptive Center Shifting
-	// Shift centers based on how much the current mean threat (μ) deviates from the default threat.
-	// If the world is generally "scarier" now, we shift centers right, becoming more tolerant.
-	float AdaptiveShift = 0.f;
-	if (Cfg && Threat.AdaptiveMeanThreat > 0.f)
-	{
-		AdaptiveShift = Threat.AdaptiveMeanThreat - Cfg->DefaultThreat;
-	}
 
 	switch (State)
 	{
 	case EFSMStateType::Idle:    return EvaluateIdle(T);
-	case EFSMStateType::Chase:   return EvaluateChase(T + AdaptiveShift, Context, Cfg);
-	case EFSMStateType::Attack:  return EvaluateAttack(T + AdaptiveShift, Cfg);
-	case EFSMStateType::Flank:   return EvaluateFlank(T + AdaptiveShift, Context, Cfg);
-	case EFSMStateType::Retreat: return EvaluateRetreat(T, Context, Cfg); // Retreat is usually absolute
+	case EFSMStateType::Chase:   return EvaluateChase(T, Context, Cfg);
+	case EFSMStateType::Attack:  return EvaluateAttack(T, Cfg);
+	case EFSMStateType::Flank:   return EvaluateFlank(T, Context, Cfg);
+	case EFSMStateType::Retreat: return EvaluateRetreat(T, Context, Cfg);
 	default:                     return 0.f;
 	}
 }
@@ -61,7 +51,7 @@ float UUtilityCurves::EvaluateChase(float T, const FContextData& Context, const 
 float UUtilityCurves::EvaluateAttack(float T, const UAdaptiveConfig* Cfg) const
 {
 	const float Center = Cfg ? Cfg->AttackBellCenter : 0.5f;
-	const float Width  = Cfg ? Cfg->AttackBellWidth  : 0.25f;
+	const float Width  = Cfg ? Cfg->AttackBellWidth  : 0.18f; // fallback matches AdaptiveConfig.h default
 	return DepthrunMath::BellCurve(T, Center, Width);
 }
 
@@ -69,7 +59,12 @@ float UUtilityCurves::EvaluateFlank(float T, const FContextData& Context, const 
 {
 	const float Center = Cfg ? Cfg->FlankBellCenter : 0.6f;
 	const float Width  = Cfg ? Cfg->FlankBellWidth  : 0.2f;
-	const float AllyFactor = 0.5f + (0.5f * Context.AllyCountNorm);
+	// AllyFactor scales Flank utility: solo enemies use FlankSoloBase as floor,
+	// full group (AllyCountNorm=1) reaches 1.0.
+	// FlankSoloBase=0.75 (was hardcoded 0.5) so solo Flank peak = 0.75 instead of 0.50,
+	// allowing it to outbid Attack after 2+ bow shots.
+	const float SoloBase   = Cfg ? Cfg->FlankSoloBase : 0.75f;
+	const float AllyFactor = SoloBase + ((1.f - SoloBase) * Context.AllyCountNorm);
 	
     float Utility = DepthrunMath::BellCurve(T, Center, Width) * AllyFactor;
 

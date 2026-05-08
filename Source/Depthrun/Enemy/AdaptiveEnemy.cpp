@@ -8,11 +8,7 @@
 #include "Core/DepthrunLogChannels.h"
 #include "Enemy/EnemyHealthComponent.h"
 #include "FSM/FSMComponent.h"
-#include "FSM/States/FSMState_Attack.h"
-#include "FSM/States/FSMState_Chase.h"
-#include "FSM/States/FSMState_Flank.h"
-#include "FSM/States/FSMState_Idle.h"
-#include "FSM/States/FSMState_Retreat.h"
+// FSM state includes removed: states are registered in ABaseEnemy::BeginPlay()
 #include "Kismet/GameplayStatics.h"
 #include "Player/DepthrunCharacter.h"
 #include "Player/PlayerActionTracker.h"
@@ -26,29 +22,14 @@ AAdaptiveEnemy::AAdaptiveEnemy() {
 }
 
 void AAdaptiveEnemy::BeginPlay() {
+  // Super::BeginPlay() already registers all 5 FSM states and transitions to
+  // Idle. Re-registering here replaces state objects in the TMap while
+  // CurrentState still points to the old Idle object (stale pointer bug).
+  // The second TransitionTo(Idle) hits the early-return guard (same state),
+  // so the new Idle object never gets EnterState called. Removed.
   Super::BeginPlay();
 
-  // 1. Register FSM states
-  if (FSMComponent) {
-    FSMComponent->RegisterState(EFSMStateType::Idle,
-                                NewObject<UFSMState_Idle>(this));
-    FSMComponent->RegisterState(EFSMStateType::Chase,
-                                NewObject<UFSMState_Chase>(this));
-
-    UFSMState_Attack *Atk = NewObject<UFSMState_Attack>(this);
-    Atk->AttackCooldown = AttackCooldown;
-    FSMComponent->RegisterState(EFSMStateType::Attack, Atk);
-
-    FSMComponent->RegisterState(EFSMStateType::Retreat,
-                                NewObject<UFSMState_Retreat>(this));
-    FSMComponent->RegisterState(EFSMStateType::Flank,
-                                NewObject<UFSMState_Flank>(this));
-
-    // Start in Idle
-    FSMComponent->TransitionTo(EFSMStateType::Idle);
-  }
-
-  // 2. Subscribe to Player Actions (for Memory and Pattern Recognition)
+  // 1. Subscribe to Player Actions (for Memory and Pattern Recognition)
   ADepthrunCharacter *Player = Cast<ADepthrunCharacter>(
       UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
   if (Player && Player->GetActionTracker() && AdaptiveComp) {
@@ -56,7 +37,7 @@ void AAdaptiveEnemy::BeginPlay() {
         AdaptiveComp, &UAdaptiveBehaviorComponent::HandlePlayerAction);
   }
 
-  // 3. Subscribe to Health delegates for Reward Signal (online adaptation)
+  // 2. Subscribe to Health delegates for Reward Signal (online adaptation)
   if (HealthComponent && AdaptiveComp) {
     // reward = -1 when taking damage
     HealthComponent->OnHealthChanged.AddDynamic(

@@ -40,32 +40,28 @@ public:
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Context")
   float MaxRoomCapacity = 8.f;
 
-  // ─── Non-linear Transforms ───────────────────────────────────────────────
+  // ─── HP Non-linear Transform ─────────────────────────────────────────────
 
-  /** K parameter for sigmoid distance transform. Higher = sharper mid-range
-   * spike. */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|Transforms")
-  float SigmoidSteepness_Distance = 10.f;
-
-  /** α exponent for quadratic HP transform: f_H(x) = x^α. Default α=2. */
+  /** α exponent for quadratic HP transform: f_H(x) = (1-HP)^α. Default α=2.
+   *  Higher values make low-HP spike threat more sharply. */
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
             Category = "Adaptive|Transforms")
   float HealthPowerExponent = 2.f;
 
   // ─── Initial Weights w1..w6 ──────────────────────────────────────────────
 
+  // Weights must sum to 1.0: 0.20 + 0.20 + 0.20 + 0.15 + 0.10 + 0.15 = 1.00
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights",
             meta = (ClampMin = "0.05", ClampMax = "0.4"))
-  float WeightDistance = 0.25f;
+  float WeightDistance = 0.20f;
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights",
             meta = (ClampMin = "0.05", ClampMax = "0.4"))
-  float WeightWeaponThreat = 0.2f;
+  float WeightWeaponThreat = 0.20f;
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights",
             meta = (ClampMin = "0.05", ClampMax = "0.4"))
-  float WeightHealth = 0.2f;
+  float WeightHealth = 0.20f;
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights",
             meta = (ClampMin = "0.05", ClampMax = "0.4"))
@@ -73,11 +69,13 @@ public:
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights",
             meta = (ClampMin = "0.05", ClampMax = "0.4"))
-  float WeightRoomDensity = 0.1f;
+  float WeightRoomDensity = 0.10f;
 
+  /** Player aggressiveness memory — raised from 0.10 to ensure Memory
+   *  visibly affects T_final during defense demonstration. */
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights",
             meta = (ClampMin = "0.05", ClampMax = "0.4"))
-  float WeightMemory = 0.1f;
+  float WeightMemory = 0.15f;
 
   // ─── Weight Adaptation ───────────────────────────────────────────────────
 
@@ -91,51 +89,11 @@ public:
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights")
   float WeightMax = 0.4f;
 
-  // ─── Cross Terms ─────────────────────────────────────────────────────────
-
-  /** β for T_raw = T_base + β * T_cross. */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|ThreatFormula")
-  float CrossTermBeta = 0.2f;
-
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|ThreatFormula")
-  float CrossWeightDistanceHealth = 0.15f;
-
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|ThreatFormula")
-  float CrossWeightWeaponMemory = 0.1f;
-
-  // ─── Smoothing & Confidence ──────────────────────────────────────────────
-
-  /** α for exponential smoothing: T_smooth = α*T_raw + (1-α)*T_prev. */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|ThreatFormula")
-  float SmoothingAlpha = 0.3f;
-
-  /** Window N for σ² computation (confidence). */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|ThreatFormula")
-  int32 ConfidenceWindow = 8;
-
-  /** Fallback threat when confidence is low (C → 0). */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|ThreatFormula")
-  float DefaultThreat = 0.3f;
-
   // ─── Memory ──────────────────────────────────────────────────────────────
 
-  /** λ for time-decay: M(t) = Intensity * exp(-λ * Δt). */
+  /** Time window in seconds for counting player actions (aggressiveness counter). */
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Memory")
-  float MemoryDecayLambda = 0.3f;
-
-  /** Maximum number of events in the ring buffer. */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Memory")
-  int32 MemoryBufferSize = 50;
-
-  /** Events older than this (seconds) are pruned. */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Memory")
-  float MemoryMaxEventAge = 30.f;
+  float MemoryWindowSeconds = 10.f;
 
   // ─── Pattern Recognition ─────────────────────────────────────────────────
 
@@ -148,20 +106,16 @@ public:
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Inertia")
   float InertiaGrowthRate = 0.02f;
 
+  // Lowered from 0.2 to 0.1: at 0.2 cap enemy needed 10s in Chase before inertia
+  // maxed out — but even 5s gave +0.10 bonus, enough to block pattern-driven transitions.
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Inertia")
-  float InertiaMax = 0.2f;
+  float InertiaMax = 0.1f;
 
-  // ─── Adaptive Thresholds ─────────────────────────────────────────────────
-
-  /** Rolling window K for adaptive threshold computation. */
-  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
-            Category = "Adaptive|Thresholds")
-  int32 AdaptiveThresholdWindow = 20;
-
-  // ─── Transition Cost Matrix [From][To] (5x5 =
-  // None,Idle,Chase,Attack,Retreat,Flank) ── Stored flat [row*5 + col], indexed
-  // by EFSMStateType cast to int (skip None=0) Init in DA asset or via code;
-  // default values match the plan's 5x5 table.
+  // ─── Transition Cost Matrix [From][To] (6×6) ────────────────────────────
+  // States: None=0, Idle=1, Chase=2, Attack=3, Retreat=4, Flank=5
+  // Stored flat: Cost = Matrix[From * 6 + To] where From/To = (int32)EFSMStateType
+  // Row/col 0 (None) filled with 1.0 — prevents any transition to/from None.
+  // Initialized in UAdaptiveConfig constructor; override values in DA asset.
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
             Category = "Adaptive|CostMatrix")
@@ -181,9 +135,20 @@ public:
             Category = "Adaptive|UtilityCurves")
   float AttackBellCenter = 0.5f;
 
+  // Narrowed from 0.25 to 0.18: prevents Attack from dominating T=[0.35..0.65]
+  // range which overlapped with the primary Flank activation zone.
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
             Category = "Adaptive|UtilityCurves")
-  float AttackBellWidth = 0.25f;
+  float AttackBellWidth = 0.18f;
+
+  /** Base AllyFactor for Flank when enemy is solo (AllyCountNorm=0).
+   *  Range [0..1]. At 1.0 solo Flank = full group Flank.
+   *  Raised from 0.5 to 0.75: solo enemies must still be able to flank,
+   *  otherwise Attack (peak=1.0) consistently outbids Flank (~0.50). */
+  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
+            Category = "Adaptive|UtilityCurves",
+            meta = (ClampMin = "0.0", ClampMax = "1.0"))
+  float FlankSoloBase = 0.75f;
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,
             Category = "Adaptive|UtilityCurves")

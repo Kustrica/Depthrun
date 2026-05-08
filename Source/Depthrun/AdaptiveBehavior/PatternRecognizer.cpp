@@ -56,21 +56,34 @@ float UPatternRecognizer::GetPatternModifier(EFSMStateType CandidateState) const
 
 	static const TArray<FPatternRule> Rules =
 	{
-		// Complex Patterns (Trigrams/Bigrams)
+		// ── Trigrams ─────────────────────────────────────────────────────────
+		// 3x Shot in a row → very strong Flank pressure (enemy must circle player)
+		{ TEXT("Shot+Shot+Shot"), EFSMStateType::Flank,   +0.65f },
+		{ TEXT("Shot+Shot+Shot"), EFSMStateType::Chase,   -0.20f }, // suppress frontal rush
+		{ TEXT("Shot+Shot+Shot"), EFSMStateType::Attack,  -0.25f }, // attacking into sustained fire is suicidal
+		{ TEXT("Shot+Shot+Dash"), EFSMStateType::Flank,   +0.45f },
+		{ TEXT("Shot+Shot+Dash"), EFSMStateType::Chase,   +0.10f }, // was +0.35 — now Flank wins
 		{ TEXT("Melee+Dash"),     EFSMStateType::Retreat, +0.25f },
 		{ TEXT("Melee+Dash"),     EFSMStateType::Flank,   +0.15f },
 		{ TEXT("Dash+Melee"),     EFSMStateType::Retreat, +0.25f },
 		{ TEXT("Dash+Melee"),     EFSMStateType::Flank,   +0.15f },
-		{ TEXT("Shot+Shot+Dash"), EFSMStateType::Chase,   +0.35f },
 		{ TEXT("Dash+Dash"),      EFSMStateType::Attack,  -0.15f },
 		{ TEXT("Dash+Dash"),      EFSMStateType::Chase,   +0.20f },
-		{ TEXT("Shot+Shot"),      EFSMStateType::Retreat, +0.15f },
-		
-		// Simple Spam Counters (Unigrams) - Stage 7.1
-		{ TEXT("Melee"),          EFSMStateType::Flank,   +0.30f }, 
+
+		// ── Bigrams ──────────────────────────────────────────────────────────
+		// 2x Shot → clear Flank signal; already on 2nd arrow enemy starts circling
+		{ TEXT("Shot+Shot"),      EFSMStateType::Flank,   +0.55f },
+		{ TEXT("Shot+Shot"),      EFSMStateType::Chase,   -0.10f }, // suppress head-on
+		{ TEXT("Shot+Shot"),      EFSMStateType::Retreat, +0.10f },
+		// Running into ranged fire is tactically wrong: suppress Attack when player shoots
+		{ TEXT("Shot+Shot"),      EFSMStateType::Attack,  -0.20f },
+
+		// ── Unigrams (spam counters) ─────────────────────────────────────────
+		// Single Shot unigram: Flank > Chase so enemy doesn't just run straight at player
+		{ TEXT("Melee"),          EFSMStateType::Flank,   +0.30f },
 		{ TEXT("Melee"),          EFSMStateType::Retreat, +0.10f },
-		{ TEXT("Shot"),           EFSMStateType::Chase,   +0.45f }, 
-		{ TEXT("Shot"),           EFSMStateType::Flank,   +0.25f }, 
+		{ TEXT("Shot"),           EFSMStateType::Flank,   +0.40f }, // was +0.25 → now > Chase
+		{ TEXT("Shot"),           EFSMStateType::Chase,   +0.25f }, // was +0.45 → reduced
 	};
 
 	for (const FPatternRule& Rule : Rules)

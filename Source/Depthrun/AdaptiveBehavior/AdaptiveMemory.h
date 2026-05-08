@@ -10,17 +10,20 @@ class UAdaptiveConfig;
 
 /**
  * UAdaptiveMemory
- * Ring buffer of player actions with exponential time-decay retrieval.
+ * Ring buffer of player actions with simple time-window counting (Variant E).
  *
- * Formula: M_i(t) = Intensity_i * exp(-λ * (t_current - t_event))
- *   λ = 0.3 → event 3s ago retains ~40%, 10s ago ~5%
+ * Formula: Aggressiveness = count(Shot + Melee in last W seconds) / W
+ *   W = MemoryWindowSeconds (default 10s)
  *
  * Three aggregated metrics for Layer 1:
- *   Aggressiveness = Σ M_i  for ActionType ∈ {Shot, MeleeAttack}
- *   Mobility       = Σ M_i  for ActionType ∈ {Dash}
- *   Caution        = Σ M_i  for ActionType ∈ {Heal, Retreat}
+ *   Aggressiveness = (Shot + MeleeAttack count) / MemoryWindowSeconds, clamped [0,1]
+ *   Mobility       = Dash count / MemoryWindowSeconds, clamped [0,1]
+ *   Caution        = Heal count / MemoryWindowSeconds, clamped [0,1]
  *
- * Implementation: Stage 6D.
+ * Old exponential-decay API (GetDecayedAggressiveness etc.) is preserved
+ * but now delegates to the counter implementation.
+ *
+ * Implementation: Stage 6D (Variant E refactor).
  */
 UCLASS()
 class DEPTHRUN_API UAdaptiveMemory : public UObject
@@ -31,16 +34,20 @@ public:
 	/** Add a new event to the ring buffer. Evicts oldest if at capacity. */
 	void RecordEvent(const FMemoryEvent& Event);
 
-	/** Σ decayed intensity for aggressive actions (Shot, MeleeAttack). */
+	/**
+	 * Count of aggressive actions (Shot, MeleeAttack) in the recent window,
+	 * normalized by window length → [0, 1].
+	 * Lambda param kept for API compatibility but ignored.
+	 */
 	float GetDecayedAggressiveness(float CurrentTime, float Lambda) const;
 
-	/** Σ decayed intensity for mobility actions (Dash). */
+	/** Count of mobility actions (Dash) in window, normalized [0,1]. */
 	float GetDecayedMobility(float CurrentTime, float Lambda) const;
 
-	/** Σ decayed intensity for cautious actions (Heal). */
+	/** Count of cautious actions (Heal) in window, normalized [0,1]. */
 	float GetDecayedCaution(float CurrentTime, float Lambda) const;
 
-	/** Remove all events older than MaxAge seconds. */
+	/** Remove all events outside the MemoryWindowSeconds window. */
 	void CleanupOldEvents(float CurrentTime, float MaxAge);
 
 	/** Read-only access for debug widget. */
@@ -49,11 +56,15 @@ public:
 	void Initialize(const UAdaptiveConfig* Config);
 
 private:
-	float ComputeDecayedMetric(float CurrentTime, float Lambda,
+	/** Count actions matching Filter within the time window, normalized. */
+	float CountWindowMetric(float CurrentTime,
 		TFunctionRef<bool(EPlayerActionType)> Filter) const;
 
 	UPROPERTY()
 	TArray<FMemoryEvent> MemoryBuffer;
 
-	int32 MaxBufferSize = 50;
+	int32 MaxBufferSize = 200;
+
+	/** Time window in seconds for counting (set from Config). */
+	float MemoryWindowSeconds = 10.f;
 };

@@ -14,13 +14,9 @@ void UDeathScreenWidget::NativeConstruct()
 	if (ToMenuBtn) ToMenuBtn->OnClicked.AddDynamic(this, &UDeathScreenWidget::OnToMenuClicked);
 	if (QuitBtn)   QuitBtn->OnClicked.AddDynamic(this, &UDeathScreenWidget::OnQuitClicked);
 
-	auto BindHover = [this](UButton* Btn) {
-		if (Btn) Btn->OnHovered.AddLambda([this]() {
-			if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
-				SFX->PlayButtonHover();
-		});
-	};
-	BindHover(ToHubBtn); BindHover(ToMenuBtn); BindHover(QuitBtn);
+	if (ToHubBtn)  ToHubBtn->OnHovered.AddDynamic(this, &UDeathScreenWidget::OnButtonHovered);
+	if (ToMenuBtn) ToMenuBtn->OnHovered.AddDynamic(this, &UDeathScreenWidget::OnButtonHovered);
+	if (QuitBtn)   QuitBtn->OnHovered.AddDynamic(this, &UDeathScreenWidget::OnButtonHovered);
 }
 
 void UDeathScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 TotalRooms,
@@ -59,6 +55,12 @@ void UDeathScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 To
 		PC->SetInputMode(FInputModeUIOnly());
 		PC->bShowMouseCursor = true;
 	}
+}
+
+void UDeathScreenWidget::OnButtonHovered()
+{
+	if (UUISoundLibrary* SFX = GetGameInstance()->GetSubsystem<UUISoundLibrary>())
+		SFX->PlayButtonHover();
 }
 
 void UDeathScreenWidget::PlayClickSound()

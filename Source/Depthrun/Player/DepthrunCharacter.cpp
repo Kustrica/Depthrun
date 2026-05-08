@@ -30,6 +30,7 @@
 #include "UI/DeathScreenWidget.h"
 #include "UI/VictoryScreenWidget.h"
 #include "Blueprint/UserWidget.h"
+#include "Kismet/GameplayStatics.h"
 
 // ─── Timer handles for dash stop and attack reset ─────────────────────────
 namespace {
@@ -701,6 +702,9 @@ void ADepthrunCharacter::Die() {
   bIsDead = true;
 
   UE_LOG(LogDepthrun, Error, TEXT("[Player] DIED!"));
+
+  // Notify all enemies to die together with the player
+  OnPlayerDeath.Broadcast();
 
   // Save run result to run_history
   if (UDepthrunSaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<UDepthrunSaveSubsystem>() : nullptr)

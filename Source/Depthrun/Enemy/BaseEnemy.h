@@ -8,6 +8,8 @@
 class UEnemyHealthComponent;
 class UFSMComponent;
 class UPaperFlipbook;
+class UWidgetComponent;
+class UEnemyNumberWidget;
 
 UENUM(BlueprintType)
 enum class EEnemyType : uint8 {
@@ -38,6 +40,10 @@ protected:
 
   UFUNCTION()
   virtual void OnDeath();
+
+  /** Called when the player dies — enemy dies immediately with them. */
+  UFUNCTION()
+  void OnPlayerDied();
 
   virtual void UpdateAnimation();
 
@@ -142,24 +148,39 @@ public:
   /** Called by RoomBase after spawn to fix the enemy on the correct Z plane.
    *  Sets actor Z and updates the CharacterMovement plane constraint origin. */
   UFUNCTION(BlueprintCallable, Category = "Enemy|Spawn")
-  void SetLockedZ(float InZ)
-  {
-    FVector Loc = GetActorLocation();
-    Loc.Z = InZ;
-    SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
-    if (GetCharacterMovement())
-    {
-      GetCharacterMovement()->SetPlaneConstraintOrigin(FVector(0.f, 0.f, InZ));
-    }
-  }
+  void SetLockedZ(float InZ);
 
 protected:
   bool bIsHitAnimationActive = false;
   bool bIsDead = false;
+
+  /** World-space widget component showing #N label above the enemy. */
+  UPROPERTY()
+  TObjectPtr<UWidgetComponent> NumberWidgetComp;
+
   FTimerHandle HitAnimationTimer;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
   TObjectPtr<class ABaseWeapon> SpawnedWeapon;
 
   void ResetHitAnimation();
+
+public:
+  // ─── Debug identification ─────────────────────────────────────────────
+
+  /** 0-based slot index assigned by DebugAdaptiveWidget. Shown as #1, #2... */
+  UPROPERTY(BlueprintReadOnly, Category = "Enemy|Debug")
+  int32 EnemyDebugIndex = -1;
+
+  /** Assign WBP_EnemyNumber here in BP_AdaptiveEnemy. */
+  UPROPERTY(EditDefaultsOnly, Category = "Enemy|Debug")
+  TSubclassOf<UEnemyNumberWidget> EnemyNumberWidgetClass;
+
+  /** Assign a 0-based debug slot index and show #N label above the enemy. */
+  void AssignDebugIndex(int32 Index);
+
+  /** Hide the #N label and reset debug index. Called when debug widget is hidden. */
+  void ClearDebugIndex();
+
+  UWidgetComponent* GetNumberWidgetComponent() const { return NumberWidgetComp; }
 };

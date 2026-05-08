@@ -9,7 +9,6 @@
 #include "AdaptiveBehavior/AdaptiveMemory.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Engine/World.h"
-#include "Utils/MathUtils.h"
 
 FContextData UContextEvaluator::EvaluateContext(
 	const ABaseEnemy*        Owner,
@@ -19,15 +18,10 @@ FContextData UContextEvaluator::EvaluateContext(
 	FContextData Data;
 	if (!Owner || !Player || !Config) return Data;
 
-	// 1. Distance
-	float Dist = (Player->GetActorLocation() - Owner->GetActorLocation()).Size();
+	// 1. Distance — linear normalization: 0 = far/out of range, 1 = on top of player
+	float Dist = FVector::Dist2D(Player->GetActorLocation(), Owner->GetActorLocation());
 	Data.DistanceToPlayer = Dist;
-	
-	// Phase 1: Linear Normalization
-	float LinearDistNorm = 1.f - FMath::Clamp(Dist / Config->MaxEngagementRange, 0.f, 1.f);
-	
-	// Phase 2: Non-linear Transform (Sigmoid)
-	Data.DistanceNorm = DepthrunMath::Sigmoid(LinearDistNorm, Config->SigmoidSteepness_Distance, 0.5f);
+	Data.DistanceNorm = 1.f - FMath::Clamp(Dist / Config->MaxEngagementRange, 0.f, 1.f);
 
 	// 2. Player Weapon
 	if (Player->CombatComponent && Player->CombatComponent->CurrentWeapon) {
@@ -62,12 +56,12 @@ FContextData UContextEvaluator::EvaluateContextWithMemory(
 {
 	FContextData Data = EvaluateContext(Owner, Player, Config);
 
-	// 6. Memory metrics (time-decay aggregates) — needed by Layer 2 T_cross
-	if (Memory && Config)
+	// 6. Memory metrics — simple window counter (Variant E: Lambda param ignored)
+	if (Memory && Owner)
 	{
-		float Now = Owner ? Owner->GetWorld()->GetTimeSeconds() : 0.f;
-		Data.MemoryAggressiveness = Memory->GetDecayedAggressiveness(Now, Config->MemoryDecayLambda);
-		Data.MemoryMobility       = Memory->GetDecayedMobility(Now, Config->MemoryDecayLambda);
+		float Now = Owner->GetWorld()->GetTimeSeconds();
+		Data.MemoryAggressiveness = Memory->GetDecayedAggressiveness(Now, 0.f);
+		Data.MemoryMobility       = Memory->GetDecayedMobility(Now, 0.f);
 	}
 
 	return Data;
@@ -75,7 +69,6 @@ FContextData UContextEvaluator::EvaluateContextWithMemory(
 
 float UContextEvaluator::NormalizeDistance(float RawDistance, float MaxRange) const
 {
-	// Deprecated in favor of inline sigmoid transform in EvaluateContext
 	if (MaxRange <= 0.f) return 0.f;
 	return 1.f - FMath::Clamp(RawDistance / MaxRange, 0.f, 1.f);
 }

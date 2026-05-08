@@ -1,5 +1,6 @@
 // Copyright Depthrun Project, 2026. All Rights Reserved.
 #include "BaseEnemy.h"
+#include "Core/DepthrunLogChannels.h"
 #include "Combat/BaseProjectile.h"
 #include "Combat/RangedWeapon.h"
 #include "Components/CapsuleComponent.h"
@@ -7,6 +8,9 @@
 #include "Engine/DamageEvents.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Player/DepthrunCharacter.h"
+#include "Components/WidgetComponent.h"
+#include "UI/EnemyNumberWidget.h"
 #include "PaperFlipbookComponent.h"
 
 // FSM includes
@@ -48,6 +52,10 @@ ABaseEnemy::ABaseEnemy() {
   GetCharacterMovement()->GravityScale = 0.f;
   GetCharacterMovement()->bOrientRotationToMovement = false;
   GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+  // Lock DefaultMovementMode so Blueprint CDO and TeleportPhysics
+  // cannot restore MOVE_Custom (5) after SetLockedZ teleport.
+  GetCharacterMovement()->DefaultLandMovementMode = MOVE_Flying;
+  GetCharacterMovement()->DefaultWaterMovementMode = MOVE_Flying;
   GetCharacterMovement()->MaxFlySpeed = 300.f;
   GetCharacterMovement()->BrakingDecelerationFlying = 8192.f;
   GetCharacterMovement()->bConstrainToPlane   = true;
@@ -57,6 +65,16 @@ ABaseEnemy::ABaseEnemy() {
   // AFTER spawn. Enabling bSnapToPlaneAtStart would override that Z with 0.
   GetCharacterMovement()->bSnapToPlaneAtStart = false;
   GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.f, 0.f, 1.f));
+
+  // ─── Number widget component (shows #N label in world space) ──────────
+  NumberWidgetComp = CreateDefaultSubobject<UWidgetComponent>(TEXT("NumberWidgetComp"));
+  NumberWidgetComp->SetupAttachment(RootComponent);
+  NumberWidgetComp->SetRelativeLocation(FVector(0.f, 0.f, 30.f));
+  NumberWidgetComp->SetRelativeRotation(FRotator(90.f, 0.f, -90.f));
+  NumberWidgetComp->SetWidgetSpace(EWidgetSpace::World);
+  NumberWidgetComp->SetDrawSize(FVector2D(60.f, 30.f));
+  NumberWidgetComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  NumberWidgetComp->SetVisibility(false); // hidden until index is assigned
 }
 
 void ABaseEnemy::BeginPlay() {
@@ -96,10 +114,29 @@ void ABaseEnemy::BeginPlay() {
     HealthComponent->OnDeath.AddDynamic(this, &ABaseEnemy::OnDeath);
   }
 
+  // ─── Player death: enemy dies with the player ─────────────────────────
+  if (ADepthrunCharacter* Player = Cast<ADepthrunCharacter>(
+          UGameplayStatics::GetPlayerCharacter(GetWorld(), 0)))
+  {
+      Player->OnPlayerDeath.AddDynamic(this, &ABaseEnemy::OnPlayerDied);
+  }
+
   // ─── Movement speed from config ───────────────────────────────────────
-  if (GetCharacterMovement()) {
-    GetCharacterMovement()->MaxFlySpeed = MoveSpeed;
-    GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
+  if (UCharacterMovementComponent* CMC = GetCharacterMovement())
+  {
+    CMC->MaxFlySpeed  = MoveSpeed;
+    CMC->MaxWalkSpeed = MoveSpeed;
+
+    // Force Flying mode in BeginPlay — Blueprint CDO may reset DefaultMovementMode
+    // to MOVE_Custom (5) or MOVE_Walking (1), breaking AddMovementInput entirely.
+    // We override it here unconditionally since the enemy lives in a gravity-free plane.
+    if (CMC->MovementMode != MOVE_Flying)
+    {
+      UE_LOG(LogFSM, Warning,
+        TEXT("[Enemy::BeginPlay] %s MovementMode=%d (expected 3=Flying) — FORCING Flying"),
+        *GetName(), (int32)CMC->MovementMode);
+      CMC->SetMovementMode(MOVE_Flying);
+    }
   }
 
   // ─── FSM setup: register all 5 states ─────────────────────────────────
@@ -134,9 +171,55 @@ void ABaseEnemy::BeginPlay() {
       GetSprite()->SetFlipbook(Fallback);
     }
   }
-  GetSprite()->SetVisibility(true, true);
+  if (GetSprite()) GetSprite()->SetVisibility(true, true);
+
+  // ─── Movement diagnostics ─────────────────────────────────────────────
+  // Printed once on spawn. MovementMode here is AFTER the Flying-mode force above,
+  // so it should always read 3. If FORCING Flying warning appeared above → CDO had wrong default.
+  if (UCharacterMovementComponent* CMC = GetCharacterMovement())
+  {
+    UE_LOG(LogFSM, Log,
+      TEXT("[Enemy::BeginPlay] %s | MoveSpeed=%.0f MaxFly=%.0f MaxWalk=%.0f"
+           " | DetectionRange=%.0f AttackRange=%.0f"
+           " | MovementMode=%d (3=Flying,1=Walking)"
+           " | ConstrainToPlane=%d PlaneOrigin=%s"
+           " | SpawnZ=%.2f"),
+      *GetName(),
+      MoveSpeed,
+      CMC->MaxFlySpeed,
+      CMC->MaxWalkSpeed,
+      DetectionRange,
+      AttackRange,
+      (int32)CMC->MovementMode,
+      (int32)CMC->bConstrainToPlane,
+      *CMC->GetPlaneConstraintOrigin().ToString(),
+      GetActorLocation().Z
+    );
+  }
 
   OnSpawned();
+}
+
+void ABaseEnemy::SetLockedZ(float InZ)
+{
+  FVector Loc = GetActorLocation();
+  Loc.Z = InZ;
+  SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+  if (UCharacterMovementComponent* CMC = GetCharacterMovement())
+  {
+    CMC->SetPlaneConstraintOrigin(FVector(0.f, 0.f, InZ));
+
+    // TeleportPhysics can trigger DefaultMovementMode restoration from Blueprint CDO
+    // (MOVE_Custom=5), which breaks AddMovementInput. Force Flying every time.
+    if (CMC->MovementMode != MOVE_Flying)
+    {
+      CMC->SetMovementMode(MOVE_Flying);
+    }
+
+    UE_LOG(LogFSM, Log,
+      TEXT("[Enemy::SetLockedZ] %s → Z=%.2f | MovementMode=%d | PlaneOrigin set"),
+      *GetName(), InZ, (int32)CMC->MovementMode);
+  }
 }
 
 void ABaseEnemy::Tick(float DeltaTime) {
@@ -212,6 +295,41 @@ void ABaseEnemy::OnKilled() {
 }
 
 void ABaseEnemy::OnDeath() { OnKilled(); }
+
+void ABaseEnemy::OnPlayerDied()
+{
+    // Instantly kill this enemy when the player dies.
+    // Prevent double-trigger if already dead.
+    if (bIsDead) return;
+    if (HealthComponent)
+    {
+        HealthComponent->ApplyDamage(HealthComponent->GetMaxHP() * 10.f);
+    }
+}
+
+void ABaseEnemy::AssignDebugIndex(int32 Index)
+{
+    EnemyDebugIndex = Index;
+    if (!NumberWidgetComp || !EnemyNumberWidgetClass) return;
+
+    NumberWidgetComp->SetWidgetClass(EnemyNumberWidgetClass);
+    NumberWidgetComp->SetVisibility(true);
+    NumberWidgetComp->InitWidget(); // ensure widget is created before GetWidget() call
+
+    if (UEnemyNumberWidget* W = Cast<UEnemyNumberWidget>(NumberWidgetComp->GetWidget()))
+    {
+        W->SetEnemyIndex(Index);
+    }
+}
+
+void ABaseEnemy::ClearDebugIndex()
+{
+    EnemyDebugIndex = -1;
+    if (NumberWidgetComp)
+    {
+        NumberWidgetComp->SetVisibility(false);
+    }
+}
 
 void ABaseEnemy::UpdateAnimation() {
   if (!GetSprite() || bIsDead)

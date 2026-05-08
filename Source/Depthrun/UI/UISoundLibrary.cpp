@@ -16,18 +16,31 @@ void UUISoundLibrary::Initialize(FSubsystemCollectionBase& Collection)
 	}
 }
 
+static void RefreshFromGI(UUISoundLibrary* Lib)
+{
+	if (UDepthrunGameInstance* GI = Cast<UDepthrunGameInstance>(Lib->GetGameInstance()))
+	{
+		Lib->ButtonClickSound = GI->ButtonClickSound;
+		Lib->ButtonHoverSound = GI->ButtonHoverSound;
+		Lib->ChestOpenSound   = GI->ChestOpenSound;
+	}
+}
+
 void UUISoundLibrary::PlayButtonClick()
 {
+	if (!IsValid(ButtonClickSound)) RefreshFromGI(this);
 	PlaySound2D(ButtonClickSound);
 }
 
 void UUISoundLibrary::PlayButtonHover()
 {
+	if (!IsValid(ButtonHoverSound)) RefreshFromGI(this);
 	PlaySound2D(ButtonHoverSound);
 }
 
 void UUISoundLibrary::PlayChestOpen()
 {
+	if (!IsValid(ChestOpenSound)) RefreshFromGI(this);
 	PlaySound2D(ChestOpenSound);
 }
 

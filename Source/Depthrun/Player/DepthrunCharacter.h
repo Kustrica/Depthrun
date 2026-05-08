@@ -8,6 +8,9 @@
 #include "PaperCharacter.h"
 #include "DepthrunCharacter.generated.h"
 
+/** Broadcast once when the player dies. All enemies subscribe to kill themselves. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerDeath);
+
 class UCameraComponent;
 class USpringArmComponent;
 class UPaperFlipbook;
@@ -79,6 +82,12 @@ protected:
   void Die();
 
 public:
+  // ─── Events ──────────────────────────────────────────────────────────────
+
+  /** Broadcast the moment the player dies. BaseEnemy subscribes to self-destruct. */
+  UPROPERTY(BlueprintAssignable, Category = "Player|Events")
+  FOnPlayerDeath OnPlayerDeath;
+
   /** Heal the player, clamped to MaxHP. Returns actual amount healed. */
   UFUNCTION(BlueprintCallable, Category = "Player|Stats")
   float Heal(float Amount);
