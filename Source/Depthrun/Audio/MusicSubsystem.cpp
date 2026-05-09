@@ -81,11 +81,16 @@ void UMusicSubsystem::PlayMusic(EMusicTrack Track, float FadeIn, float FadeOut)
 	UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
 	if (!World) { return; }
 
-	// Finish any pending fade immediately (pause the fading track)
+	// Finish any pending fade immediately. Stop + drop from cache instead of pausing —
+	// rapid combat↔explore switching previously left paused-at-zero-vol components
+	// in TrackComponents, which were then resurrected silently on the next switch.
 	if (bIsCrossfading && IsValid(FadingComponent))
 	{
-		FadingComponent->SetVolumeMultiplier(0.f);
-		FadingComponent->SetPaused(true);
+		FadingComponent->Stop();
+		for (auto It = TrackComponents.CreateIterator(); It; ++It)
+		{
+			if (It.Value().Get() == FadingComponent) { It.RemoveCurrent(); break; }
+		}
 		FadingComponent = nullptr;
 	}
 
@@ -191,15 +196,23 @@ bool UMusicSubsystem::OnTick(float DeltaTime)
 		FadingComponent->SetVolumeMultiplier(DuckedAlpha * MasterVolume);
 		if (Alpha <= 0.f)
 		{
-			// Pause the faded-out track by stopping (position resets - unavoidable in this UE version)
 			FadingComponent->Stop();
+			// Drop from cache so the next PlayMusic for this track creates a fresh component
+			// instead of resurrecting a stopped one (cause of "music disappears forever" bug).
+			for (auto It = TrackComponents.CreateIterator(); It; ++It)
+			{
+				if (It.Value().Get() == FadingComponent) { It.RemoveCurrent(); break; }
+			}
 			FadingComponent = nullptr;
 		}
 	}
 	else if (IsValid(FadingComponent))
 	{
-		// Stop immediately if no fade out
 		FadingComponent->Stop();
+		for (auto It = TrackComponents.CreateIterator(); It; ++It)
+		{
+			if (It.Value().Get() == FadingComponent) { It.RemoveCurrent(); break; }
+		}
 		FadingComponent = nullptr;
 	}
 

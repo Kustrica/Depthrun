@@ -68,6 +68,15 @@ void URunItemInventory::ApplyToWeapon(ABaseWeapon* Weapon) const
 			if (ARangedWeapon* Ranged = Cast<ARangedWeapon>(Weapon))
 				Ranged->SetPierceEnabled(true);
 			break;
+		case ERunItemEffect::BonusProjectileCount:
+			if (ARangedWeapon* Ranged = Cast<ARangedWeapon>(Weapon))
+			{
+				Ranged->SetShotsPerFire(FMath::Clamp(
+					Ranged->GetShotsPerFire() + FMath::RoundToInt(Item.NumericValue), 1, 5));
+				UE_LOG(LogDepthrun, Log, TEXT("[Items] BonusProjectileCount +%d → ShotsPerFire=%d"),
+					FMath::RoundToInt(Item.NumericValue), Ranged->GetShotsPerFire());
+			}
+			break;
 		default: break;
 		}
 
@@ -97,12 +106,6 @@ void URunItemInventory::ApplyToCharacter(ADepthrunCharacter* Character) const
 				UE_LOG(LogDepthrun, Log, TEXT("[Items] BonusMoveSpeed +%.0f%% → MaxFlySpeed=%.0f"),
 					Item.NumericValue * 100.f, MC->MaxFlySpeed);
 			}
-			break;
-		case ERunItemEffect::BonusProjectileCount:
-			Character->BaseProjectileCount = FMath::Clamp(
-				Character->BaseProjectileCount + FMath::RoundToInt(Item.NumericValue), 1, 5);
-			UE_LOG(LogDepthrun, Log, TEXT("[Items] BonusProjectileCount +%d → Count=%d"),
-				FMath::RoundToInt(Item.NumericValue), Character->BaseProjectileCount);
 			break;
 		default: break;
 		}

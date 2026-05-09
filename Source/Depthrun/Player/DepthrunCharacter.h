@@ -58,6 +58,7 @@ public:
 
 protected:
   virtual void BeginPlay() override;
+  virtual void PostInitializeComponents() override;
   virtual void Tick(float DeltaSeconds) override;
   virtual void
   SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;

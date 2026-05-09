@@ -196,7 +196,7 @@ int32 UDepthrunSaveSubsystem::GetUpgradeLevel(EHubUpgrade Type) const
 int32 UDepthrunSaveSubsystem::GetUpgradeCost(EHubUpgrade Type) const
 {
 	int32 CurrentLevel = GetUpgradeLevel(Type);
-	return HubUpgradeConfig::GetUpgradeCost(CurrentLevel);
+	return HubUpgradeConfig::GetUpgradeCostForType(Type, CurrentLevel);
 }
 
 bool UDepthrunSaveSubsystem::BuyUpgrade(EHubUpgrade Type)
@@ -204,14 +204,14 @@ bool UDepthrunSaveSubsystem::BuyUpgrade(EHubUpgrade Type)
 	if (!DB) { return false; }
 
 	int32 CurrentLevel = GetUpgradeLevel(Type);
-	if (CurrentLevel >= HubUpgradeConfig::MAX_LEVEL)
+	if (CurrentLevel >= HubUpgradeConfig::GetMaxLevel(Type))
 	{
 		UE_LOG(LogDepthrunSave, Warning, TEXT("[Save] BuyUpgrade failed: %s already at max level %d"),
 			*UEnum::GetValueAsString(Type), CurrentLevel);
 		return false;
 	}
 
-	int32 Cost = HubUpgradeConfig::GetUpgradeCost(CurrentLevel);
+	int32 Cost = HubUpgradeConfig::GetUpgradeCostForType(Type, CurrentLevel);
 	int32 CurrentDiamonds = GetTotalDiamonds();
 
 	if (CurrentDiamonds < Cost)

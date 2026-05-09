@@ -4,6 +4,8 @@
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "UI/UISoundLibrary.h"
 
 void UVictoryScreenWidget::NativeConstruct()
@@ -45,6 +47,20 @@ void UVictoryScreenWidget::Show(float RunTimeSeconds, int32 RoomsCleared, int32 
 			FString::Printf(TEXT("%d"), TotalDiamondsAfter)));
 
 	SetVisibility(ESlateVisibility::Visible);
+
+	// Spawn victory VFX at player location
+	if (NS_VictoryEffect)
+	{
+		FVector SpawnLoc = FVector::ZeroVector;
+		if (APawn* PlayerPawn = GetOwningPlayerPawn())
+		{
+			SpawnLoc = PlayerPawn->GetActorLocation();
+		}
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(), NS_VictoryEffect, SpawnLoc,
+			FRotator::ZeroRotator, FVector(1.f), true, true,
+			ENCPoolMethod::AutoRelease);
+	}
 
 	if (APlayerController* PC = GetOwningPlayer())
 	{

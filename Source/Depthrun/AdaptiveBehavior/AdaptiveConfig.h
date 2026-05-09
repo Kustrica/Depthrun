@@ -79,9 +79,12 @@ public:
 
   // ─── Weight Adaptation ───────────────────────────────────────────────────
 
-  /** η — learning rate for weight update rule. */
+  /** η — learning rate for weight update rule.
+   *  Raised from 0.04 to 0.10: at 0.04, weights needed 15-20 hits to show
+   *  visible change — too slow for diploma defense demonstration.
+   *  At 0.10, weights shift noticeably within 5-8 combat events. */
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights")
-  float WeightLearningRate = 0.04f;
+  float WeightLearningRate = 0.10f;
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Weights")
   float WeightMin = 0.05f;
@@ -91,9 +94,12 @@ public:
 
   // ─── Memory ──────────────────────────────────────────────────────────────
 
-  /** Time window in seconds for counting player actions (aggressiveness counter). */
+  /** Time window in seconds for counting player actions (aggressiveness counter).
+   *  Lowered from 10 → 5: at 10s, 3 bow shots in 2s normalize to only 0.30,
+   *  below the 0.4 Chase aggression-bonus threshold. At 5s the same input
+   *  gives 0.60, making Memory visibly responsive to short spam bursts. */
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Adaptive|Memory")
-  float MemoryWindowSeconds = 10.f;
+  float MemoryWindowSeconds = 5.f;
 
   // ─── Pattern Recognition ─────────────────────────────────────────────────
 

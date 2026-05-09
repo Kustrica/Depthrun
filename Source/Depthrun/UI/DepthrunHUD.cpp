@@ -72,35 +72,35 @@ void ADepthrunHUD::ToggleAdaptiveDebugWidget()
 	ESlateVisibility NewVisibility = bDebugWidgetVisible ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden;
 	DebugWidget->SetVisibility(NewVisibility);
 
-	if (bDebugWidgetVisible)
+	if (UDebugAdaptiveWidget* CastWidget = Cast<UDebugAdaptiveWidget>(DebugWidget))
 	{
-		// Force immediate scan so #N labels appear at once (bypasses ScanInterval timer).
-		if (UDebugAdaptiveWidget* CastWidget = Cast<UDebugAdaptiveWidget>(DebugWidget))
-			CastWidget->ForceRefresh();
-
-		// Legacy single-enemy bind (kept for backwards compat with old Blueprint nodes).
-		AActor* EnemyActor = UGameplayStatics::GetActorOfClass(GetWorld(), AAdaptiveEnemy::StaticClass());
-		if (EnemyActor)
+		if (bDebugWidgetVisible)
 		{
-			UAdaptiveBehaviorComponent* AdaptiveComp = EnemyActor->FindComponentByClass<UAdaptiveBehaviorComponent>();
-			if (AdaptiveComp)
+			// Start polling + scan enemies + show #N labels.
+			CastWidget->Activate();
+
+			// Legacy single-enemy bind (kept for backwards compat with old Blueprint nodes).
+			AActor* EnemyActor = UGameplayStatics::GetActorOfClass(GetWorld(), AAdaptiveEnemy::StaticClass());
+			if (EnemyActor)
 			{
-				if (UDebugAdaptiveWidget* CastWidget = Cast<UDebugAdaptiveWidget>(DebugWidget))
+				UAdaptiveBehaviorComponent* AdaptiveComp = EnemyActor->FindComponentByClass<UAdaptiveBehaviorComponent>();
+				if (AdaptiveComp)
 					CastWidget->BindToComponent(AdaptiveComp);
 			}
 		}
-	}
-	else
-	{
-		// Hide #N labels above all enemies when debug widget is dismissed.
-		TArray<AActor*> AllEnemies;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AAdaptiveEnemy::StaticClass(), AllEnemies);
-		for (AActor* Actor : AllEnemies)
+		else
 		{
-			// Cast is to AAdaptiveEnemy (same class as query) — always succeeds,
-			// but explicit cast documents intent and avoids ABaseEnemy ambiguity.
-			if (AAdaptiveEnemy* Enemy = Cast<AAdaptiveEnemy>(Actor))
-				Enemy->ClearDebugIndex();
+			// Stop polling — timer and scanning stop while hidden.
+			CastWidget->Deactivate();
+
+			// Hide #N labels above all enemies.
+			TArray<AActor*> AllEnemies;
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), AAdaptiveEnemy::StaticClass(), AllEnemies);
+			for (AActor* Actor : AllEnemies)
+			{
+				if (AAdaptiveEnemy* Enemy = Cast<AAdaptiveEnemy>(Actor))
+					Enemy->ClearDebugIndex();
+			}
 		}
 	}
 }

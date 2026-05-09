@@ -10,6 +10,13 @@
 // How often (seconds) to recalculate retreat direction (avoid walls better).
 static constexpr float kRetreatRecalcInterval = 0.6f;
 
+// Minimum time enemy must spend in Retreat before any auto-exit can fire.
+// Without this guard, if SafeDistance < current Dist (e.g. SafeDistance=60 vs Dist=104),
+// Retreat exits to Idle on the very first tick → Adaptive immediately picks Retreat
+// again → Idle↔Retreat oscillation per evaluation tick. 0.5s gives the FSM time
+// to actually move and the Adaptive system time to converge.
+static constexpr float kRetreatMinDuration = 0.5f;
+
 void UFSMState_Retreat::EnterState(ABaseEnemy* Owner)
 {
 	Super::EnterState(Owner);
@@ -21,7 +28,7 @@ void UFSMState_Retreat::EnterState(ABaseEnemy* Owner)
 		RetreatDirection = (Owner->GetActorLocation() - Player->GetActorLocation()).GetSafeNormal2D();
 	}
 
-	UE_LOG(LogFSM, Warning, TEXT("[STATE] %s → RETREAT! Dist from player is too low."), *GetNameSafe(Owner));
+	UE_LOG(LogFSM, Log, TEXT("[Retreat] Enter — %s"), *GetNameSafe(Owner));
 }
 
 void UFSMState_Retreat::TickState(ABaseEnemy* Owner, float DeltaTime)
@@ -51,7 +58,9 @@ void UFSMState_Retreat::TickState(ABaseEnemy* Owner, float DeltaTime)
 	if (!FSM) return;
 
 	// ── Stop retreating when safe distance achieved ────────────────────────
-	if (Dist >= Owner->SafeDistance)
+	// Guarded by kRetreatMinDuration so the state cannot exit on the same tick
+	// it was entered (which happens when SafeDistance is below the spawn distance).
+	if (TimeInState >= kRetreatMinDuration && Dist >= Owner->SafeDistance)
 	{
 		FSM->TransitionTo(EFSMStateType::Idle);
 		return;

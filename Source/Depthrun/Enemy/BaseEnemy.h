@@ -81,9 +81,22 @@ public:
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
   float DetectionRange = 250.f;
 
-  /** Range at which the enemy enters Attack state. */
+  /** Distance at which a MELEE enemy enters Attack state.
+   *  For Adaptive enemies this is used while bIsRangedMode == false. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
-  float AttackRange = 25.f;
+  float MeleeAttackRange = 80.f;
+
+  /** Optimal shooting distance for RANGED enemies (entering Attack from Chase/Idle).
+   *  Adaptive enemies switch to ranged mode roughly above MeleeAttackRange*1.5
+   *  and try to keep this distance. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+  float RangedAttackRange = 320.f;
+
+  /** Maximum tolerated ranged engagement distance — beyond this the enemy
+   *  exits ranged Attack to Chase and closes the gap (prevents the
+   *  "stand still and snipe forever" stuck behaviour). */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
+  float RangedTooFarRange = 480.f;
 
   /** Ranged enemies will try to retreat if player is closer than this. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
@@ -92,6 +105,13 @@ public:
   /** Distance at which the enemy stops retreating. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
   float SafeDistance = 140.f;
+
+  /** Returns the relevant Attack-entry range for the current combat mode.
+   *  Default (melee) implementation just returns MeleeAttackRange.
+   *  Adaptive/Ranged subclasses override this to return RangedAttackRange
+   *  when in ranged mode. */
+  UFUNCTION(BlueprintCallable, Category = "Enemy|Combat")
+  virtual float GetEffectiveAttackRange() const { return MeleeAttackRange; }
 
   /** Damage dealt per melee attack. */
   UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Combat")
@@ -166,6 +186,23 @@ protected:
   void ResetHitAnimation();
 
 public:
+  // ─── VFX ──────────────────────────────────────────────────────────────
+
+  /** Niagara effect spawned when this enemy takes damage in melee mode.
+   *  Assign NS_HitSparks in Blueprint defaults. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|VFX")
+  TObjectPtr<class UNiagaraSystem> NS_HitMelee;
+
+  /** Niagara effect spawned when this enemy takes damage in ranged mode.
+   *  Assign NS_HitCoin in Blueprint defaults. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|VFX")
+  TObjectPtr<class UNiagaraSystem> NS_HitRanged;
+
+  /** Niagara effect spawned when this enemy dies.
+   *  Assign NS_EnemyDeath in Blueprint defaults. */
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|VFX")
+  TObjectPtr<class UNiagaraSystem> NS_Death;
+
   // ─── Debug identification ─────────────────────────────────────────────
 
   /** 0-based slot index assigned by DebugAdaptiveWidget. Shown as #1, #2... */

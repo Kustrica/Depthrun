@@ -11,6 +11,8 @@
 #include "PaperSpriteComponent.h"
 #include "Core/DepthrunLogChannels.h"
 #include "Math/UnrealMathUtility.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "UI/DepthrunHUD.h"
 #include "GameFramework/PlayerController.h"
 
@@ -135,6 +137,15 @@ void AChestActor::DistributeLoot(ADepthrunCharacter* Player)
         UE_LOG(LogDepthrunLoot, Log, TEXT("[Chest] Item: no drop this time (chance=%.0f%%)"), ItemChance * 100.f);
     }
 
-    // ── 4. Broadcast for HUD reward popup ────────────────────────────────────
+    // ── 4. Chest open VFX ──────────────────────────────────────────────────────
+    if (NS_ChestOpen)
+    {
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+            GetWorld(), NS_ChestOpen, GetActorLocation(),
+            FRotator::ZeroRotator, FVector(1.f), true, true,
+            ENCPoolMethod::AutoRelease);
+    }
+
+    // ── 5. Broadcast for HUD reward popup ────────────────────────────────────
     OnChestOpened.Broadcast(Payload);
 }

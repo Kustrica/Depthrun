@@ -3,6 +3,7 @@
 #include "DepthrunCharacter.h"
 #include "Combat/BaseWeapon.h"
 #include "Combat/MeleeWeapon.h"
+#include "Combat/RangedWeapon.h"
 #include "Core/DepthrunLogChannels.h"
 #include "Data/DepthrunSaveSubsystem.h"
 #include "Data/SQLiteManager.h"
@@ -143,6 +144,15 @@ ADepthrunCharacter::ADepthrunCharacter() {
   bUseControllerRotationPitch = false;
   bUseControllerRotationYaw = false;
   bUseControllerRotationRoll = false;
+}
+
+void ADepthrunCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	// Apply hub upgrades BEFORE weapons are spawned in BeginPlay()
+	// This ensures BaseShotsPerFire is set on the ranged weapon before
+	// any run items are applied (which happen later via chests).
+	ApplyProfileUpgrades();
 }
 
 void ADepthrunCharacter::BeginPlay() {
@@ -819,6 +829,14 @@ void ADepthrunCharacter::ApplyProfileUpgrades()
 	float HPBonus = HubUpgradeConfig::GetMaxHPBonus(MaxHPLvl);
 	MaxHP = 500.f + HPBonus;
 	CurrentHP = FMath::Min(CurrentHP, MaxHP); // Clamp current HP to new max
+
+	// Apply BaseShotsPerFire to ranged weapon (hub upgrade base for multishot)
+	if (ARangedWeapon* RangedWeapon = Cast<ARangedWeapon>(GetWeaponSlot(2)))
+	{
+		RangedWeapon->SetBaseShotsPerFire(BaseProjectileCount);
+		RangedWeapon->SetShotsPerFire(BaseProjectileCount);
+		UE_LOG(LogDepthrunSave, Log, TEXT("[Player] Ranged weapon BaseShotsPerFire set to %d"), BaseProjectileCount);
+	}
 
 	UE_LOG(LogDepthrunSave, Log, TEXT("[Player] Profile upgrades applied: Damage x%.2f, Range x%.2f, Arrows %d, MaxHP %.0f"),
 		DamageMultiplier, MeleeRangeMultiplier, BaseProjectileCount, MaxHP);

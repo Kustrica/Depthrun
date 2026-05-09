@@ -44,6 +44,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chest|Loot")
     TObjectPtr<URunItemCollection> ItemCollection;
 
+    /** Niagara effect spawned when chest is opened. Assign NS_ChestOpen in BP. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chest|VFX")
+    TObjectPtr<class UNiagaraSystem> NS_ChestOpen;
+
     /** Broadcast after loot is distributed. HUD subscribes to spawn reward popup. */
     FOnChestOpened OnChestOpened;
 

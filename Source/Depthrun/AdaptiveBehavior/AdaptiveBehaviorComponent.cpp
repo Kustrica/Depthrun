@@ -163,31 +163,67 @@ void UAdaptiveBehaviorComponent::EvaluationTick() {
   }
 
   // Stage 7.5 / Sprint Refinement: Dynamic Ranged Mode Toggle (Auto-Ranged)
-  if (Owner)
+  // Now uses MeleeAttackRange + RangedAttackRange (separate ranges per mode)
+  // with hysteresis to prevent flicker between melee and ranged.
+  if (AAdaptiveEnemy* AdaptiveOwner = Cast<AAdaptiveEnemy>(Owner))
   {
-      // Ranged mode threshold: distance at which enemy switches to bow.
-      // Balanced: ranged when player is farther than AttackRange (melee zone).
-      // MeleeOriented: ranged only when very far (prefers melee).
-      // RangedOriented: always ranged unless player is inside melee range.
-      float RangeThreshold = Owner->AttackRange * 1.5f; // default: just outside melee range
+      const float MeleeR  = Owner->MeleeAttackRange;
+      const float RangedR = Owner->RangedAttackRange;
+
+      // Hysteresis bounds — based on the MIDPOINT between melee and ranged ranges,
+      // not just a multiplier of MeleeR (the latter breaks when MeleeR is small,
+      // e.g. 40, while RangedR is 200 → SwitchUp=60 and the enemy never returns
+      // to melee mode because hysteresis window is way below ranged optimum).
+      const float Mid       = (MeleeR + RangedR) * 0.5f;
+      const float Hyst      = (RangedR - MeleeR) * 0.10f; // 20% of mid-zone
+      float SwitchUp   = Mid + Hyst; // ↑ enter ranged when player further than this
+      float SwitchDown = Mid - Hyst; // ↓ leave ranged when player closer than this
       switch (CombatStyle)
       {
-          case EEnemyCombatStyle::MeleeOriented:  RangeThreshold = Owner->DetectionRange * 0.8f; break;
-          case EEnemyCombatStyle::Balanced:       RangeThreshold = Owner->AttackRange * 1.5f;    break;
-          case EEnemyCombatStyle::RangedOriented: RangeThreshold = Owner->AttackRange;            break;
+          case EEnemyCombatStyle::MeleeOriented:
+              // Resist ranged — only switch up when really far, prefer melee
+              SwitchUp   = Mid + Hyst * 3.f;
+              SwitchDown = Mid - Hyst;
+              break;
+          case EEnemyCombatStyle::Balanced:
+              SwitchUp   = Mid + Hyst;
+              SwitchDown = Mid - Hyst;
+              break;
+          case EEnemyCombatStyle::RangedOriented:
+              // Stay ranged — only commit to melee when really close
+              SwitchUp   = Mid - Hyst;
+              SwitchDown = MeleeR * 1.1f;
+              break;
       }
 
-      // Ranged when: flanking, retreating, or player is beyond melee threshold
-      bool bShouldBeRanged = (NewState == EFSMStateType::Flank)
-                           || (NewState == EFSMStateType::Retreat)
-                           || (LastContext.DistanceToPlayer > RangeThreshold
-                               && (NewState == EFSMStateType::Attack || NewState == EFSMStateType::Chase));
+      const bool bWasRanged = AdaptiveOwner->bIsRangedMode;
+      const float Dist      = LastContext.DistanceToPlayer;
 
-      // Cast to AdaptiveEnemy to access the property
-      if (AAdaptiveEnemy* AdaptiveOwner = Cast<AAdaptiveEnemy>(Owner))
+      bool bShouldBeRanged;
+      if (bWasRanged)
       {
-          AdaptiveOwner->bIsRangedMode = bShouldBeRanged;
+          // Stay ranged unless player crossed the lower threshold.
+          bShouldBeRanged = (Dist > SwitchDown);
       }
+      else
+      {
+          // Switch up only when clearly out of melee zone.
+          bShouldBeRanged = (Dist > SwitchUp);
+      }
+
+      // Tactical overrides — these states are inherently ranged-friendly.
+      if (NewState == EFSMStateType::Flank || NewState == EFSMStateType::Retreat)
+      {
+          bShouldBeRanged = true;
+      }
+      // In Attack while in melee distance — clearly committed to a melee swing,
+      // do not toggle ranged mid-strike.
+      else if (NewState == EFSMStateType::Attack && Dist <= MeleeR)
+      {
+          bShouldBeRanged = false;
+      }
+
+      AdaptiveOwner->bIsRangedMode = bShouldBeRanged;
   }
 
   // Broadcast pattern for debug

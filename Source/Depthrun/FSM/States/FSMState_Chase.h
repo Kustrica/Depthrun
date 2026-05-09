@@ -32,4 +32,9 @@ public:
 private:
 	/** Timer for ranged shots during Chase (ranged enemies only). */
 	float TimeSinceLastRangedShot = 0.f;
+
+#if !UE_BUILD_SHIPPING
+	/** Accumulates DeltaTime to throttle on-screen debug messages to ~0.5s interval. */
+	float DebugLogTimer = 0.f;
+#endif
 };

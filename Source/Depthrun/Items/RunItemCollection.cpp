@@ -40,13 +40,13 @@ URunItemCollection::URunItemCollection()
 	BonusSpeed.TargetWeapon = EItemTargetWeapon::Any;
 	BonusSpeed.NumericValue = 0.15f;
 
-	FRunItemData BonusArrows;
-	BonusArrows.ItemName    = TEXT("Bonus Arrows");
-	BonusArrows.Effect      = ERunItemEffect::BonusProjectileCount;
-	BonusArrows.TargetWeapon = EItemTargetWeapon::Any;
-	BonusArrows.NumericValue = 1.f;
+	FRunItemData Multishot;
+	Multishot.ItemName    = TEXT("Multishot");
+	Multishot.Effect      = ERunItemEffect::BonusProjectileCount;
+	Multishot.TargetWeapon = EItemTargetWeapon::Ranged;
+	Multishot.NumericValue = 1.f;
 
-	Items = { ArrowRicochet, ArrowPierce, ExtendedRange, DoubleSwing, BonusHP, BonusSpeed, BonusArrows };
+	Items = { ArrowRicochet, ArrowPierce, ExtendedRange, DoubleSwing, BonusHP, BonusSpeed, Multishot };
 }
 
 int32 URunItemCollection::FindIndexByName(const FString& Name) const

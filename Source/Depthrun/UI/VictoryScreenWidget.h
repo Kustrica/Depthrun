@@ -7,6 +7,7 @@
 
 class UButton;
 class UTextBlock;
+class UNiagaraSystem;
 
 /**
  * UVictoryScreenWidget
@@ -42,6 +43,11 @@ public:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> TotalDiamondsText;
+
+	// ── VFX ──────────────────────────────────────────────────────────────────
+	/** Niagara effect spawned at player location when victory screen appears. Assign in WBP defaults. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "VFX")
+	TObjectPtr<UNiagaraSystem> NS_VictoryEffect;
 
 	// ── Buttons ───────────────────────────────────────────────────────────────
 	UPROPERTY(meta = (BindWidget))

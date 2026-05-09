@@ -34,6 +34,9 @@ public:
 	 */
 	virtual void PerformMeleeAttack() override;
 
+	/** Pure ranged enemies always engage at RangedAttackRange. */
+	virtual float GetEffectiveAttackRange() const override { return RangedAttackRange; }
+
 private:
 	void ActuallyFire();
 };

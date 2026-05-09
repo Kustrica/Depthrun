@@ -10,6 +10,8 @@
 #include "FSM/FSMComponent.h"
 // FSM state includes removed: states are registered in ABaseEnemy::BeginPlay()
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "Player/DepthrunCharacter.h"
 #include "Player/PlayerActionTracker.h"
 #include "PaperFlipbookComponent.h"
@@ -50,8 +52,19 @@ void AAdaptiveEnemy::BeginPlay() {
 
 void AAdaptiveEnemy::HandleHealthChanged(float OldHP, float NewHP,
                                          float MaxHP) {
-  if (NewHP < OldHP && AdaptiveComp) {
-    AdaptiveComp->OnDamageTaken();
+  if (NewHP < OldHP) {
+    // Adaptive reward signal
+    if (AdaptiveComp) {
+      AdaptiveComp->OnDamageTaken();
+    }
+    // Spawn hit VFX (melee or ranged variant)
+    UNiagaraSystem* HitFX = bIsRangedMode ? NS_HitRanged : NS_HitMelee;
+    if (HitFX) {
+      UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+          GetWorld(), HitFX, GetActorLocation(),
+          FRotator::ZeroRotator, FVector(1.f), true, true,
+          ENCPoolMethod::AutoRelease);
+    }
   }
 }
 
@@ -177,14 +190,33 @@ void AAdaptiveEnemy::UpdateAnimation() {
     GetSprite()->SetFlipbook(DesiredFB);
   }
 
-  // Mirror sprite horizontally
-  if (GetVelocity().SizeSquared() > 10.f) {
-    const FVector V = GetVelocity();
-    if (FMath::Abs(V.Y) > 0.1f) {
+  // Mirror sprite horizontally.
+  // Two sources of "facing direction":
+  //   1) Velocity (when moving) — natural movement-driven flip
+  //   2) ToPlayer vector (when stationary, attacking, or in Retreat shooting)
+  // Without #2, an enemy that stops to attack keeps the last facing it had while
+  // walking, so it can fire/swing in the wrong direction (e.g. player to the left
+  // but enemy still faces right because last walk was rightward).
+  float FacingY = 0.f;
+  const FVector V = GetVelocity();
+  if (FMath::Abs(V.Y) > 0.1f)
+  {
+      FacingY = V.Y;
+  }
+  else if (ACharacter* Player = UGameplayStatics::GetPlayerCharacter(this, 0))
+  {
+      const FVector ToPlayer = Player->GetActorLocation() - GetActorLocation();
+      if (FMath::Abs(ToPlayer.Y) > 1.f)
+      {
+          FacingY = ToPlayer.Y;
+      }
+  }
+
+  if (FMath::Abs(FacingY) > 0.05f)
+  {
       FVector Scale = GetSprite()->GetRelativeScale3D();
       const float XAbs = FMath::Max(FMath::Abs(Scale.X), 1.0f);
-      Scale.X = (V.Y < 0.f) ? -XAbs : XAbs;
+      Scale.X = (FacingY < 0.f) ? -XAbs : XAbs;
       GetSprite()->SetRelativeScale3D(Scale);
-    }
   }
 }

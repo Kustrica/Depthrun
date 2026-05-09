@@ -8,6 +8,8 @@
 #include "Engine/DamageEvents.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "Player/DepthrunCharacter.h"
 #include "Components/WidgetComponent.h"
 #include "UI/EnemyNumberWidget.h"
@@ -49,22 +51,28 @@ ABaseEnemy::ABaseEnemy() {
 
   // ─── Movement: Flying mode (same reason as player — avoids floor-loss
   // sliding) ─
-  GetCharacterMovement()->GravityScale = 0.f;
-  GetCharacterMovement()->bOrientRotationToMovement = false;
-  GetCharacterMovement()->SetMovementMode(MOVE_Flying);
-  // Lock DefaultMovementMode so Blueprint CDO and TeleportPhysics
-  // cannot restore MOVE_Custom (5) after SetLockedZ teleport.
-  GetCharacterMovement()->DefaultLandMovementMode = MOVE_Flying;
-  GetCharacterMovement()->DefaultWaterMovementMode = MOVE_Flying;
-  GetCharacterMovement()->MaxFlySpeed = 300.f;
-  GetCharacterMovement()->BrakingDecelerationFlying = 8192.f;
-  GetCharacterMovement()->bConstrainToPlane   = true;
-  // NOTE: bSnapToPlaneAtStart intentionally left false here.
-  // The plane constraint origin (Z) is set per-instance by RoomBase::SpawnEnemies
-  // via SetLockedZ(), which teleports the enemy to the correct DataAsset Z value
-  // AFTER spawn. Enabling bSnapToPlaneAtStart would override that Z with 0.
-  GetCharacterMovement()->bSnapToPlaneAtStart = false;
-  GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.f, 0.f, 1.f));
+  if (UCharacterMovementComponent* CMC = GetCharacterMovement())
+  {
+    CMC->GravityScale = 0.f;
+    CMC->bOrientRotationToMovement = false;
+    CMC->SetMovementMode(MOVE_Flying);
+    // Lock DefaultLandMovementMode so physics cannot restore a wrong mode after teleport.
+    CMC->DefaultLandMovementMode = MOVE_Flying;
+    CMC->DefaultWaterMovementMode = MOVE_Flying;
+    // CRITICAL: Enemies are driven by FSM/Adaptive components, not by an AIController.
+    // Without a Controller, CMC's PerformMovement skips physics entirely
+    // (treats the pawn as a network-remote one). This flag forces CMC to run
+    // physics anyway, so AddMovementInput actually produces velocity.
+    CMC->bRunPhysicsWithNoController = true;
+    // NOTE: MaxFlySpeed is NOT set here — BeginPlay syncs it from MoveSpeed property.
+    // Hardcoding a value here would silently override per-Blueprint MoveSpeed settings.
+    // High deceleration to stop instantly — top-down 2D has no slide/inertia.
+    CMC->BrakingDecelerationFlying = 8192.f;
+    // NOTE: bConstrainToPlane is intentionally NOT set in the constructor.
+    // It is enabled in SetLockedZ() after the correct Z plane origin is known.
+    // Setting it here (with PlaneOrigin=0,0,0) would cause CMC to snap the enemy
+    // to Z=0 every tick before SetLockedZ is called, causing collision with the floor.
+  }
 
   // ─── Number widget component (shows #N label in world space) ──────────
   NumberWidgetComp = CreateDefaultSubobject<UWidgetComponent>(TEXT("NumberWidgetComp"));
@@ -79,6 +87,8 @@ ABaseEnemy::ABaseEnemy() {
 
 void ABaseEnemy::BeginPlay() {
   Super::BeginPlay();
+
+  UCharacterMovementComponent* CMC = GetCharacterMovement();
 
   // Stage 12: Integrity check. SafeDistance must be less than DetectionRange, 
   // otherwise the enemy retreats into "Idle" state and never comes back.
@@ -122,21 +132,10 @@ void ABaseEnemy::BeginPlay() {
   }
 
   // ─── Movement speed from config ───────────────────────────────────────
-  if (UCharacterMovementComponent* CMC = GetCharacterMovement())
+  if (CMC)
   {
     CMC->MaxFlySpeed  = MoveSpeed;
     CMC->MaxWalkSpeed = MoveSpeed;
-
-    // Force Flying mode in BeginPlay — Blueprint CDO may reset DefaultMovementMode
-    // to MOVE_Custom (5) or MOVE_Walking (1), breaking AddMovementInput entirely.
-    // We override it here unconditionally since the enemy lives in a gravity-free plane.
-    if (CMC->MovementMode != MOVE_Flying)
-    {
-      UE_LOG(LogFSM, Warning,
-        TEXT("[Enemy::BeginPlay] %s MovementMode=%d (expected 3=Flying) — FORCING Flying"),
-        *GetName(), (int32)CMC->MovementMode);
-      CMC->SetMovementMode(MOVE_Flying);
-    }
   }
 
   // ─── FSM setup: register all 5 states ─────────────────────────────────
@@ -173,52 +172,26 @@ void ABaseEnemy::BeginPlay() {
   }
   if (GetSprite()) GetSprite()->SetVisibility(true, true);
 
-  // ─── Movement diagnostics ─────────────────────────────────────────────
-  // Printed once on spawn. MovementMode here is AFTER the Flying-mode force above,
-  // so it should always read 3. If FORCING Flying warning appeared above → CDO had wrong default.
-  if (UCharacterMovementComponent* CMC = GetCharacterMovement())
-  {
-    UE_LOG(LogFSM, Log,
-      TEXT("[Enemy::BeginPlay] %s | MoveSpeed=%.0f MaxFly=%.0f MaxWalk=%.0f"
-           " | DetectionRange=%.0f AttackRange=%.0f"
-           " | MovementMode=%d (3=Flying,1=Walking)"
-           " | ConstrainToPlane=%d PlaneOrigin=%s"
-           " | SpawnZ=%.2f"),
-      *GetName(),
-      MoveSpeed,
-      CMC->MaxFlySpeed,
-      CMC->MaxWalkSpeed,
-      DetectionRange,
-      AttackRange,
-      (int32)CMC->MovementMode,
-      (int32)CMC->bConstrainToPlane,
-      *CMC->GetPlaneConstraintOrigin().ToString(),
-      GetActorLocation().Z
-    );
-  }
-
   OnSpawned();
 }
 
 void ABaseEnemy::SetLockedZ(float InZ)
 {
+  if (bIsDead) return;
+
   FVector Loc = GetActorLocation();
   Loc.Z = InZ;
   SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+
   if (UCharacterMovementComponent* CMC = GetCharacterMovement())
   {
+    // Now that we know the correct Z, enable the plane constraint.
+    // Done here (not in constructor) to avoid CMC snapping enemy to Z=0
+    // before the correct plane origin is set.
+    CMC->SetPlaneConstraintNormal(FVector(0.f, 0.f, 1.f));
     CMC->SetPlaneConstraintOrigin(FVector(0.f, 0.f, InZ));
-
-    // TeleportPhysics can trigger DefaultMovementMode restoration from Blueprint CDO
-    // (MOVE_Custom=5), which breaks AddMovementInput. Force Flying every time.
-    if (CMC->MovementMode != MOVE_Flying)
-    {
-      CMC->SetMovementMode(MOVE_Flying);
-    }
-
-    UE_LOG(LogFSM, Log,
-      TEXT("[Enemy::SetLockedZ] %s → Z=%.2f | MovementMode=%d | PlaneOrigin set"),
-      *GetName(), InZ, (int32)CMC->MovementMode);
+    CMC->bConstrainToPlane = true;
+    CMC->bSnapToPlaneAtStart = false;
   }
 }
 
@@ -234,7 +207,7 @@ void ABaseEnemy::PerformMeleeAttack() {
 
   const float Dist =
       FVector::Dist2D(GetActorLocation(), Player->GetActorLocation());
-  if (Dist > AttackRange)
+  if (Dist > MeleeAttackRange)
     return; // sanity check: don't hit at range
 
   Player->TakeDamage(AttackDamage, FDamageEvent(), nullptr, this);
@@ -280,6 +253,14 @@ void ABaseEnemy::OnKilled() {
 
   if (GetCapsuleComponent()) {
     GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  }
+
+  // Spawn death VFX
+  if (NS_Death) {
+    UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+        GetWorld(), NS_Death, GetActorLocation(),
+        FRotator::ZeroRotator, FVector(1.f), true, true,
+        ENCPoolMethod::AutoRelease);
   }
 
   // Play death animation instead of hiding immediately

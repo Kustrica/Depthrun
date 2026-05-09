@@ -35,6 +35,12 @@ public:
 
   virtual void PerformMeleeAttack() override;
 
+  /** Returns RangedAttackRange when bIsRangedMode==true, else MeleeAttackRange. */
+  virtual float GetEffectiveAttackRange() const override
+  {
+      return bIsRangedMode ? RangedAttackRange : MeleeAttackRange;
+  }
+
   /** For ranged mode: fires a projectile. */
   void ActuallyFire();
 

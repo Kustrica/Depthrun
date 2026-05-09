@@ -50,15 +50,24 @@ void UFSMState_Flank::TickState(ABaseEnemy* Owner, float DeltaTime)
 	if (!FSM) return;
 
 	// ── Exit conditions ────────────────────────────────────────────────────
+	// CRITICAL: never exit to Idle mid-combat. Idle is reserved for "no player"
+	// scenarios; falling back to Idle while the player is alive forces a full
+	// re-acquisition cycle and visually "freezes" the enemy. Always re-enter
+	// Chase so the next Adaptive eval can pick Attack/Flank/Retreat freshly.
 	if (TimeInState >= kFlankMaxDuration)
 	{
-		// After enough flanking, re-evaluate from Idle.
-		FSM->TransitionTo(EFSMStateType::Idle);
+		FSM->TransitionTo(EFSMStateType::Chase);
 		return;
 	}
-	if (Dist <= Owner->AttackRange)
+	if (Dist <= Owner->GetEffectiveAttackRange())
 	{
 		FSM->TransitionTo(EFSMStateType::Attack);
+		return;
+	}
+	// Lost the player completely → only then fall back to Idle.
+	if (Dist > Owner->DetectionRange * 1.5f)
+	{
+		FSM->TransitionTo(EFSMStateType::Idle);
 		return;
 	}
 

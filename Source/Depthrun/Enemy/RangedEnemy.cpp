@@ -10,7 +10,9 @@ ARangedEnemy::ARangedEnemy() {
   EnemyType = EEnemyType::Ranged;
 
   // Ranged enemies prefer to keep distance.
-  AttackRange = 450.f;
+  RangedAttackRange = 450.f;
+  RangedTooFarRange = 650.f;
+  MeleeAttackRange = 80.f;
   DetectionRange = 700.f;
   AttackCooldown = 2.0f;
   MoveSpeed = 250.f;

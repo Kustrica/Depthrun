@@ -52,6 +52,18 @@ void UDynamicWeightManager::UpdateWeights(float Reward, const FContextData& Cont
 		Weights[i] = FMath::Clamp(Weights[i] + Eta * Reward * Contribution, WMin, WMax);
 	}
 
+	// CRITICAL: re-normalize weights so Σw_i ≈ 1.0.
+	// Without this, individual clamp lets total weight drift up to 6×WMax (e.g. 2.4)
+	// over time → ThreatBase saturates at 1.0 → Retreat utility wins forever
+	// → enemies oscillate Idle↔Retreat and never engage.
+	float Sum = 0.f;
+	for (int32 i = 0; i < 6; ++i) Sum += Weights[i];
+	if (Sum > KINDA_SMALL_NUMBER)
+	{
+		const float InvSum = 1.f / Sum;
+		for (int32 i = 0; i < 6; ++i) Weights[i] *= InvSum;
+	}
+
 	UE_LOG(LogDynamicWeights, Verbose,
 		TEXT("[Weights] reward=%.1f | w0=%.3f w1=%.3f w2=%.3f w3=%.3f w4=%.3f w5=%.3f"),
 		Reward, Weights[0], Weights[1], Weights[2], Weights[3], Weights[4], Weights[5]);

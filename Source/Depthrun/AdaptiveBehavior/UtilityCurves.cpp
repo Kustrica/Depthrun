@@ -68,11 +68,14 @@ float UUtilityCurves::EvaluateFlank(float T, const FContextData& Context, const 
 	
     float Utility = DepthrunMath::BellCurve(T, Center, Width) * AllyFactor;
 
-    // Stage 12: Tactical penalization
-    // If player is too close (< 100), Flank is less effective than direct Attack/Retreat
-    if (Context.DistanceToPlayer < 100.f)
+    // Tactical penalization (only point-blank):
+    // Suppress Flank only at hugging distance (< 40 UU) — at that range we're
+    // already inside a melee swing, no point circling. Above that, even close
+    // distances are valid for ranged Flank (the enemy may be in ranged mode
+    // and want to break a clean line of fire).
+    if (Context.DistanceToPlayer < 40.f)
     {
-        Utility *= 0.3f;
+        Utility *= 0.4f;
     }
 
     return Utility;

@@ -55,7 +55,7 @@ void UFSMState_Idle::TickState(ABaseEnemy* Owner, float DeltaTime)
 		return;
 	}
 
-	if (Dist <= Owner->AttackRange)
+	if (Dist <= Owner->GetEffectiveAttackRange())
 	{
 		FSM->TransitionTo(EFSMStateType::Attack);
 	}

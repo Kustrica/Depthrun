@@ -72,18 +72,21 @@ float UPatternRecognizer::GetPatternModifier(EFSMStateType CandidateState) const
 
 		// ── Bigrams ──────────────────────────────────────────────────────────
 		// 2x Shot → clear Flank signal; already on 2nd arrow enemy starts circling
-		{ TEXT("Shot+Shot"),      EFSMStateType::Flank,   +0.55f },
+		{ TEXT("Shot+Shot"),      EFSMStateType::Flank,   +0.65f },
 		{ TEXT("Shot+Shot"),      EFSMStateType::Chase,   -0.10f }, // suppress head-on
 		{ TEXT("Shot+Shot"),      EFSMStateType::Retreat, +0.10f },
 		// Running into ranged fire is tactically wrong: suppress Attack when player shoots
 		{ TEXT("Shot+Shot"),      EFSMStateType::Attack,  -0.20f },
 
 		// ── Unigrams (spam counters) ─────────────────────────────────────────
-		// Single Shot unigram: Flank > Chase so enemy doesn't just run straight at player
+		// Single Shot unigram: Flank >> Chase so enemy doesn't just run straight at player.
+		// Flank +0.50 (was +0.40) — guarantees Flank wins even from a single bow shot
+		// when Attack is far from peak (e.g. T<0.35 or T>0.65). Combined with the
+		// relaxed close-range penalty, committee can demonstrate Flank inside 1-2 shots.
 		{ TEXT("Melee"),          EFSMStateType::Flank,   +0.30f },
 		{ TEXT("Melee"),          EFSMStateType::Retreat, +0.10f },
-		{ TEXT("Shot"),           EFSMStateType::Flank,   +0.40f }, // was +0.25 → now > Chase
-		{ TEXT("Shot"),           EFSMStateType::Chase,   +0.25f }, // was +0.45 → reduced
+		{ TEXT("Shot"),           EFSMStateType::Flank,   +0.50f },
+		{ TEXT("Shot"),           EFSMStateType::Chase,   +0.10f }, // was +0.25 — Chase no longer competes with Flank under bow pressure
 	};
 
 	for (const FPatternRule& Rule : Rules)

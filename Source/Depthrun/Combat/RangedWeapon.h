@@ -31,6 +31,10 @@ public:
   int32 GetRicochetCount() const { return RicochetCount; }
   void SetPierceEnabled(bool bEnabled) { bPierceEnabled = bEnabled; }
 
+  void SetShotsPerFire(int32 Count) { ShotsPerFire = Count; }
+  int32 GetShotsPerFire() const { return ShotsPerFire; }
+  void SetBaseShotsPerFire(int32 Count) { BaseShotsPerFire = Count; }
+
   UPROPERTY(EditDefaultsOnly, Category = "Weapon|Ranged")
   TSubclassOf<ABaseProjectile> ProjectileClass;
 
@@ -44,6 +48,9 @@ public:
 private:
   int32 RicochetCount = 0;
   bool bPierceEnabled = false;
+
+  int32 ShotsPerFire = 1;
+  int32 BaseShotsPerFire = 1;
 
   FTimerHandle ShotTimer;
   void ActuallyFire();

@@ -67,9 +67,14 @@ void UFSMState_Attack::TickState(ABaseEnemy* Owner, float DeltaTime)
 	}
 
 	// ── Exit condition: player moved out of attack range ───────────────────
-	// Ranged enemies have a much larger effective attack range (use MinAttackRange as lower bound).
-	// Melee enemies exit to Chase when player walks away past AttackRange.
-	const float ExitRange = bIsRanged ? Owner->DetectionRange * 0.9f : Owner->AttackRange * 1.2f;
+	// Ranged: exit to Chase if player goes past RangedTooFarRange — this lets
+	// the enemy actually close the distance instead of strafing forever.
+	// Without this, ranged Attack "stuck" at long distance because the previous
+	// ExitRange = DetectionRange*0.9 was almost never reached.
+	// Melee: exit to Chase when player walks away past MeleeAttackRange.
+	const float ExitRange = bIsRanged
+		? Owner->RangedTooFarRange
+		: Owner->MeleeAttackRange * 1.2f;
 	if (TimeInAttackState >= MinTimeBeforeDistanceExit && Dist > ExitRange)
 	{
 		FSM->TransitionTo(EFSMStateType::Chase);
