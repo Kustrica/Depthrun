@@ -74,27 +74,6 @@ void UFSMState_Chase::TickState(ABaseEnemy* Owner, float DeltaTime)
 
 	Owner->AddMovementInput(Dir);
 
-	// ── TEMP DEBUG: on-screen info every ~0.5s ────────────────────────────
-#if !UE_BUILD_SHIPPING
-	DebugLogTimer += DeltaTime;
-	if (DebugLogTimer >= 0.5f)
-	{
-		DebugLogTimer = 0.f;
-		UCharacterMovementComponent* CMC = Owner->GetCharacterMovement();
-		const float MaxFly = CMC ? CMC->MaxFlySpeed : -1.f;
-		const uint8 MoveMode = CMC ? (uint8)CMC->MovementMode : 255;
-		const FVector Vel = Owner->GetVelocity();
-		const FString Msg = FString::Printf(
-			TEXT("[Chase] %s | Dist2D=%.0f | Vel=(%.0f,%.0f) | MaxFly=%.0f | Mode=%d"),
-			*Owner->GetName(), Dist, Vel.X, Vel.Y, MaxFly, MoveMode);
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				(uint64)(uint32)Owner->GetUniqueID(), 1.0f, FColor::Yellow, Msg);
-		}
-		UE_LOG(LogFSM, Verbose, TEXT("%s"), *Msg);
-	}
-#endif
 
 	// Ranged enemies shoot while chasing — fire on cooldown even during movement
 	if (AAdaptiveEnemy* AdaptiveOwner = Cast<AAdaptiveEnemy>(Owner))

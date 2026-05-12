@@ -112,7 +112,8 @@ void ARangedWeapon::ActuallyFire() {
 void ARangedWeapon::ResetEffects() {
   RicochetCount = 0;
   bPierceEnabled = false;
-  // Do NOT reset ShotsPerFire — hub upgrades (BaseShotsPerFire) must persist
-  // across item re-applies. Items add on top of the hub base, so we only
-  // reset item-specific effects here.
+  // Reset to hub base so that item re-apply always starts from the correct
+  // baseline. Items add on top of BaseShotsPerFire, not on top of the
+  // previous accumulated total.
+  ShotsPerFire = BaseShotsPerFire;
 }

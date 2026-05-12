@@ -1,5 +1,3 @@
-// Copyright Depthrun Project, 2026. All Rights Reserved.
-// Variant E: exponential decay replaced by simple time-window counter.
 #include "AdaptiveMemory.h"
 #include "AdaptiveConfig.h"
 

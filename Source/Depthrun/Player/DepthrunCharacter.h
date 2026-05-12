@@ -97,6 +97,10 @@ public:
   UFUNCTION(BlueprintCallable, Category = "Player|Meta")
   void ApplyProfileUpgrades();
 
+  /** Apply already-computed BaseProjectileCount to the ranged weapon slot.
+   *  Called after weapons are spawned in BeginPlay so the cast succeeds. */
+  void ApplyWeaponProfileUpgrades();
+
   // ─── Console Commands (Debug) ────────────────────────────────────────────
 
   /** Console: Add diamonds to run (not profile). Usage: AddRunDiamonds 100 */
@@ -309,7 +313,7 @@ public:
   float MeleeRangeMultiplier = 1.0f;
 
   UPROPERTY(BlueprintReadOnly, Category = "Player|Meta")
-  int32 BaseProjectileCount = 3;
+  int32 BaseProjectileCount = 1;
 
   UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation|Combat")
   TObjectPtr<UPaperFlipbook> FB_Hit;

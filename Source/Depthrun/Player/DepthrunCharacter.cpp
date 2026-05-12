@@ -234,6 +234,11 @@ void ADepthrunCharacter::BeginPlay() {
   // Start with Slot 1 (Sword) active
   SwitchToWeaponSlot(1);
 
+  // Apply hub-upgrade shot count to the ranged weapon now that it is spawned.
+  // ApplyProfileUpgrades() already ran in PostInitializeComponents (sets
+  // BaseProjectileCount) but the weapon didn't exist yet — fix that here.
+  ApplyWeaponProfileUpgrades();
+
   if (!SpawnedWeapon1 && !SpawnedWeapon2) {
     UE_LOG(
         LogDepthrun, Warning,
@@ -728,6 +733,9 @@ void ADepthrunCharacter::Die() {
     Save->SaveRunResult(ClearedRooms, FMath::RoundToInt(Duration), false);
   }
 
+  // Capture run diamonds BEFORE OnPlayerDeath() clears them to zero.
+  const int32 EarnedDiamondsForUI = PlayerEconomy ? PlayerEconomy->RunDiamonds : 0;
+
   // Commit 50% run diamonds to profile
   if (PlayerEconomy)
   {
@@ -766,7 +774,7 @@ void ADepthrunCharacter::Die() {
   if (APlayerController* PC2 = Cast<APlayerController>(GetController())) {
     if (DeathScreenWidgetClass) {
       const float RunTime = GetWorld() ? (GetWorld()->GetTimeSeconds() - RunStartTime) : 0.f;
-      int32 EarnedDiamonds = PlayerEconomy ? PlayerEconomy->RunDiamonds : 0;
+      int32 EarnedDiamonds = EarnedDiamondsForUI;
       int32 TotalDiamonds  = 0;
       int32 TotalRooms     = 0;
       int32 ClearedRooms   = 0;
@@ -830,16 +838,23 @@ void ADepthrunCharacter::ApplyProfileUpgrades()
 	MaxHP = 500.f + HPBonus;
 	CurrentHP = FMath::Min(CurrentHP, MaxHP); // Clamp current HP to new max
 
-	// Apply BaseShotsPerFire to ranged weapon (hub upgrade base for multishot)
+	UE_LOG(LogDepthrunSave, Log, TEXT("[Player] Profile upgrades applied: Damage x%.2f, Range x%.2f, Arrows %d, MaxHP %.0f"),
+		DamageMultiplier, MeleeRangeMultiplier, BaseProjectileCount, MaxHP);
+}
+
+void ADepthrunCharacter::ApplyWeaponProfileUpgrades()
+{
+	// Weapons are spawned in BeginPlay — safe to cast here.
 	if (ARangedWeapon* RangedWeapon = Cast<ARangedWeapon>(GetWeaponSlot(2)))
 	{
 		RangedWeapon->SetBaseShotsPerFire(BaseProjectileCount);
 		RangedWeapon->SetShotsPerFire(BaseProjectileCount);
-		UE_LOG(LogDepthrunSave, Log, TEXT("[Player] Ranged weapon BaseShotsPerFire set to %d"), BaseProjectileCount);
+		UE_LOG(LogDepthrunSave, Log, TEXT("[Player] ApplyWeaponProfileUpgrades: BaseShotsPerFire=%d"), BaseProjectileCount);
 	}
-
-	UE_LOG(LogDepthrunSave, Log, TEXT("[Player] Profile upgrades applied: Damage x%.2f, Range x%.2f, Arrows %d, MaxHP %.0f"),
-		DamageMultiplier, MeleeRangeMultiplier, BaseProjectileCount, MaxHP);
+	else
+	{
+		UE_LOG(LogDepthrunSave, Warning, TEXT("[Player] ApplyWeaponProfileUpgrades: no ranged weapon in slot 2"));
+	}
 }
 
 // ─── Console Commands Implementation ──────────────────────────────────────────
@@ -994,8 +1009,10 @@ void ADepthrunCharacter::ClearRunItems()
 		return;
 	}
 	ItemInventory->ClearItems();
-	// Re-apply profile upgrades so base stats are restored
+	// Restore base character stats from hub profile, then push the hub-based
+	// shot count to the weapon (weapons exist at this point — safe to cast).
 	ApplyProfileUpgrades();
+	ApplyWeaponProfileUpgrades();
 	if (SpawnedWeapon1) ItemInventory->ApplyToWeapon(SpawnedWeapon1);
 	if (SpawnedWeapon2) ItemInventory->ApplyToWeapon(SpawnedWeapon2);
 	UE_LOG(LogDepthrun, Log, TEXT("[Console] ClearRunItems: all items cleared, base stats restored"));

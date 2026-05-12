@@ -5,15 +5,21 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "DemonstrationSubsystem.generated.h"
 
+UENUM(BlueprintType)
+enum class EDemoCombatEvent : uint8
+{
+	PlayerShot      UMETA(DisplayName = "PlayerShot"),
+	PlayerMelee     UMETA(DisplayName = "PlayerMelee"),
+	EnemyShot       UMETA(DisplayName = "EnemyShot"),
+	EnemyMelee      UMETA(DisplayName = "EnemyMelee"),
+	DamageReceived  UMETA(DisplayName = "DamageReceived"),
+};
+
 /**
  * UDemonstrationSubsystem
- * Diploma defense mode — provides step-by-step evaluation and CSV export.
- *
- * Features (Stage 11):
- *   - Time slow-down: slows game to 10% speed to show decision-making in action
- *   - Step mode: one adaptive evaluation per key press
- *   - CSV export: writes T_final, weights, state scores per evaluation tick
- *                 to Saved/AdaptiveBehaviorLog.csv for diploma charts
+ * Diagnostic logging subsystem for the adaptive behaviour module.
+ * Writes evaluation results, weight updates, state transitions and
+ * combat events to the LogAdaptiveBehavior console channel.
  *
  * Accessed via GetGameInstance()->GetSubsystem<UDemonstrationSubsystem>()
  */
@@ -26,50 +32,41 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
-	// ─── Demo Mode ───────────────────────────────────────────────────────────
-
-	/** Enter slow-motion demonstration mode (TimeScale = 0.1). */
-	UFUNCTION(BlueprintCallable, Category = "Demo")
-	void EnterDemoMode();
-
-	/** Exit demonstration mode, restore normal time scale. */
-	UFUNCTION(BlueprintCallable, Category = "Demo")
-	void ExitDemoMode();
-
-	/** Toggle step-by-step mode: evaluations only proceed on RequestStep(). */
-	UFUNCTION(BlueprintCallable, Category = "Demo")
-	void SetStepMode(bool bEnabled);
-
-	/** In step mode: trigger exactly one adaptive evaluation cycle. */
-	UFUNCTION(BlueprintCallable, Category = "Demo")
-	void RequestStep();
-
-	/** True when demonstration mode is active. */
-	UFUNCTION(BlueprintPure, Category = "Demo")
-	bool IsInDemoMode() const { return bDemoModeActive; }
-
-	// ─── CSV Export ──────────────────────────────────────────────────────────
-
-	/** Begin recording evaluation data to CSV. */
-	UFUNCTION(BlueprintCallable, Category = "Demo|CSV")
-	void BeginCSVRecording(const FString& Filename = TEXT("AdaptiveBehaviorLog.csv"));
-
-	/** Stop recording and flush the CSV file. */
-	UFUNCTION(BlueprintCallable, Category = "Demo|CSV")
-	void EndCSVRecording();
+	// ─── Logging ─────────────────────────────────────────────────────────────
 
 	/**
-	 * Append one row to the CSV. Called by UAdaptiveBehaviorComponent each tick
-	 * when recording is active.
+	 * Log one full evaluation cycle result.
+	 * Called by UAdaptiveBehaviorComponent after each evaluation tick.
 	 */
-	void RecordEvaluationRow(float TFinal, float Confidence, const TArray<float>& Weights,
+	void LogEvaluationResult(float ThreatValue, const TArray<float>& Weights,
 		const FString& ChosenState, const FString& Pattern);
 
-private:
-	bool bDemoModeActive   = false;
-	bool bStepModeEnabled  = false;
-	bool bCSVRecording     = false;
+	/**
+	 * Log a combat event (shot, melee hit, damage received).
+	 * Instigator and Target are optional display names for context.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Demo|Log")
+	void LogCombatEvent(EDemoCombatEvent EventType,
+		const FString& Instigator, const FString& Target);
 
-	FString       CSVFilePath;
-	TArray<FString> CSVRows;
+	/**
+	 * Log a weight update step.
+	 * OldWeights and NewWeights must each contain exactly 6 elements.
+	 */
+	void LogWeightUpdate(const TArray<float>& OldWeights,
+		const TArray<float>& NewWeights, float Reward);
+
+	/**
+	 * Log a FSM state transition with the current threat value.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Demo|Log")
+	void LogStateTransition(const FString& FromState,
+		const FString& ToState, float ThreatValue);
+
+	// ─── Settings ─────────────────────────────────────────────────────────────
+
+	/** When true, all six weights, threat value, chosen state and combat events
+	 *  are written to the log on every evaluation cycle. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Demo")
+	bool bVerboseLogging = false;
 };

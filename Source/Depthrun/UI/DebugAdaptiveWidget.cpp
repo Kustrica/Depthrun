@@ -241,7 +241,7 @@ FString UDebugAdaptiveWidget::FormatWeights(const TArray<float>& W)
 	// (slow-learning multipliers) from FACTORS (real-time context bars).
 	// "Wpn" instead of "Threat" to avoid confusion with ThreatFinal bar.
 	return FString::Printf(
-		TEXT("w: Dist %.2f  Wpn %.2f  HP %.2f\nw: Allies %.2f  Dens %.2f  Mem %.2f"),
+		TEXT("w: Dist %.2f  Wpn %.2f\nw: HP %.2f  Allies %.2f\nw: Dens %.2f  Mem %.2f"),
 		W[0], W[1], W[2], W[3], W[4], W[5]);
 }
 
