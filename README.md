@@ -31,6 +31,16 @@
 
 ---
 
+`W, A, S, D - Movement`
+`LMB – Attack`
+`1 – Sword`
+`2 – Bow`
+`E – Use Potion`
+
+`F3 – Open DebugWidget`
+`Y – God Mode`
+`U – Super Attack`
+
 ## Project Overview
 
 Depthrun is a **demonstration polygon** for a diploma research project. The game is fully playable, but its primary purpose is to showcase a working software module that implements adaptive enemy behavior — a 3-layer pipeline that turns scalar context (distance, HP, weapon type, density, memory) into a high-level FSM decision while continuously adapting its own weights based on combat feedback.
