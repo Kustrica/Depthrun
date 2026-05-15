@@ -161,7 +161,15 @@ FEnemyDebugSnapshot UDebugAdaptiveWidget::BuildSnapshot(AAdaptiveEnemy* Enemy) c
 	if (!IsValid(Enemy)) return S;
 
 	S.bValid      = true;
-	S.EnemyName   = Enemy->GetName();
+	// Use the BP class name (e.g. "BP_AdaptiveEnemy") instead of the instance
+	// name. GetName() returns a unique object name whose numeric suffix is tiny
+	// in PIE (_0, _1) but huge in Standalone/Packaged builds (_2147481068),
+	// because FName indices are global and accumulate before level load.
+	{
+		FString ClassName = Enemy->GetClass()->GetName();
+		ClassName.RemoveFromEnd(TEXT("_C"));
+		S.EnemyName = MoveTemp(ClassName);
+	}
 	S.EnemyIndex  = Enemy->EnemyDebugIndex;
 	S.bRangedMode = Enemy->bIsRangedMode;
 
