@@ -241,9 +241,18 @@ L_MainMenu ──▶ L_Hub ──▶ L_Gameplay ──▶ (смерть ИЛИ �
 
 ## Сохранения (SQLite)
 
-**Файл:** `Saved/Depthrun.db`
 **Подсистема:** `UDepthrunSaveSubsystem` (GameInstance scope)
+**Путь в коде:** `FPaths::ProjectSavedDir() / "Depthrun.db"`
 **Просмотр:** VSCode-расширение `alexcvzz.vscode-sqlite` открывает БД из коробки.
+
+**Где лежит файл `Depthrun.db` в зависимости от способа запуска:**
+
+| Запуск | Путь |
+|---|---|
+| Редактор / PIE | `<ПапкаПроекта>/Saved/Depthrun.db` |
+| Запакованная сборка (Windows) | `%LOCALAPPDATA%\Depthrun\Saved\Depthrun.db` |
+
+> ⚠ В запакованной сборке БД сохраняется в `%LOCALAPPDATA%` и **не сбрасывается** при пересборке или переустановке игры. Чтобы обнулить прогресс — удалить `Depthrun.db` по этому пути (или папку `Saved` целиком), либо вызвать `ResetProfileCmd` в консоли.
 
 ### Схема
 

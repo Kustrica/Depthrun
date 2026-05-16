@@ -241,9 +241,18 @@ All items are pre-filled into a single `DA_RunItemCollection` DataAsset. Effects
 
 ## Save System (SQLite)
 
-**File:** `Saved/Depthrun.db`
 **Subsystem:** `UDepthrunSaveSubsystem` (GameInstance scope)
+**Path in code:** `FPaths::ProjectSavedDir() / "Depthrun.db"`
 **Viewer:** the VSCode extension `alexcvzz.vscode-sqlite` works out of the box.
+
+**Where `Depthrun.db` actually lives, by launch mode:**
+
+| Launch | Path |
+|---|---|
+| Editor / PIE | `<ProjectFolder>/Saved/Depthrun.db` |
+| Packaged build (Windows) | `%LOCALAPPDATA%\Depthrun\Saved\Depthrun.db` |
+
+> ⚠ In a packaged build the DB is stored under `%LOCALAPPDATA%` and is **not** wiped by rebuilding or reinstalling the game. To reset progress, delete `Depthrun.db` at that path (or the whole `Saved` folder), or run `ResetProfileCmd` in the in-game console.
 
 ### Schema
 
