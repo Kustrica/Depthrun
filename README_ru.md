@@ -5,8 +5,7 @@
 
 ![Engine](https://img.shields.io/badge/Engine-Unreal%20Engine%205.7-313131?logo=unrealengine)
 ![Language](https://img.shields.io/badge/Language-C%2B%2B%20100%25-00599C?logo=cplusplus)
-![Genre](https://img.shields.io/badge/Жанр-2D%20Top--Down%20Roguelike-purple)
-![Status](https://img.shields.io/badge/Статус-Предзащитная%20сборка-success)
+![Genre](https://img.shields.io/badge/Genre-2D%20Top--Down%20Roguelike-purple)
 
 ---
 
