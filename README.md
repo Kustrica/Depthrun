@@ -11,7 +11,13 @@
 
 ## Gameplay Showcase
 
-[![Gameplay Showcase](https://img.youtube.com/vi/e7XKQVwgk7Q/maxresdefault.jpg)](https://youtu.be/e7XKQVwgk7Q)
+<p align="center">
+<a href="https://youtu.be/e7XKQVwgk7Q">
+<img src="https://img.youtube.com/vi/e7XKQVwgk7Q/maxresdefault.jpg" width="640">
+</a>
+</p>
+
+Full video: https://youtu.be/e7XKQVwgk7Q
 
 ---
 
