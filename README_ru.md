@@ -9,6 +9,12 @@
 
 ---
 
+## Демонстрация игрового процесса
+
+[![Демонстрация игрового процесса](https://img.youtube.com/vi/e7XKQVwgk7Q/maxresdefault.jpg)](https://youtu.be/e7XKQVwgk7Q)
+
+---
+
 ## Содержание
 
 1. [О проекте](#о-проекте)
