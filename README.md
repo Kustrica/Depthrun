@@ -9,6 +9,12 @@
 
 ---
 
+## Gameplay Showcase
+
+[![Gameplay Showcase](https://img.youtube.com/vi/e7XKQVwgk7Q/maxresdefault.jpg)](https://youtu.be/e7XKQVwgk7Q)
+
+---
+
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
